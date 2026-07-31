@@ -1,0 +1,346 @@
+import type { Editor } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
+import { useSettings } from "../composables/useSettings";
+import { mediaService } from "../services/mediaService";
+
+export interface SlashRange {
+  from: number;
+  to: number;
+}
+
+export interface SlashCommand {
+  id: string;
+  group: "基础" | "列表与内容" | "媒体与链接";
+  label: string;
+  description: string;
+  icon: string;
+  iconClass: string;
+  keywords: string[];
+  opensLinkForm?: boolean;
+  run?: (
+    editor: Editor,
+    range: SlashRange,
+    currentDocumentPath: string | null,
+  ) => boolean | void | Promise<void>;
+}
+
+export const slashCommandGroups: SlashCommand["group"][] = [
+  "基础",
+  "列表与内容",
+  "媒体与链接",
+];
+
+// 每个命令显式维护中文、英文、全拼和拼音首字母，避免自动转换带来的多音字误判。
+export const slashCommands: SlashCommand[] = [
+  {
+    id: "paragraph",
+    group: "基础",
+    label: "文本",
+    description: "切换为普通段落",
+    icon: "lucide:pilcrow",
+    iconClass: "bg-selected text-accent",
+    keywords: ["文本", "段落", "正文", "text", "paragraph", "wenben", "wb"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setParagraph().run(),
+  },
+  {
+    id: "heading-1",
+    group: "基础",
+    label: "一级标题",
+    description: "插入 Markdown 一级标题",
+    icon: "lucide:heading-1",
+    iconClass: "bg-toolbar text-accent",
+    keywords: ["一级标题", "标题1", "h1", "heading1", "yijibiaoti", "yjbt"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run(),
+  },
+  {
+    id: "heading-2",
+    group: "基础",
+    label: "二级标题",
+    description: "插入 Markdown 二级标题",
+    icon: "lucide:heading-2",
+    iconClass: "bg-toolbar text-accent",
+    keywords: ["二级标题", "标题2", "h2", "heading2", "erjibiaoti", "ejbt"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run(),
+  },
+  {
+    id: "heading-3",
+    group: "基础",
+    label: "三级标题",
+    description: "插入 Markdown 三级标题",
+    icon: "lucide:heading-3",
+    iconClass: "bg-toolbar text-accent",
+    keywords: ["三级标题", "标题3", "h3", "heading3", "sanjibiaoti", "sjbt"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run(),
+  },
+  {
+    id: "bullet-list",
+    group: "列表与内容",
+    label: "无序列表",
+    description: "创建项目符号列表",
+    icon: "lucide:list",
+    iconClass: "bg-toolbar text-secondary",
+    keywords: ["无序列表", "项目符号", "列表", "bullet", "unordered", "ul", "wuxuliebiao", "wxlb"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).toggleBulletList().run(),
+  },
+  {
+    id: "ordered-list",
+    group: "列表与内容",
+    label: "有序列表",
+    description: "创建数字编号列表",
+    icon: "lucide:list-ordered",
+    iconClass: "bg-toolbar text-secondary",
+    keywords: ["有序列表", "编号", "数字列表", "ordered", "list", "ol", "youxuliebiao", "yxlb"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    id: "task-list",
+    group: "列表与内容",
+    label: "任务列表",
+    description: "创建可勾选的待办事项",
+    icon: "lucide:list-checks",
+    iconClass: "bg-toolbar text-secondary",
+    keywords: ["任务列表", "待办", "清单", "todo", "task", "checklist", "renwuliebiao", "rwlb"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).toggleTaskList().run(),
+  },
+  {
+    id: "blockquote",
+    group: "列表与内容",
+    label: "引用",
+    description: "创建 Markdown 引用块",
+    icon: "lucide:quote",
+    iconClass: "bg-toolbar text-folder",
+    keywords: ["引用", "引言", "quote", "blockquote", "yinyong", "yy"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setBlockquote().run(),
+  },
+  {
+    id: "code-block",
+    group: "列表与内容",
+    label: "代码块",
+    description: "插入带语法高亮的代码块",
+    icon: "lucide:code-2",
+    iconClass: "bg-toolbar text-danger",
+    keywords: ["代码块", "代码", "code", "codeblock", "daimakuai", "dmk"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setCodeBlock().run(),
+  },
+  {
+    id: "horizontal-rule",
+    group: "列表与内容",
+    label: "分割线",
+    description: "插入一条 Markdown 分割线",
+    icon: "lucide:minus",
+    iconClass: "bg-toolbar text-muted",
+    keywords: ["分割线", "水平线", "divider", "rule", "hr", "fengexian", "fgx"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
+  },
+  {
+    id: "table",
+    group: "列表与内容",
+    label: "表格",
+    description: "插入 3 × 3 表格",
+    icon: "lucide:table-2",
+    iconClass: "bg-selected text-accent-strong",
+    keywords: ["表格", "table", "grid", "biaoge", "bg"],
+    run: (editor, range) =>
+      editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  {
+    id: "image",
+    group: "媒体与链接",
+    label: "插入图片",
+    description: "选择本地图片",
+    icon: "lucide:image",
+    iconClass: "bg-selected text-accent",
+    keywords: ["图片", "照片", "图像", "image", "photo", "charutupian", "crtp"],
+    run: async (editor, range, currentDocumentPath) => {
+      const selected = await mediaService.selectFile({ kind: "image", currentDocumentPath });
+      if (!selected) return;
+      editor.chain().focus().deleteRange(range).setImage({ src: selected.url, alt: selected.fileName }).run();
+    },
+  },
+  {
+    id: "attachment",
+    group: "媒体与链接",
+    label: "插入文件",
+    description: "插入可打开的本地文件卡片",
+    icon: "lucide:paperclip",
+    iconClass: "bg-toolbar text-folder",
+    keywords: ["附件", "文件", "压缩包", "attachment", "file", "charuwenjian", "crwj"],
+    run: async (editor, range, currentDocumentPath) => {
+      const { settings } = useSettings();
+      const requestId = crypto.randomUUID();
+      let transferInserted = false;
+
+      // 通过请求编号只接收本次复制事件，避免同时插入多个附件时相互覆盖进度。
+      const findTransferPosition = (): number | null => {
+        let position: number | null = null;
+        editor.state.doc.descendants((node, nodePosition) => {
+          if (node.type.name === "attachmentTransfer" && node.attrs.requestId === requestId) {
+            position = nodePosition;
+            return false;
+          }
+          return position === null;
+        });
+        return position;
+      };
+
+      const removeProgressListener = mediaService.onAttachmentCopyProgress((progress) => {
+        if (progress.requestId !== requestId) return;
+
+        if (!transferInserted) {
+          transferInserted = true;
+          editor
+            .chain()
+            .focus()
+            .deleteRange(range)
+            .insertContent([
+              {
+                type: "attachmentTransfer",
+                attrs: {
+                  requestId,
+                  fileName: progress.fileName,
+                  copiedBytes: progress.copiedBytes,
+                  totalBytes: progress.totalBytes,
+                  status: progress.status,
+                  error: progress.error ?? "",
+                },
+              },
+              { type: "paragraph" },
+            ])
+            .run();
+          return;
+        }
+
+        const position = findTransferPosition();
+        if (position === null) return;
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(position, undefined, {
+            ...editor.state.doc.nodeAt(position)?.attrs,
+            copiedBytes: progress.copiedBytes,
+            totalBytes: progress.totalBytes,
+            status: progress.status,
+            error: progress.error ?? "",
+          }),
+        );
+      });
+
+      let selected: Awaited<ReturnType<typeof mediaService.selectFile>> = null;
+      try {
+        selected = await mediaService.selectFile({
+          kind: "file",
+          currentDocumentPath,
+          attachmentHandling: settings.attachmentHandling,
+          requestId,
+        });
+      } catch (error) {
+        // 失败状态已由主进程进度事件写入卡片，这里只记录诊断信息。
+        console.error("复制附件失败:", error);
+      } finally {
+        removeProgressListener();
+      }
+      if (!selected) return;
+
+      const transferPosition = findTransferPosition();
+      if (transferPosition !== null) {
+        const transferNode = editor.state.doc.nodeAt(transferPosition);
+        if (transferNode) {
+          editor.view.dispatch(
+            editor.state.tr.replaceWith(
+              transferPosition,
+              transferPosition + transferNode.nodeSize,
+              editor.schema.nodes.attachment.create({
+                fileName: selected.fileName,
+                fileSize: selected.fileSize,
+                fileType: selected.fileType,
+                url: selected.url,
+              }),
+            ),
+          );
+          return;
+        }
+      }
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent([
+          {
+            type: "attachment",
+            attrs: {
+              fileName: selected.fileName,
+              fileSize: selected.fileSize,
+              fileType: selected.fileType,
+              url: selected.url,
+            },
+          },
+          { type: "paragraph" },
+        ])
+        // 块节点后强制寻找文字选区，避免显示为横向的 Gap Cursor。
+        .command(({ tr }) => {
+          const textSelection = TextSelection.findFrom(tr.selection.$to, 1, true);
+          if (textSelection) tr.setSelection(textSelection);
+          return true;
+        })
+        .run();
+    },
+  },
+  {
+    id: "video",
+    group: "媒体与链接",
+    label: "插入视频",
+    description: "选择本地视频",
+    icon: "lucide:video",
+    iconClass: "bg-toolbar text-danger",
+    keywords: ["视频", "影片", "video", "movie", "mp4", "charushipin", "crsp"],
+    run: async (editor, range, currentDocumentPath) => {
+      const selected = await mediaService.selectFile({ kind: "video", currentDocumentPath });
+      if (!selected) return;
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent([
+          { type: "video", attrs: { src: selected.url } },
+          { type: "paragraph" },
+        ])
+        // 视频后保留文字光标，插入完成后可继续输入正文。
+        .command(({ tr }) => {
+          const textSelection = TextSelection.findFrom(tr.selection.$to, 1, true);
+          if (textSelection) tr.setSelection(textSelection);
+          return true;
+        })
+        .run();
+    },
+  },
+  {
+    id: "link",
+    group: "媒体与链接",
+    label: "插入超链接",
+    description: "添加文字与网址",
+    icon: "lucide:link-2",
+    iconClass: "bg-toolbar text-accent",
+    keywords: ["超链接", "链接", "网址", "link", "url", "href", "charuchaolianjie", "crclj"],
+    opensLinkForm: true,
+  },
+];
+
+export const filterSlashCommands = (query: string): SlashCommand[] => {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return slashCommands;
+
+  return slashCommands.filter((command) =>
+    [command.label, command.description, ...command.keywords].some((keyword) =>
+      keyword.toLocaleLowerCase().includes(normalizedQuery),
+    ),
+  );
+};

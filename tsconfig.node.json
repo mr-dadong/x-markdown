@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "outDir": "./out",
+    "rootDir": "."
+  },
+  "include": [
+    "electron/**/*.ts",
+    "electron.vite.config.ts",
+    "src/types/electron.ts",
+    "src/types/update.ts",
+    "src/constants/ipcChannels.ts"
+  ]
+}

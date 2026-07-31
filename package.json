@@ -1,0 +1,127 @@
+{
+  "name": "markdown-editor",
+  "version": "1.0.2",
+  "desktopName": "com.xmd.markdown-editor.desktop",
+  "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "dist:win": "bun run build && electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "bun run build && electron-builder --mac dmg --x64 --arm64 --publish never",
+    "dist:mac:x64": "bun run build && electron-builder --mac dmg --x64 --publish never",
+    "dist:mac:arm64": "bun run build && electron-builder --mac dmg --arm64 --publish never",
+    "dist:linux": "bun run build && electron-builder --linux AppImage --x64 --arm64 --publish never",
+    "dist:linux:x64": "bun run build && electron-builder --linux AppImage --x64 --publish never",
+    "dist:linux:arm64": "bun run build && electron-builder --linux AppImage --arm64 --publish never",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json",
+    "preview": "electron-vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "bun:dev": "bun run dev",
+    "bun:build": "bun run build",
+    "bun:preview": "bun run preview",
+    "bun:install": "bun install"
+  },
+  "packageManager": "bun@1.0.0",
+  "dependencies": {
+    "@iconify-icons/lucide": "1.2.135",
+    "@iconify-icons/mdi": "1.2.48",
+    "@tiptap/extension-code-block-lowlight": "^2.1.12",
+    "@tiptap/extension-color": "^2.1.12",
+    "@tiptap/extension-highlight": "^2.1.12",
+    "@tiptap/extension-image": "^2.1.12",
+    "@tiptap/extension-link": "^2.1.12",
+    "@tiptap/extension-placeholder": "^2.1.12",
+    "@tiptap/extension-table": "^2.1.12",
+    "@tiptap/extension-table-cell": "^2.1.12",
+    "@tiptap/extension-table-header": "^2.1.12",
+    "@tiptap/extension-table-row": "^2.1.12",
+    "@tiptap/extension-task-item": "2.27.2",
+    "@tiptap/extension-task-list": "2.27.2",
+    "@tiptap/extension-text-align": "^2.1.12",
+    "@tiptap/extension-text-style": "^2.1.12",
+    "@tiptap/extension-typography": "^2.1.12",
+    "@tiptap/extension-underline": "^2.1.12",
+    "@tiptap/starter-kit": "^2.1.12",
+    "@tiptap/vue-3": "^2.1.12",
+    "highlight.js": "^11.11.1",
+    "lowlight": "^3.0.0",
+    "markdown-it": "^14.0.0",
+    "tiptap-markdown": "^0.8.10",
+    "vue": "^3.3.8"
+  },
+  "devDependencies": {
+    "@iconify/vue": "^4.1.1",
+    "@types/markdown-it": "^13.0.7",
+    "@types/node": "^20.11.0",
+    "@vitejs/plugin-vue": "^4.5.2",
+    "autoprefixer": "10.5.4",
+    "electron": "^28.1.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^1.0.29",
+    "postcss": "8.5.23",
+    "sass": "^1.69.5",
+    "tailwindcss": "3",
+    "typescript": "5.3.3",
+    "unplugin-auto-import": "^0.17.3",
+    "unplugin-vue-components": "^0.26.0",
+    "vite": "^5.0.10",
+    "vue-tsc": "^1.8.27"
+  },
+  "keywords": [
+    "markdown",
+    "editor",
+    "electron",
+    "vue",
+    "tiptap",
+    "typora"
+  ],
+  "author": "dadong",
+  "license": "GPL-3.0-only",
+  "build": {
+    "compression": "maximum",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
+    "appId": "com.xmd.markdown-editor",
+    "productName": "XMD",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/main/**/*",
+      "out/preload/**/*",
+      "out/renderer/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "executableName": "XMD",
+      "icon": "build/icons/icon.ico",
+      "artifactName": "${productName}-${version}-Windows-${arch}.${ext}"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icons/icon.icns",
+      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icons",
+      "category": "Utility",
+      "syncDesktopName": true,
+      "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "include": "build/installer.nsh",
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "installerHeaderIcon": "build/icons/icon.ico"
+    }
+  }
+}

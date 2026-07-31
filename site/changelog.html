@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>更新日志 — XMD</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<meta name="description" content="XMD 各版本的功能更新与改进记录。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<!-- ============================ 导航 ============================ -->
+<nav class="nav">
+  <div class="container nav__inner">
+    <a href="index.html" class="nav__brand">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg>
+      XMD
+    </a>
+    <button class="nav__toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <div class="nav__links">
+      <a href="index.html" class="nav__link">首页</a>
+      <a href="features.html" class="nav__link">功能</a>
+      <a href="download.html" class="nav__link">下载</a>
+      <a href="changelog.html" class="nav__link is-active">更新日志</a>
+      <a href="download.html" class="nav__cta">免费下载</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============================ 页面头部 ============================ -->
+<section class="page-header changelog-hero">
+  <div class="container changelog-hero-inner">
+    <div class="changelog-hero-copy reveal">
+      <p class="eyebrow">更新日志 / Release notes</p>
+      <h1 class="h1">每次更新，<br/>都让写作更安静。</h1>
+      <p>查看 XMD 的功能更新与体验改进。这里仅记录已经正式发布的内容。</p>
+    </div>
+    <div class="release-summary reveal">
+      <div class="release-summary-top">
+        <span>当前版本</span>
+        <span>Latest release</span>
+      </div>
+      <strong data-release-summary-version>正在读取</strong>
+      <div class="release-summary-bottom">
+        <span data-release-summary-date>--</span>
+        <span data-release-summary-count>--</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 版本列表 ============================ -->
+<section class="section changelog-section">
+  <div class="container">
+    <div class="timeline" data-release-timeline>
+      <p>正在读取更新日志…</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CTA ============================ -->
+<section class="cta-section">
+  <div class="container reveal">
+    <h2 class="h2">更新到最新版本</h2>
+    <p>如果你还在使用旧版本，现在就更新到 <span data-latest-version>最新版</span>。</p>
+    <a href="download.html" class="btn btn--light btn--lg">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      下载最新版
+    </a>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================ 页脚 ============================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div>
+        <div class="footer__brand">
+          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#fff"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#161614" text-anchor="middle">XM</text></svg>
+          XMD
+        </div>
+        <p class="footer__tag">让 Markdown 写作回归内容本身。</p>
+      </div>
+      <div class="footer__col">
+        <h4>产品</h4>
+        <ul>
+          <li><a href="index.html">首页</a></li>
+          <li><a href="features.html">功能</a></li>
+          <li><a href="download.html">下载</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>资源</h4>
+        <ul>
+          <li><a href="changelog.html">更新日志</a></li>
+          <li><a href="features.html#shortcuts">快捷键</a></li>
+          <li><a href="features.html#languages">支持语言</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>关于</h4>
+        <ul>
+          <li><a href="#">源代码</a></li>
+          <li><a href="#">问题反馈</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 XMD · 作者：dadong</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script src="assets/js/releases.js"></script>
+</body>
+</html>

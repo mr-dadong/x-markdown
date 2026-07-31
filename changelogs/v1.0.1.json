@@ -1,0 +1,33 @@
+{
+    "latest": "1.0.1",
+    "releases": [
+        {
+            "version": "1.0.1",
+            "date": "2026-07-29",
+            "channel": "stable",
+            "title": "优化代码块功能",
+            "content": [
+                "代码块支持 Tab 缩进，并支持 Shift+Tab 减少缩进。",
+                "代码块内使用 Ctrl+A 或 Cmd+A 时，仅选中当前代码块内容。",
+                "移除不稳定的语言自动识别，未指定语言时默认使用纯文本。",
+                "优化代码语言选择器，使下拉样式跟随代码块主题并简化选中标识。",
+                "斜杠命令支持使用中文全拼及拼音首字母搜索。"
+            ],
+            "downloads": {
+                "windows": {
+                    "available": true,
+                    "requirements": "Windows 10 或 Windows 11",
+                    "packages": [
+                        {
+                            "arch": "x64",
+                            "format": "exe",
+                            "installer": "NSIS",
+                            "filename": "XMD-1.0.1-Windows-x64.exe",
+                            "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.1/XMD-1.0.1-Windows-x64.exe"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>下载 XMD — 桌面 Markdown 编辑器</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<meta name="description" content="下载 XMD 桌面 Markdown 编辑器，获取适用于 Windows、macOS 和 Linux 的版本。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav__inner">
+    <a href="index.html" class="nav__brand">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg>
+      XMD
+    </a>
+    <button class="nav__toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M3 12h18M3 18h18" /></svg></button>
+    <div class="nav__links">
+      <a href="index.html" class="nav__link">首页</a>
+      <a href="features.html" class="nav__link">功能</a>
+      <a href="download.html" class="nav__link is-active">下载</a>
+      <a href="changelog.html" class="nav__link">更新日志</a>
+      <a href="#platforms" class="nav__cta">免费下载</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <section class="page-header download-header">
+    <div class="container reveal">
+      <p class="eyebrow">Download / <span data-latest-version>正在读取版本</span></p>
+      <h1 class="h1">选择你的系统，<br/>开始安静写作。</h1>
+      <p>XMD 免费使用，文档始终保存在你的电脑上。当前已提供 Windows 版本。</p>
+    </div>
+  </section>
+
+  <section class="section section--alt download-platforms" id="platforms">
+    <div class="container platform-grid">
+      <article class="platform-card reveal" data-platform="windows">
+        <div class="platform-card-label platform-card-label-muted" data-platform-status>正在检查</div>
+        <div class="platform-card__icon">
+          <svg viewBox="0 0 48 48" fill="currentColor"><path d="M5 7.5 21.8 5v17H5V7.5Zm19.2-2.9L43 2v20H24.2V4.6ZM5 25h16.8v17L5 39.5V25Zm19.2 0H43v20l-18.8-2.6V25Z" /></svg>
+        </div>
+        <h2 class="h3">Windows</h2>
+        <p class="h3 font-mono mb-2" data-platform-version>正在读取安装包</p>
+        <p class="platform-card__req" data-platform-requirements>正在读取系统要求</p>
+        <!-- flex-col 让多个下载按钮从上到下纵向排列。 -->
+        <div class="flex flex-col gap-2" data-platform-actions></div>
+      </article>
+
+      <article class="platform-card reveal" data-platform="macos">
+        <div class="platform-card-label platform-card-label-muted" data-platform-status>正在检查</div>
+        <div class="platform-card__icon platform-card__icon--apple">
+          <svg viewBox="0 0 48 48"><path d="M32.6 25.3c0-6 4.9-8.9 5.1-9-2.8-4.1-7.2-4.7-8.8-4.8-3.7-.4-7.3 2.2-9.2 2.2-2 0-4.9-2.1-8.1-2-4.1.1-8 2.4-10.1 6.1-4.3 7.5-1.1 18.6 3.1 24.7 2.1 3 4.5 6.3 7.8 6.1 3.1-.1 4.3-2 8.1-2s4.9 2 8.2 1.9c3.4-.1 5.5-3 7.6-6 2.4-3.5 3.4-7 3.4-7.2-.1 0-7.1-2.7-7.1-10Zm-6.1-17.7c1.7-2.1 2.9-5 2.6-7.9-2.5.1-5.6 1.7-7.4 3.8-1.6 1.9-3 4.9-2.7 7.7 2.8.2 5.7-1.4 7.5-3.6Z" /></svg>
+        </div>
+        <h2 class="h3">macOS</h2>
+        <p class="h3 font-mono mb-2" data-platform-version>正在读取安装包</p>
+        <p class="platform-card__req" data-platform-requirements>正在读取系统要求</p>
+        <!-- flex-col 让多个下载按钮从上到下纵向排列。 -->
+        <div class="flex flex-col gap-2" data-platform-actions></div>
+      </article>
+
+      <article class="platform-card reveal" data-platform="linux">
+        <div class="platform-card-label platform-card-label-muted" data-platform-status>正在检查</div>
+        <div class="platform-card__icon platform-card-linux-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor"><rect x="7" y="8" width="34" height="32" rx="5"/><path d="m14 18 7 6-7 6M25 31h10" /></svg>
+        </div>
+        <h2 class="h3">Linux</h2>
+        <p class="h3 font-mono mb-2" data-platform-version>正在读取安装包</p>
+        <p class="platform-card__req" data-platform-requirements>正在读取系统要求</p>
+        <!-- flex-col 让多个下载按钮从上到下纵向排列。 -->
+        <div class="flex flex-col gap-2" data-platform-actions></div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div>
+        <div class="footer__brand">
+          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#fff"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#161614" text-anchor="middle">XM</text></svg>
+          XMD
+        </div>
+        <p class="footer__tag">让 Markdown 写作回归内容本身。</p>
+      </div>
+      <div class="footer__col">
+        <h4>产品</h4>
+        <ul>
+          <li><a href="index.html">首页</a></li>
+          <li><a href="features.html">功能</a></li>
+          <li><a href="download.html">下载</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>资源</h4>
+        <ul>
+          <li><a href="changelog.html">更新日志</a></li>
+          <li><a href="features.html#shortcuts">快捷键</a></li>
+          <li><a href="features.html#languages">支持语言</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>关于</h4>
+        <ul>
+          <li><a href="https://cnb.cool/X-2026/xmd">源代码</a></li>
+          <li><a href="https://cnb.cool/X-2026/xmd/-/issues">问题反馈</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 XMD · 作者：dadong · MIT License.</span>
+      <span class="font-mono">Local-first · Open source</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script src="assets/js/releases.js"></script>
+</body>
+</html>

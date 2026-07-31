@@ -1,0 +1,39 @@
+# Bun 配置文件
+
+# 安装配置
+[install]
+# 使用 bun 的全局缓存
+cache = true
+# 并发安装数
+concurrency = 16
+# 精确安装
+exact = true
+# 锁定文件
+lockfile = "bun.lockb"
+
+# 运行时配置
+[run]
+# 限制内存使用
+memoryLimit = "512MB"
+
+# 开发服务器配置
+[dev]
+# 端口
+port = 5173
+# 自动打开浏览器
+open = false
+# 热更新
+hot = true
+
+# 构建配置
+[build]
+# 目标环境
+target = "browser"
+# 输出目录
+outdir = "./dist"
+# 代码分割
+splitting = true
+# 压缩
+minify = true
+# Source maps
+sourcemap = "external"

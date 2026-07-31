@@ -1,0 +1,52 @@
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 构建输出
+dist/
+dist-ssr/
+*.local
+
+# Electron Vite 构建输出
+out/
+
+# 编辑器配置
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# 系统文件
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Electron 打包输出
+release/
+build/windows-shell/
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.snap
+*.AppImage
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+logs
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+tmp/

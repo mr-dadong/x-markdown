@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>功能特性 — XMD</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<meta name="description" content="XMD 功能详情：所见即所得编辑、斜杠命令、大纲与文件树、块拖拽与折叠、代码语法高亮、主题与外观、多文档标签、快捷键定制。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<!-- ============================ 导航 ============================ -->
+<nav class="nav">
+  <div class="container nav__inner">
+    <a href="index.html" class="nav__brand">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg>
+      XMD
+    </a>
+    <button class="nav__toggle" aria-label="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <div class="nav__links">
+      <a href="index.html" class="nav__link">首页</a>
+      <a href="features.html" class="nav__link is-active">功能</a>
+      <a href="download.html" class="nav__link">下载</a>
+      <a href="changelog.html" class="nav__link">更新日志</a>
+      <a href="download.html" class="nav__cta">免费下载</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============================ 页面头部 ============================ -->
+<section class="page-header">
+  <div class="container">
+    <p class="eyebrow reveal">功能特性</p>
+    <h1 class="h1 reveal">为 Markdown 写作<br/>精心打磨的每一个细节</h1>
+    <p class="reveal">从所见即所得的编辑面到斜杠命令面板，从代码高亮到章节折叠——XMD 把日常写作需要的工具收进同一个安静的工作区。</p>
+  </div>
+</section>
+
+<!-- ============================ 所见即所得 ============================ -->
+<section class="section">
+  <div class="container">
+    <div class="split-feature reveal">
+      <div class="split-feature__copy">
+        <p class="eyebrow split-feature__eyebrow">编辑面</p>
+        <h2 class="h2 split-feature__title">所见即所得的写作体验</h2>
+        <p class="split-feature__desc">输入的瞬间就是最终的样子。标题加粗、列表缩进、引用缩进、代码高亮——一切都在同一个编辑面上完成，不需要在预览和源码之间来回切换。</p>
+        <ul class="split-feature__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>标题（H1–H6）、粗体、斜体、删除线、下划线</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>有序列表、无序列表、可嵌套的任务列表</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>引用块、分割线、文字颜色与高亮标记</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>表格支持调整列宽，左中右对齐</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>一键切换源码视图，随时查看 Markdown 本身</li>
+        </ul>
+      </div>
+      <div class="split-feature__visual">
+        <div class="window">
+          <div class="win__titlebar">
+            <span class="win__logo"><svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg></span>
+            <nav class="win__menu"><span>文件</span><span>编辑</span><span>视图</span><span>窗口</span></nav>
+            <span class="win__spacer"></span>
+            <div class="win__controls">
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            </div>
+          </div>
+          <div class="win__body">
+            <div class="win__editor" style="padding:20px 40px">
+              <h1>接口设计文档</h1>
+              <h2>用户认证</h2>
+              <p>使用 <code>Bearer Token</code> 进行身份验证，令牌有效期为 24 小时。</p>
+              <ul>
+                <li>登录接口返回 JWT 令牌</li>
+                <li>后续请求在 Header 中携带 <code>Authorization</code></li>
+                <li>令牌过期后需重新登录</li>
+              </ul>
+              <blockquote>注意：测试环境的令牌有效期缩短为 2 小时。</blockquote>
+              <h2>响应格式</h2>
+              <p>所有接口统一返回 JSON 格式。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 斜杠命令 ============================ -->
+<section class="section section--alt" id="slash-commands">
+  <div class="container">
+    <div class="split-feature split-feature--reverse reveal">
+      <div class="split-feature__copy">
+        <p class="eyebrow split-feature__eyebrow">命令系统</p>
+        <h2 class="h2 split-feature__title">斜杠即命令</h2>
+        <p class="split-feature__desc">在任何空行敲下斜杠，命令面板就会浮在光标旁。不需要记住快捷键，也不需要翻菜单——输入关键词就能找到你要的内容块。</p>
+        <ul class="split-feature__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>三大分组：基础、列表与内容、媒体与链接</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>中英文混合搜索，用习惯的叫法就能找到</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>键盘导航：方向键选择，回车确认，ESC 取消</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>可选显示命令辅助说明</li>
+        </ul>
+        <div class="tag-cloud">
+          <span class="tag">文本</span><span class="tag">一级标题</span><span class="tag">heading1</span><span class="tag">无序列表</span><span class="tag">任务列表</span><span class="tag">todo</span><span class="tag">引用</span><span class="tag">代码块</span><span class="tag">表格</span><span class="tag">分割线</span><span class="tag">插入图片</span><span class="tag">插入视频</span><span class="tag">插入文件</span><span class="tag">超链接</span>
+        </div>
+      </div>
+      <div class="split-feature__visual">
+        <div class="slash-demo">
+          <p>把光标放在这里，输入 / 试试——</p>
+          <p style="margin-top:.3rem"><span class="slash-char">/</span>代码块</p>
+          <div class="slash-menu">
+            <div class="slash-menu__head">
+              <span class="slash-menu__key">/</span>
+              <span class="slash-menu__hint">输入以搜索…</span>
+              <span class="slash-menu__esc">ESC</span>
+            </div>
+            <div class="slash-menu__list">
+              <div class="slash-group">基础</div>
+              <div class="slash-item"><span class="slash-item__ic">¶</span><span class="slash-item__label">文本</span></div>
+              <div class="slash-item"><span class="slash-item__ic">H1</span><span class="slash-item__label">一级标题</span></div>
+              <div class="slash-group">列表与内容</div>
+              <div class="slash-item"><span class="slash-item__ic">☑</span><span class="slash-item__label">任务列表</span></div>
+              <div class="slash-item is-active"><span class="slash-item__ic">&lt;/&gt;</span><span class="slash-item__label">代码块</span><span class="slash-item__desc">语法高亮</span></div>
+              <div class="slash-item"><span class="slash-item__ic">▦</span><span class="slash-item__label">表格</span></div>
+              <div class="slash-item"><span class="slash-item__ic">img</span><span class="slash-item__label">插入图片</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 大纲与文件树 ============================ -->
+<section class="section">
+  <div class="container">
+    <div class="split-feature reveal">
+      <div class="split-feature__copy">
+        <p class="eyebrow split-feature__eyebrow">导航</p>
+        <h2 class="h2 split-feature__title">大纲与文件树，随时在手边</h2>
+        <p class="split-feature__desc">打开一份文档，同级目录的 Markdown 文件自动列在侧栏。切换到大纲标签，标题层级一目了然，点一下就能跳到对应位置。</p>
+        <ul class="split-feature__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>文件树按需展开子目录，不一次性遍历整个目录</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>大纲实时反映标题层级，代码块里的注释不会误判</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>项目名自动从目录路径提取，显示文件和目录计数</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>快捷键 Ctrl+B 随时收起或展开侧栏</li>
+        </ul>
+      </div>
+      <div class="split-feature__visual">
+        <div class="window">
+          <div class="win__titlebar">
+            <span class="win__logo"><svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg></span>
+            <nav class="win__menu"><span>文件</span><span>编辑</span><span>视图</span><span>窗口</span></nav>
+            <span class="win__spacer"></span>
+            <div class="win__controls">
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            </div>
+          </div>
+          <div class="win__body">
+            <aside class="win__sidebar">
+              <div class="win__project">
+                <div class="win__project-label">当前项目</div>
+                <div class="win__project-name">docs <span class="font-mono">8</span></div>
+              </div>
+              <div class="win__tabs-switch">
+                <span class="win__tab-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>文件</span>
+                <span class="win__tab-btn is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>大纲</span>
+              </div>
+              <div class="win__outline">
+                <div class="win__outline-item"><span class="h-tag">H1</span>API 设计文档</div>
+                <div class="win__outline-item is-active"><span class="h-tag">H2</span>用户认证</div>
+                <div class="win__outline-item" style="padding-left:30px"><span class="h-tag">H3</span>登录接口</div>
+                <div class="win__outline-item" style="padding-left:30px"><span class="h-tag">H3</span>令牌刷新</div>
+                <div class="win__outline-item"><span class="h-tag">H2</span>数据接口</div>
+                <div class="win__outline-item" style="padding-left:30px"><span class="h-tag">H3</span>列表查询</div>
+                <div class="win__outline-item"><span class="h-tag">H2</span>错误码</div>
+                <div class="win__outline-item"><span class="h-tag">H2</span>附录</div>
+              </div>
+            </aside>
+            <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+              <div class="win__docbar">
+                <div class="win__doc-tab is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="tab-name">api-design.md</span></div>
+              </div>
+              <div class="win__editor">
+                <h1>API 设计文档</h1>
+                <h2>用户认证</h2>
+                <p>使用 Bearer Token 进行身份验证。</p>
+                <h3>登录接口</h3>
+                <p><code>POST /api/auth/login</code></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 块拖拽与折叠 ============================ -->
+<section class="section section--alt">
+  <div class="container">
+    <div class="split-feature split-feature--reverse reveal">
+      <div class="split-feature__copy">
+        <p class="eyebrow split-feature__eyebrow">结构</p>
+        <h2 class="h2 split-feature__title">想清楚一段，就挪动一段</h2>
+        <p class="split-feature__desc">把光标移到任意段落左侧，拖拽柄就会出现。拖动一块到新位置，整段连同格式一起搬走；拖动标题，它身后的整个章节跟着移动。</p>
+        <ul class="split-feature__list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>块级拖拽：段落、列表、引用、代码块都能拖</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>拖动标题时连同下属章节一起移动</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>章节折叠：点击标题旁的箭头收起整段内容</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>拖拽时显示蓝色落点指示线，位置一目了然</li>
+        </ul>
+      </div>
+      <div class="split-feature__visual">
+        <div class="window">
+          <div class="win__titlebar">
+            <span class="win__logo"><svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg></span>
+            <nav class="win__menu"><span>文件</span><span>编辑</span><span>视图</span><span>窗口</span></nav>
+            <span class="win__spacer"></span>
+            <div class="win__controls">
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"/></svg></span>
+              <span class="win__icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            </div>
+          </div>
+          <div class="win__body">
+            <div class="win__editor" style="padding:20px 40px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:.3rem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#777"><path d="m9 18 6-6-6-6"/></svg>
+                <h2 style="margin:0">本周进展</h2>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;color:#999;margin-top:4px;opacity:.5"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                <p style="margin:0">接口联调完成 80%，剩余两个边界场景在本周五前补齐。</p>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;color:#999;margin-top:4px;opacity:.5"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                <p style="margin:0">用户认证模块已通过验收。</p>
+              </div>
+              <div style="height:2px;background:#1A1A1A;border-radius:1px;margin:.3rem 0"></div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:.3rem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#777"><path d="m15 18-6-6 6-6"/></svg>
+                <h2 style="margin:0;color:#777">下周计划 <span style="font-size:12px;font-weight:400;color:#999">（已折叠）</span></h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 代码高亮 ============================ -->
+<section class="section" id="languages">
+  <div class="container">
+    <div class="text-center mb-4 reveal">
+      <p class="eyebrow mb-1">代码高亮</p>
+      <h2 class="h2">代码也是正文的一部分</h2>
+      <p class="text-muted mt-2" style="max-width:52ch;margin-inline:auto">每个代码块都能单独选择语言、一键复制。四种窗口外观，换一种立刻生效。</p>
+    </div>
+    <div class="code-showcase reveal">
+      <div class="code-card cc-mac">
+        <div class="code-card__bar"><span class="code-card__dots"><i></i><i></i><i></i></span><span class="code-card__lang">typescript</span></div>
+        <pre class="code-card__pre"><span class="k">interface</span> <span class="t">User</span> {
+  <span class="f">id</span>: <span class="t">string</span>
+  <span class="f">name</span>: <span class="t">string</span>
+}
+<span class="k">const</span> <span class="f">user</span>: <span class="t">User</span> = {
+  <span class="f">id</span>: <span class="s">'1'</span>,
+  <span class="f">name</span>: <span class="s">'XMD'</span>
+}</pre>
+        <div class="code-card__name">经典窗口</div>
+        <div class="code-card__desc">熟悉的桌面代码窗口</div>
+      </div>
+      <div class="code-card cc-term">
+        <div class="code-card__bar"><span class="code-card__dots"><i></i><i></i><i></i></span><span class="code-card__lang">bash</span></div>
+        <pre class="code-card__pre"><span class="c"># 安装并启动</span>
+<span class="k">cd</span> ~/projects/notes
+<span class="f">xmd</span> .
+
+<span class="c"># 构建生产版本</span>
+<span class="f">xmd</span> build --prod</pre>
+        <div class="code-card__name">终端绿</div>
+        <div class="code-card__desc">高对比度的命令行质感</div>
+      </div>
+      <div class="code-card cc-paper">
+        <div class="code-card__bar"><span class="code-card__dots"><i></i><i></i><i></i></span><span class="code-card__lang">python</span></div>
+        <pre class="code-card__pre"><span class="k">def</span> <span class="f">parse_headings</span>(text):
+    <span class="k">return</span> [
+        l <span class="k">for</span> l <span class="k">in</span> text.<span class="f">split</span>(<span class="s">'\n'</span>)
+        <span class="k">if</span> l.<span class="f">startswith</span>(<span class="s">'#'</span>)
+    ]</pre>
+        <div class="code-card__name">纸张浅色</div>
+        <div class="code-card__desc">适合明亮环境与长时间阅读</div>
+      </div>
+      <div class="code-card cc-mid">
+        <div class="code-card__bar"><span class="code-card__dots"><i></i><i></i><i></i></span><span class="code-card__lang">rust</span></div>
+        <pre class="code-card__pre"><span class="k">fn</span> <span class="f">main</span>() {
+    <span class="k">let</span> editor = <span class="f">Editor</span>::<span class="f">new</span>()
+        .<span class="f">theme</span>(<span class="s">"dark"</span>)
+        .<span class="f">build</span>();
+    editor.<span class="f">run</span>();
+}</pre>
+        <div class="code-card__name">午夜蓝</div>
+        <div class="code-card__desc">冷静、清晰的深蓝配色</div>
+      </div>
+    </div>
+    <div class="tag-cloud" style="justify-content:center;margin-top:2rem">
+      <span class="tag">JavaScript</span><span class="tag">TypeScript</span><span class="tag">Python</span><span class="tag">Rust</span><span class="tag">Go</span><span class="tag">Java</span><span class="tag">Kotlin</span><span class="tag">Swift</span><span class="tag">C</span><span class="tag">C++</span><span class="tag">C#</span><span class="tag">SQL</span><span class="tag">Bash</span><span class="tag">Shell</span><span class="tag">YAML</span><span class="tag">JSON</span><span class="tag">HTML / XML</span><span class="tag">CSS</span><span class="tag">SCSS</span><span class="tag">Less</span><span class="tag">Markdown</span><span class="tag">GraphQL</span><span class="tag">Lua</span><span class="tag">Perl</span><span class="tag">R</span><span class="tag">Objective-C</span><span class="tag">VB.NET</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 快捷键 ============================ -->
+<section class="section section--alt" id="shortcuts">
+  <div class="container">
+    <div class="text-center mb-4 reveal">
+      <p class="eyebrow mb-1">快捷键</p>
+      <h2 class="h2">每个快捷键都能自定义</h2>
+      <p class="text-muted mt-2" style="max-width:48ch;margin-inline:auto">在设置中点击按键组合，直接输入新的快捷键。不满意随时恢复默认。</p>
+    </div>
+    <div class="reveal" style="max-width:680px;margin-inline:auto">
+      <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--bg-alt)">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">新建文档</div><div style="font-size:12px;color:var(--mist)">创建一个空白 Markdown 文档</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+N</kbd>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">打开文档</div><div style="font-size:12px;color:var(--mist)">从本地选择并打开文档</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+O</kbd>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">保存文档</div><div style="font-size:12px;color:var(--mist)">保存当前文档的修改</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+S</kbd>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">显示 / 隐藏侧边栏</div><div style="font-size:12px;color:var(--mist)">切换项目文件与大纲面板</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+B</kbd>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">切换编辑模式</div><div style="font-size:12px;color:var(--mist)">在 MD 预览和源码展示间切换</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+/</kbd>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px">
+          <div><div style="font-size:14px;font-weight:600;color:var(--ink)">打开设置</div><div style="font-size:12px;color:var(--mist)">打开应用设置中心</div></div>
+          <kbd style="font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:5px;padding:4px 10px;background:var(--bg);color:var(--graphite)">Ctrl+,</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 完整功能列表 ============================ -->
+<section class="section">
+  <div class="container">
+    <div class="text-center mb-4 reveal">
+      <p class="eyebrow mb-1">功能总览</p>
+      <h2 class="h2">完整的写作工具集</h2>
+    </div>
+    <div class="feature-grid feature-grid--4 reveal">
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+        <h3 class="h3">所见即所得</h3>
+        <p>输入即呈现，无需切换预览。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 10 6 6m0-6-6 6"/><circle cx="12" cy="12" r="10"/></svg></div>
+        <h3 class="h3">斜杠命令</h3>
+        <p>输入「/」调用全部内容块。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+        <h3 class="h3">实时大纲</h3>
+        <p>标题层级自动生成，点击跳转。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+        <h3 class="h3">本地文件树</h3>
+        <p>同级文档自动列出，按需展开。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18M7 6v12M17 6v12"/></svg></div>
+        <h3 class="h3">块拖拽重排</h3>
+        <p>拖动段落或整个章节到新位置。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+        <h3 class="h3">章节折叠</h3>
+        <p>收起不需要的章节，专注当前。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+        <h3 class="h3">代码高亮</h3>
+        <p>28+ 种语言，四种窗口外观。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+        <h3 class="h3">多文档标签</h3>
+        <p>同时打开多份文稿，标签切换。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></div>
+        <h3 class="h3">主题切换</h3>
+        <p>浅色、深色、跟随系统。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M7 16h10"/></svg></div>
+        <h3 class="h3">自定义快捷键</h3>
+        <p>每个快捷键都能改成你的习惯。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></div>
+        <h3 class="h3">资源归位</h3>
+        <p>图片和附件自动保存到指定目录。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3 class="h3">本地优先</h3>
+        <p>文档始终在本地，无需账号。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CTA ============================ -->
+<section class="cta-section">
+  <div class="container reveal">
+    <h2 class="h2">准备好了吗？</h2>
+    <p>免费下载 XMD，开始你的 Markdown 写作。</p>
+    <a href="download.html" class="btn btn--light btn--lg">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      免费下载
+    </a>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================ 页脚 ============================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div>
+        <div class="footer__brand">
+          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#fff"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#161614" text-anchor="middle">XM</text></svg>
+          XMD
+        </div>
+        <p class="footer__tag">让 Markdown 写作回归内容本身。</p>
+      </div>
+      <div class="footer__col">
+        <h4>产品</h4>
+        <ul>
+          <li><a href="index.html">首页</a></li>
+          <li><a href="features.html">功能</a></li>
+          <li><a href="download.html">下载</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>资源</h4>
+        <ul>
+          <li><a href="changelog.html">更新日志</a></li>
+          <li><a href="features.html#shortcuts">快捷键</a></li>
+          <li><a href="features.html#languages">支持语言</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>关于</h4>
+        <ul>
+          <li><a href="#">源代码</a></li>
+          <li><a href="#">问题反馈</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 XMD · 作者：dadong</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
