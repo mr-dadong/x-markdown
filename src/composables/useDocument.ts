@@ -1,10 +1,10 @@
 import {
   computed,
+  nextTick,
   onMounted,
   onUnmounted,
   ref,
   watch,
-  type Ref,
 } from "vue";
 import type { OpenDocument } from "../types";
 import {
@@ -13,18 +13,31 @@ import {
   type DocumentStats,
 } from "../utils/file";
 import { useConfirmDialog } from "./useConfirmDialog";
-import type { EditorHandle } from "../types/editor";
 import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
 
-export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
+export const useDocument = () => {
   const { requestConfirmation } = useConfirmDialog();
   const documents = ref<OpenDocument[]>([]);
   const activeDocumentId = ref<number | null>(null);
   const documentSaveQueues = new Map<number, Promise<void>>();
   let nextDocumentId = 1;
   let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let draftSaveQueue: Promise<void> = Promise.resolve();
+
+  // 草稿必须严格按照触发顺序写入，避免较慢的旧快照覆盖较新的编辑内容。
+  const enqueueDraftSave = (drafts: RecoveryDraftData[]): Promise<void> => {
+    const saveTask = draftSaveQueue
+      .catch(() => undefined)
+      .then(() => documentService.saveRecoveryDrafts(drafts));
+
+    // 队列本身保持可继续执行，当前调用仍返回原始任务供退出流程检查结果。
+    draftSaveQueue = saveTask.catch((error: unknown) => {
+      console.error("保存恢复草稿失败:", error);
+    });
+    return saveTask;
+  };
 
   const currentDocument = computed(
     () =>
@@ -74,7 +87,7 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
             savedContent,
             modifiedTime,
           }));
-        void documentService.saveRecoveryDrafts(drafts);
+        void enqueueDraftSave(drafts).catch(() => undefined);
         draftSaveTimer = null;
       }, 300);
     },
@@ -107,7 +120,6 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     if (!document) return;
 
     activeDocumentId.value = document.id;
-    editorRef.value?.setContent(document.content);
   };
 
   // 同一个路径只保留一个标签；再次打开时直接切换到已有标签，避免覆盖未保存内容。
@@ -290,6 +302,32 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     if (files) applyOpenedFiles(files);
   };
 
+  const handleDroppedFiles = async (files: File[]): Promise<void> => {
+    const supportedExtensions = [".md", ".markdown", ".txt"];
+    const supportedFiles = files.filter((file) =>
+      supportedExtensions.some((extension) =>
+        file.name.toLowerCase().endsWith(extension),
+      ),
+    );
+    const unsupportedFiles = files.filter((file) => !supportedFiles.includes(file));
+
+    if (unsupportedFiles.length > 0) {
+      await documentService.showErrorMessage(
+        "无法打开部分文件",
+        `仅支持 .md、.markdown 和 .txt 文件：\n${unsupportedFiles.map((file) => file.name).join("\n")}`,
+      );
+    }
+
+    // Electron 官方接口仅为系统文件返回真实路径，网页创建的 File 会返回空字符串。
+    const filePaths = supportedFiles
+      .map((file) => window.electronAPI.getPathForFile(file))
+      .filter((filePath): filePath is string => Boolean(filePath));
+    if (filePaths.length === 0) return;
+
+    const openedFiles = await documentService.openDroppedFiles(filePaths);
+    applyOpenedFiles(openedFiles);
+  };
+
   const handleOpenFileFromSidebar = async (filePath: string): Promise<void> => {
     const openedDocument = documents.value.find(
       (document) => document.filePath === filePath,
@@ -460,7 +498,8 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
       clearTimeout(draftSaveTimer);
       draftSaveTimer = null;
     }
-    await documentService.saveRecoveryDrafts([]);
+    // 清理操作也进入同一队列，确保不会被尚未结束的旧草稿写入重新覆盖。
+    await enqueueDraftSave([]);
     documentService.confirmWindowClose();
   };
 
@@ -477,7 +516,6 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
   };
 
   onMounted(async () => {
-    await restoreRecoveryDrafts();
     documentService.onNewFile(handleNewFile);
     // 主进程会连续发送多选文件，把同一轮事件合并后只激活最后一个文件。
     let pendingMenuFiles: OpenFileData[] = [];
@@ -498,8 +536,29 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     documentService.onSaveAsFile(() => saveFile(true));
     documentService.onWindowCloseRequest(handleWindowCloseRequest);
     window.addEventListener("keydown", handleSaveShortcut, true);
-    // 所有文件监听器就绪后通知主进程，此时可以安全接收右键菜单传入的文件。
-    documentService.notifyRendererReady();
+
+    let initializationError: unknown = null;
+    try {
+      // 监听器注册后立即完成握手，再恢复草稿和启动文件，主进程可安全发送后续事件。
+      const startupFiles = await documentService.notifyRendererReady();
+      await restoreRecoveryDrafts();
+      applyOpenedFiles(startupFiles);
+      await nextTick();
+    } catch (error) {
+      initializationError = error;
+      console.error("初始化文档失败:", error);
+    } finally {
+      // 初始化成功或失败都必须结束启动阶段，否则主窗口会一直保持隐藏。
+      documentService.notifyRendererViewReady();
+    }
+
+    if (initializationError) {
+      const message =
+        initializationError instanceof Error
+          ? initializationError.message
+          : "文档初始化失败";
+      await documentService.showErrorMessage("无法完成文档初始化", message);
+    }
   });
 
   onUnmounted(() => {
@@ -534,6 +593,7 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     handleNewFile,
     reorderDocument,
     handleOpenFile,
+    handleDroppedFiles,
     handleOpenFileFromSidebar,
     saveFile,
     applyOpenedFile,

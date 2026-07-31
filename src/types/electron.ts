@@ -83,7 +83,9 @@ export interface RecoveryDraftData {
 }
 
 export interface ElectronAPI {
+  getPathForFile: (file: File) => string;
   openFile: () => Promise<OpenFileData[] | null>;
+  openDroppedFiles: (filePaths: string[]) => Promise<OpenFileData[]>;
   getUpdateLogs: () => Promise<UpdateLogsResult>;
   saveFile: (data: SaveFileData) => Promise<SaveFileResult>;
   showErrorMessage: (title: string, message: string) => Promise<void>;
@@ -93,7 +95,8 @@ export interface ElectronAPI {
   confirmWindowClose: () => void;
   onRequestWindowClose: (callback: () => void) => void;
   showApplicationMenu: (position: ApplicationMenuPosition) => Promise<void>;
-  notifyRendererReady: () => void;
+  notifyRendererReady: () => Promise<OpenFileData[]>;
+  notifyRendererViewReady: () => void;
   onMenuNewFile: (callback: () => void) => void;
   onMenuOpenFile: (callback: (data: OpenFileData) => void) => void;
   onMenuSaveFile: (callback: () => void) => void;
@@ -145,8 +148,8 @@ export interface ElectronAPI {
   ) => Promise<void>;
   openExternalLink: (url: string) => Promise<void>;
   checkForUpdates: () => Promise<UpdateCheckResult>;
-  downloadUpdate: (updateUrl: string) => Promise<UpdateDownloadResult>;
-  installUpdate: (filePath: string) => Promise<void>;
+  downloadUpdate: () => Promise<UpdateDownloadResult>;
+  installUpdate: () => Promise<void>;
   onUpdateDownloadProgress: (
     callback: (progress: UpdateDownloadProgress) => void,
   ) => void;

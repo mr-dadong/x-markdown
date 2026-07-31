@@ -10,7 +10,7 @@ export interface SlashRange {
 
 export interface SlashCommand {
   id: string;
-  group: "基础" | "列表与内容" | "媒体与链接";
+  group: "基础" | "列表与内容" | "扩展内容" | "媒体与链接";
   label: string;
   description: string;
   icon: string;
@@ -27,8 +27,35 @@ export interface SlashCommand {
 export const slashCommandGroups: SlashCommand["group"][] = [
   "基础",
   "列表与内容",
+  "扩展内容",
   "媒体与链接",
 ];
+
+const insertMarkdownModule = (
+  editor: Editor,
+  range: SlashRange,
+  type: string,
+  attrs?: Record<string, unknown>,
+): boolean =>
+  editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .insertContent([{ type, attrs }, { type: "paragraph" }])
+    .run();
+
+const getNextFootnoteIdentifier = (editor: Editor): string => {
+  const identifiers = new Set<string>();
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === "footnoteReference" || node.type.name === "footnoteDefinition") {
+      identifiers.add(String(node.attrs.identifier));
+    }
+  });
+
+  let nextIdentifier = 1;
+  while (identifiers.has(String(nextIdentifier))) nextIdentifier += 1;
+  return String(nextIdentifier);
+};
 
 // 每个命令显式维护中文、英文、全拼和拼音首字母，避免自动转换带来的多音字误判。
 export const slashCommands: SlashCommand[] = [
@@ -152,6 +179,81 @@ export const slashCommands: SlashCommand[] = [
     keywords: ["表格", "table", "grid", "biaoge", "bg"],
     run: (editor, range) =>
       editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  {
+    id: "table-of-contents",
+    group: "扩展内容",
+    label: "文档目录",
+    description: "根据标题自动生成目录",
+    icon: "lucide:list-tree",
+    iconClass: "bg-selected text-accent",
+    keywords: ["目录", "大纲", "toc", "contents", "mulu", "ml"],
+    run: (editor, range) => insertMarkdownModule(editor, range, "tableOfContents"),
+  },
+  {
+    id: "mermaid",
+    group: "扩展内容",
+    label: "Mermaid 图表",
+    description: "插入可编辑的流程图",
+    icon: "lucide:braces",
+    iconClass: "bg-toolbar text-link",
+    keywords: ["流程图", "图表", "mermaid", "diagram", "liuchengtu", "lct"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "mermaidBlock", {
+        source: "graph TD\n  A[开始] --> B[结束]",
+      }),
+  },
+  {
+    id: "math-block",
+    group: "扩展内容",
+    label: "数学公式",
+    description: "插入 KaTeX 块级公式",
+    icon: "lucide:code-2",
+    iconClass: "bg-toolbar text-accent",
+    keywords: ["公式", "数学", "katex", "latex", "math", "gongshi", "gs"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "mathBlock", { expression: "E = mc^2" }),
+  },
+  {
+    id: "callout",
+    group: "扩展内容",
+    label: "提示块",
+    description: "插入 Callout 提示内容",
+    icon: "lucide:info",
+    iconClass: "bg-toolbar text-link",
+    keywords: ["提示块", "警告", "callout", "admonition", "tishikuai", "tsk"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "callout", {
+        calloutType: "NOTE",
+        title: "提示",
+        fold: "",
+        body: "在这里输入提示内容。",
+      }),
+  },
+  {
+    id: "footnote",
+    group: "扩展内容",
+    label: "脚注",
+    description: "插入脚注引用和定义",
+    icon: "lucide:file-text",
+    iconClass: "bg-toolbar text-folder",
+    keywords: ["脚注", "注释", "footnote", "reference", "jiaozhu", "jz"],
+    run: (editor, range) => {
+      const identifier = getNextFootnoteIdentifier(editor);
+      const referenceInserted = editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({ type: "footnoteReference", attrs: { identifier } })
+        .run();
+      if (!referenceInserted) return false;
+
+      // 定义统一追加到文档末尾，引用处保持当前写作光标。
+      return editor.commands.insertContentAt(editor.state.doc.content.size, [
+        { type: "footnoteDefinition", attrs: { identifier, body: "脚注内容" } },
+        { type: "paragraph" },
+      ]);
+    },
   },
   {
     id: "image",

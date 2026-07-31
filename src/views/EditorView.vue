@@ -16,13 +16,14 @@
                     @close-saved="closeSavedDocuments"
                     @save="saveFile()" @save-as="saveFile(true)" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
-                    :current-file-path="currentFilePath"
+                    :current-file-path="currentFilePath" :active="!isSourceMode"
                     v-show="!isSourceMode" @update:content="handleContentUpdate" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent"
                     @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
-                    class="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center select-none">
+                    class="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center select-none"
+                    @dragover.prevent="handleWelcomeDragOver" @drop.prevent="handleWelcomeDrop">
                     <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
                     <img :src="appIcon" alt="XMD" class="h-20 w-20 rounded-[22px]" />
                     <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">开始编辑</p>
@@ -105,9 +106,19 @@ const {
     handleNewFile,
     reorderDocument,
     handleOpenFile,
+    handleDroppedFiles,
     handleOpenFileFromSidebar,
     saveFile,
-} = useDocument(editorRef)
+} = useDocument()
+
+const handleWelcomeDragOver = (event: DragEvent): void => {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
+const handleWelcomeDrop = (event: DragEvent): void => {
+    const files = Array.from(event.dataTransfer?.files ?? [])
+    if (files.length > 0) void handleDroppedFiles(files)
+}
 
 const toggleSidebar = (): void => {
     isSidebarVisible.value = !isSidebarVisible.value

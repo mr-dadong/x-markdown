@@ -1,4 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 
@@ -29,6 +31,7 @@ function createDownloads(version) {
           installer: "NSIS",
           filename: `XMD-${version}-Windows-x64.exe`,
           url: `${releaseUrl}/XMD-${version}-Windows-x64.exe`,
+          sha256: null,
         },
       ],
     },
@@ -42,6 +45,7 @@ function createDownloads(version) {
           installer: "DMG",
           filename: `XMD-${version}-macOS-arm64.dmg`,
           url: `${releaseUrl}/XMD-${version}-macOS-arm64.dmg`,
+          sha256: null,
         },
         {
           arch: "x64",
@@ -49,6 +53,7 @@ function createDownloads(version) {
           installer: "DMG",
           filename: `XMD-${version}-macOS-x64.dmg`,
           url: `${releaseUrl}/XMD-${version}-macOS-x64.dmg`,
+          sha256: null,
         },
       ],
     },
@@ -62,6 +67,7 @@ function createDownloads(version) {
           installer: "AppImage",
           filename: `XMD-${version}-Linux-x86_64.AppImage`,
           url: `${releaseUrl}/XMD-${version}-Linux-x86_64.AppImage`,
+          sha256: null,
         },
         {
           arch: "arm64",
@@ -69,6 +75,7 @@ function createDownloads(version) {
           installer: "AppImage",
           filename: `XMD-${version}-Linux-arm64.AppImage`,
           url: `${releaseUrl}/XMD-${version}-Linux-arm64.AppImage`,
+          sha256: null,
         },
       ],
     },
@@ -82,6 +89,32 @@ function getShanghaiDate() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function getReleasePackages(release) {
+  if (!release.downloads || typeof release.downloads !== "object") {
+    throw new Error(`版本 ${release.version} 缺少 downloads 配置`);
+  }
+
+  return Object.values(release.downloads).flatMap((platform) =>
+    Array.isArray(platform.packages) ? platform.packages : [],
+  );
+}
+
+function validateReleaseHashes(release, fileName) {
+  const packages = getReleasePackages(release);
+  for (const releasePackage of packages) {
+    if (!releasePackage.filename || !releasePackage.url) continue;
+    if (!/^[a-f\d]{64}$/iu.test(releasePackage.sha256 ?? "")) {
+      throw new Error(`${fileName} 中 ${releasePackage.filename} 缺少有效的 SHA-256`);
+    }
+  }
+}
+
+async function calculateFileSha256(filePath) {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 function compareVersions(left, right) {
@@ -154,6 +187,7 @@ async function syncChangelogs() {
   if (!Array.isArray(release.content) || release.content.length === 0) {
     throw new Error(`${fileName} 的 content 至少需要填写一条更新内容`);
   }
+  validateReleaseHashes(release, fileName);
 
   // 总清单保留历史版本，只新增或更新 package.json 指定的当前版本。
   const manifestFile = path.join(changelogDirectory, "version.json");
@@ -176,14 +210,42 @@ async function syncChangelogs() {
   console.log(`已更新 changelogs/version.json，最新版本为 ${releases[0].version}`);
 }
 
+async function fillReleaseHashes() {
+  const artifactsDirectory = process.argv[3];
+  if (!artifactsDirectory) throw new Error("hashes 命令需要提供安装包目录");
+
+  const packageJson = await readJson(packageFile);
+  const version = packageJson.version;
+  validateVersion(version);
+  const fileName = `v${version}.json`;
+  const changelogFile = path.join(changelogDirectory, fileName);
+  const changelog = await readJson(changelogFile);
+  if (!Array.isArray(changelog.releases) || changelog.releases.length !== 1) {
+    throw new Error(`${fileName} 必须且只能包含一条 releases 记录`);
+  }
+
+  const release = changelog.releases[0];
+  for (const releasePackage of getReleasePackages(release)) {
+    if (!releasePackage.filename || !releasePackage.url) continue;
+    const artifactPath = path.resolve(artifactsDirectory, releasePackage.filename);
+    releasePackage.sha256 = await calculateFileSha256(artifactPath);
+  }
+
+  await writeJson(changelogFile, changelog);
+  await syncChangelogs();
+  console.log(`已写入 ${fileName} 的安装包 SHA-256`);
+}
+
 const command = process.argv[2];
 try {
   if (command === "new") {
     await createChangelog();
   } else if (command === "sync") {
     await syncChangelogs();
+  } else if (command === "hashes") {
+    await fillReleaseHashes();
   } else {
-    throw new Error("请使用 new 或 sync 命令");
+    throw new Error("请使用 new、sync 或 hashes 命令");
   }
 } catch (error) {
   if (error?.code === "EEXIST") {

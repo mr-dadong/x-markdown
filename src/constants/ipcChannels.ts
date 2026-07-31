@@ -1,6 +1,7 @@
 // 主进程、preload 和渲染层共用同一份 channel 名称。
 export const IPC_CHANNELS = {
   openFile: "open-file",
+  openDroppedFiles: "open-dropped-files",
   getUpdateLogs: "get-update-logs",
   saveFile: "save-file",
   showErrorMessage: "show-error-message",
@@ -11,6 +12,7 @@ export const IPC_CHANNELS = {
   requestWindowClose: "request-window-close",
   showApplicationMenu: "show-application-menu",
   rendererReady: "renderer-ready",
+  rendererViewReady: "renderer-view-ready",
   menuNewFile: "menu-new-file",
   menuOpenFile: "menu-open-file",
   menuSaveFile: "menu-save-file",

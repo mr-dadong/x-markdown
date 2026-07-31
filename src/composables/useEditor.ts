@@ -37,6 +37,15 @@ import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
 import { LegacyMediaFilter } from "../extensions/LegacyMediaFilter";
 import { RawMarkdownBlock } from "../extensions/RawMarkdownBlock";
 import {
+  Callout,
+  FootnoteDefinition,
+  FootnoteReference,
+  MathBlock,
+  MathInline,
+  MermaidBlock,
+  TableOfContents,
+} from "../extensions/markdown";
+import {
   filterSlashCommands,
   slashCommandGroups,
   type SlashCommand,
@@ -207,6 +216,7 @@ export const useMarkdownEditor = (
   getContent: () => string,
   emit?: (event: "update:content", content: string) => void,
   getCurrentDocumentPath?: () => string | null,
+  getIsActive: () => boolean = () => true,
 ) => {
   const { settings } = useSettings();
   const slashMenuVisible = ref(false);
@@ -222,6 +232,7 @@ export const useMarkdownEditor = (
   const dropIndicator = ref<DropIndicator | null>(null);
   const draggedBlockPosition = ref<number | null>(null);
   const editorRenderVersion = ref(0);
+  let lastEmittedMarkdown: string | null = null;
   const linkInsertVisible = ref(false);
   const linkInsertUrl = ref("");
   const linkInsertLabel = ref("");
@@ -234,8 +245,9 @@ export const useMarkdownEditor = (
   const getFileExtension = (file: File): string =>
     file.name.split(".").pop()?.toLocaleLowerCase() ?? "";
 
+  // 使用 Electron 官方接口读取拖入文件的真实路径，避免依赖已经移除的 File.path。
   const getNativeFilePath = (file: File): string =>
-    (file as File & { path?: string }).path ?? "";
+    window.electronAPI.getPathForFile(file);
 
   const getFileKind = (file: File): "image" | "video" | "file" => {
     const extension = getFileExtension(file);
@@ -919,6 +931,14 @@ export const useMarkdownEditor = (
       }),
       LegacyMediaFilter,
       RawMarkdownBlock,
+      // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
+      MermaidBlock,
+      MathBlock,
+      MathInline,
+      Callout,
+      FootnoteReference,
+      FootnoteDefinition,
+      TableOfContents,
       InteractiveCodeBlock.configure({
         lowlight: editorLowlight,
         // 未注明语言的 Markdown 代码块按纯文本渲染，不再调用不稳定的自动识别。
@@ -1001,6 +1021,7 @@ export const useMarkdownEditor = (
     onUpdate: ({ editor }) => {
       // 获取 Markdown 内容
       const markdown = editor.storage.markdown.getMarkdown();
+      lastEmittedMarkdown = markdown;
       if (emit) {
         emit("update:content", markdown);
       }
@@ -1020,24 +1041,23 @@ export const useMarkdownEditor = (
     },
   });
 
-  // 源码模式和标签切换都会改变外部内容，这里把最新内容同步到隐藏的富文本编辑器。
+  // 富文本视图重新显示或切换标签时才同步内容，源码输入期间不解析隐藏的编辑器。
   watch(
-    getContent,
-    (newContent) => {
-      if (
-        editor.value &&
-        newContent !== editor.value.storage.markdown.getMarkdown()
-      ) {
-        // 外部载入文档时不触发编辑事件，避免刚打开文件就被标记为已修改。
-        editor.value.commands.setContent(newContent, false);
+    [getContent, getIsActive],
+    ([newContent, isActive]) => {
+      if (!editor.value || !isActive) return;
+
+      // 编辑器刚发出的内容不需要再次序列化比较，避免每次输入重复扫描全文。
+      if (newContent === lastEmittedMarkdown) {
+        lastEmittedMarkdown = null;
+        return;
       }
+      if (newContent === editor.value.storage.markdown.getMarkdown()) return;
+
+      // 外部载入文档时不触发编辑事件，避免刚打开文件就被标记为已修改。
+      editor.value.commands.setContent(newContent, false);
     },
   );
-
-  // 暴露方法给父组件
-  const setContent = (content: string): void => {
-    editor.value?.commands.setContent(content, false);
-  };
 
   const scrollToHeading = (headingIndex: number): void => {
     if (!editor.value) return;
@@ -1113,7 +1133,6 @@ export const useMarkdownEditor = (
     finishBlockDrag,
     handleBlockDrop,
     handleEditorKeyDown,
-    setContent,
     scrollToHeading,
   };
 };

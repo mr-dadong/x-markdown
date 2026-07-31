@@ -4,6 +4,8 @@ import type { IPC_CHANNELS } from "../constants/ipcChannels";
 // 文档业务只通过此服务访问桌面端文件能力。
 export const documentService = {
   openFiles: () => window.electronAPI.openFile(),
+  openDroppedFiles: (filePaths: string[]) =>
+    window.electronAPI.openDroppedFiles(filePaths),
   readFile: (filePath: string) => window.electronAPI.readFile(filePath),
   saveFile: (data: SaveFileData) => window.electronAPI.saveFile(data),
   showErrorMessage: (title: string, message: string) =>
@@ -15,6 +17,7 @@ export const documentService = {
   saveRecoveryDrafts: (drafts: import("../types/electron").RecoveryDraftData[]) =>
     window.electronAPI.saveRecoveryDrafts(drafts),
   notifyRendererReady: () => window.electronAPI.notifyRendererReady(),
+  notifyRendererViewReady: () => window.electronAPI.notifyRendererViewReady(),
   onNewFile: (callback: () => void) =>
     window.electronAPI.onMenuNewFile(callback),
   onOpenFile: (callback: (data: OpenFileData) => void) =>

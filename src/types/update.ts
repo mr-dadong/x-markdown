@@ -4,6 +4,7 @@ export interface UpdatePackage {
   installer: string
   filename: string
   url: string
+  sha256: string
 }
 
 export interface UpdateLog {

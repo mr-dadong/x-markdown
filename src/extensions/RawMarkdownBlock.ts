@@ -46,15 +46,9 @@ const rawMarkdownRule = (
   if (startLine === 0 && trimmedLine === "---") {
     const closingLine = findClosingLine(state, startLine, endLine, "---");
     if (closingLine > startLine) nextLine = closingLine + 1;
-  } else if (trimmedLine === "$$") {
-    const closingLine = findClosingLine(state, startLine, endLine, "$$");
-    if (closingLine > startLine) nextLine = closingLine + 1;
   } else if (
-    /^> *\[![A-Z][A-Z0-9_-]*\]/.test(trimmedLine)
-    || /^:::[\w-]+/.test(trimmedLine)
+    /^:::[\w-]+/.test(trimmedLine)
     || /\[\[[^\]]+\]\]/.test(lineText)
-    || /\[\^[^\]]+\]/.test(lineText)
-    || /(^|[^$])\$[^$\n]+\$/.test(lineText)
   ) {
     nextLine = findParagraphEnd(state, startLine, endLine);
   }

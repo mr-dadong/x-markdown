@@ -4,7 +4,8 @@ import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
 interface WindowIpcDependencies {
   getMainWindow: () => BrowserWindow | null;
   approveClose: () => void;
-  rendererReady: () => void;
+  rendererReady: () => Promise<unknown>;
+  rendererViewReady: () => void;
 }
 
 // 窗口相关 channel 在一个入口注册，主进程只提供所需状态和回调。
@@ -12,6 +13,7 @@ export function registerWindowIpc({
   getMainWindow,
   approveClose,
   rendererReady,
+  rendererViewReady,
 }: WindowIpcDependencies): void {
   ipcMain.on(IPC_CHANNELS.windowMinimize, () => {
     getMainWindow()?.minimize();
@@ -35,7 +37,8 @@ export function registerWindowIpc({
     getMainWindow()?.close();
   });
 
-  ipcMain.on(IPC_CHANNELS.rendererReady, rendererReady);
+  ipcMain.handle(IPC_CHANNELS.rendererReady, rendererReady);
+  ipcMain.on(IPC_CHANNELS.rendererViewReady, rendererViewReady);
 
   ipcMain.handle(
     IPC_CHANNELS.showApplicationMenu,

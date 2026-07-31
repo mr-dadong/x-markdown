@@ -52,7 +52,7 @@ export function useUpdater() {
 
     try {
       // 主进程已经按照当前系统与 CPU 架构选出了唯一匹配的安装包。
-      const result = await updateService.download(updateInfo.value.download.url)
+      const result = await updateService.download()
       if (result.status === 'downloaded' && result.filePath) downloadedFilePath.value = result.filePath
       if (result.status === 'external') downloadMessage.value = '已打开夸克网盘，请在浏览器中下载安装包。'
     } catch (error) {
@@ -63,7 +63,7 @@ export function useUpdater() {
   }
 
   const installUpdate = async (): Promise<void> => {
-    if (downloadedFilePath.value) await updateService.install(downloadedFilePath.value)
+    if (downloadedFilePath.value) await updateService.install()
   }
 
   if (!progressListenerRegistered) {

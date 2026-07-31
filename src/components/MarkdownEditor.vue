@@ -195,6 +195,7 @@ const { settings } = useSettings()
 const props = defineProps<{
   initialContent?: string
   currentFilePath: string | null
+  active: boolean
 }>()
 
 // Emits
@@ -246,12 +247,12 @@ const {
   handleBlockDragOver,
   finishBlockDrag,
   handleBlockDrop,
-  setContent,
   scrollToHeading,
 } = useMarkdownEditor(
   () => props.initialContent ?? '',
   emit,
   () => props.currentFilePath,
+  () => props.active,
 )
 
 // 菜单动作保持短动词，排列遵循“移动、复制、删除”的使用频率和风险层级。
@@ -485,7 +486,6 @@ const removeActiveLink = (): void => {
 
 // 暴露方法给父组件
 defineExpose<EditorHandle>({
-  setContent,
   scrollToHeading,
   getScrollProgress,
   setScrollProgress,

@@ -32,6 +32,8 @@ export default defineConfig({
       },
     },
     build: {
+      // 生产环境压缩渲染进程脚本，减少安装包体积和首屏 JavaScript 解析时间。
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'index.html'),

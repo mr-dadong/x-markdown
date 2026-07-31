@@ -12,7 +12,7 @@ import {
 } from "electron";
 import path from "path";
 import fs from "fs";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { Readable } from "stream";
 import chokidar, { type FSWatcher } from "chokidar";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -28,8 +28,13 @@ import type { AttachmentCopyProgress } from "../src/types/electron";
 
 let mainWindow: BrowserWindow | null = null;
 let rendererReady = false;
+let rendererViewReady = false;
+let windowReadyToShow = false;
 let closeApproved = false;
 let workspaceWatcher: FSWatcher | null = null;
+let selectedUpdate: SelectedUpdate | null = null;
+let verifiedUpdate: { filePath: string; sha256: string } | null = null;
+let updateDownloadInProgress = false;
 const pendingFilePaths: string[] = [];
 const supportedFileExtensions = new Set([".md", ".markdown", ".txt"]);
 const updateManifestUrl =
@@ -85,6 +90,7 @@ interface UpdatePackage {
   installer: string;
   filename: string;
   url: string;
+  sha256: string;
 }
 
 interface UpdateRelease {
@@ -104,6 +110,7 @@ interface UpdateRelease {
         installer: string;
         filename: string | null;
         url: string | null;
+        sha256?: string | null;
       }>;
     }
   >;
@@ -173,6 +180,8 @@ function selectUpdate(release: UpdateRelease): SelectedUpdate {
     );
   if (!selectedPackage.filename || !selectedPackage.url)
     throw new Error("安装包信息不完整");
+  if (!selectedPackage.sha256 || !/^[a-f\d]{64}$/iu.test(selectedPackage.sha256))
+    throw new Error("安装包缺少有效的 SHA-256 校验值");
   ensureHttpsUrl(selectedPackage.url);
 
   return {
@@ -187,6 +196,7 @@ function selectUpdate(release: UpdateRelease): SelectedUpdate {
       installer: selectedPackage.installer,
       filename: selectedPackage.filename,
       url: selectedPackage.url,
+      sha256: selectedPackage.sha256.toLocaleLowerCase(),
     },
   };
 }
@@ -241,11 +251,12 @@ async function getFilePathsFromArguments(
   );
 }
 
-async function openPendingFiles(): Promise<void> {
-  if (!mainWindow || !rendererReady || pendingFilePaths.length === 0) return;
-
+async function takePendingFiles(): Promise<
+  Array<{ filePath: string; content: string; modifiedTime: number }>
+> {
+  if (pendingFilePaths.length === 0) return [];
   const filePaths = pendingFilePaths.splice(0, pendingFilePaths.length);
-  const files = await Promise.all(
+  return Promise.all(
     filePaths.map(async (filePath) => {
       authorizeDocument(filePath);
       const [content, stats] = await Promise.all([
@@ -255,6 +266,18 @@ async function openPendingFiles(): Promise<void> {
       return { filePath, content, modifiedTime: stats.mtimeMs };
     }),
   );
+}
+
+// 使用流式哈希校验大型安装包，避免把整个文件一次性读入主进程内存。
+async function calculateFileSha256(filePath: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of fs.createReadStream(filePath)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
+async function openPendingFiles(): Promise<void> {
+  if (!mainWindow || !rendererReady) return;
+  const files = await takePendingFiles();
   files.forEach((file) =>
     mainWindow?.webContents.send(IPC_CHANNELS.menuOpenFile, file),
   );
@@ -290,6 +313,8 @@ app.on("open-file", (event, filePath) => {
 
 function createWindow(): void {
   rendererReady = false;
+  rendererViewReady = false;
+  windowReadyToShow = false;
   closeApproved = false;
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -319,7 +344,8 @@ function createWindow(): void {
 
   // 窗口准备好后显示
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+    windowReadyToShow = true;
+    if (rendererViewReady) mainWindow?.show();
   });
 
   // 应用窗口不允许跳转到远程页面；网页统一交给受协议限制的系统浏览器。
@@ -462,9 +488,13 @@ registerWindowIpc({
     closeApproved = true;
   },
   // 渲染页面完成监听器注册后再发送启动文件，避免首次启动丢失文件路径。
-  rendererReady: () => {
+  rendererReady: async () => {
     rendererReady = true;
-    void openPendingFiles();
+    return takePendingFiles();
+  },
+  rendererViewReady: () => {
+    rendererViewReady = true;
+    if (windowReadyToShow) mainWindow?.show();
   },
 });
 
@@ -475,6 +505,8 @@ ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
   const currentVersion = app.getVersion();
   const hasUpdate = compareVersions(manifest.latest, currentVersion) > 0;
   if (!hasUpdate) {
+    selectedUpdate = null;
+    verifiedUpdate = null;
     return { hasUpdate: false, currentVersion, update: null };
   }
 
@@ -484,10 +516,12 @@ ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
   if (!latestRelease)
     throw new Error(`找不到最新版 v${manifest.latest} 的发布信息`);
 
+  selectedUpdate = selectUpdate(latestRelease);
+  verifiedUpdate = null;
   return {
     hasUpdate: true,
     currentVersion,
-    update: selectUpdate(latestRelease),
+    update: selectedUpdate,
   };
 });
 
@@ -502,76 +536,112 @@ ipcMain.handle(IPC_CHANNELS.openExternalLink, async (_event, url: string) => {
 
 ipcMain.handle(
   IPC_CHANNELS.downloadUpdate,
-  async (_event, updateUrl: string) => {
-    const parsedUrl = ensureHttpsUrl(updateUrl);
-    const response = await net.fetch(parsedUrl.toString(), {
-      method: "HEAD",
-      redirect: "follow",
-    });
-    const contentType =
-      response.headers.get("content-type")?.toLowerCase() ?? "";
+  async () => {
+    if (!selectedUpdate) throw new Error("请先检查并确认可用更新");
+    if (updateDownloadInProgress) throw new Error("安装包正在下载");
 
-    // 网盘分享链接返回网页而非安装包，交给系统浏览器完成网盘验证和下载。
-    if (contentType.includes("text/html")) {
-      await shell.openExternal(parsedUrl.toString());
-      return { status: "external" as const };
-    }
+    const currentUpdate = selectedUpdate;
+    const parsedUrl = ensureHttpsUrl(currentUpdate.download.url);
+    updateDownloadInProgress = true;
+    verifiedUpdate = null;
 
-    return new Promise<{ status: "downloaded"; filePath: string }>(
-      (resolve, reject) => {
-        const onWillDownload = (
-          _downloadEvent: Electron.Event,
-          item: Electron.DownloadItem,
-        ): void => {
-          const fileName = item.getFilename();
-          const extension = path.extname(fileName).toLowerCase();
-          if (!installerExtensions.has(extension)) {
-            item.cancel();
-            reject(new Error("下载地址没有返回支持的安装包"));
-            return;
-          }
+    try {
+      const response = await net.fetch(parsedUrl.toString(), {
+        method: "HEAD",
+        redirect: "follow",
+      });
+      if (!response.ok) throw new Error(`下载安装包失败（${response.status}）`);
+      const contentType =
+        response.headers.get("content-type")?.toLowerCase() ?? "";
 
-          const savePath = path.join(
-            app.getPath("temp"),
-            `XMD-update-${Date.now()}${extension}`,
-          );
-          item.setSavePath(savePath);
-          item.on("updated", () => {
-            const totalBytes = item.getTotalBytes();
-            const receivedBytes = item.getReceivedBytes();
-            const percent =
-              totalBytes > 0
-                ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
-                : 0;
-            mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
-              percent,
-              receivedBytes,
-              totalBytes,
-            });
-          });
-          item.once("done", (_doneEvent, state) => {
-            if (state !== "completed") {
-              reject(new Error("安装包下载未完成"));
+      // 网盘分享链接返回网页而非安装包，交给系统浏览器完成网盘验证和下载。
+      if (contentType.includes("text/html")) {
+        await shell.openExternal(parsedUrl.toString());
+        return { status: "external" as const };
+      }
+
+      return await new Promise<{ status: "downloaded"; filePath: string }>(
+        (resolve, reject) => {
+          const onWillDownload = (
+            _downloadEvent: Electron.Event,
+            item: Electron.DownloadItem,
+          ): void => {
+            const extension = path
+              .extname(currentUpdate.download.filename)
+              .toLowerCase();
+            if (
+              !installerExtensions.has(extension) ||
+              path.extname(item.getFilename()).toLowerCase() !== extension
+            ) {
+              item.cancel();
+              reject(new Error("下载地址没有返回支持的安装包"));
               return;
             }
-            mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
-              percent: 100,
-              receivedBytes: item.getReceivedBytes(),
-              totalBytes: item.getTotalBytes(),
-            });
-            resolve({ status: "downloaded", filePath: savePath });
-          });
-        };
 
-        session.defaultSession.once("will-download", onWillDownload);
-        session.defaultSession.downloadURL(parsedUrl.toString());
-      },
-    );
+            const savePath = path.join(
+              app.getPath("temp"),
+              `XMD-update-${Date.now()}${extension}`,
+            );
+            item.setSavePath(savePath);
+            item.on("updated", () => {
+              const totalBytes = item.getTotalBytes();
+              const receivedBytes = item.getReceivedBytes();
+              const percent =
+                totalBytes > 0
+                  ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
+                  : 0;
+              mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
+                percent,
+                receivedBytes,
+                totalBytes,
+              });
+            });
+            item.once("done", (_doneEvent, state) => {
+              if (state !== "completed") {
+                reject(new Error("安装包下载未完成"));
+                return;
+              }
+              void calculateFileSha256(savePath).then((actualSha256) => {
+                if (actualSha256 !== currentUpdate.download.sha256) {
+                  void fs.promises.rm(savePath, { force: true }).then(
+                    () => reject(new Error("安装包校验失败，文件已删除")),
+                    reject,
+                  );
+                  return;
+                }
+
+                verifiedUpdate = {
+                  filePath: savePath,
+                  sha256: currentUpdate.download.sha256,
+                };
+                mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
+                  percent: 100,
+                  receivedBytes: item.getReceivedBytes(),
+                  totalBytes: item.getTotalBytes(),
+                });
+                resolve({ status: "downloaded", filePath: savePath });
+              }, reject);
+            });
+          };
+
+          session.defaultSession.once("will-download", onWillDownload);
+          try {
+            session.defaultSession.downloadURL(parsedUrl.toString());
+          } catch (error) {
+            session.defaultSession.removeListener("will-download", onWillDownload);
+            reject(error);
+          }
+        },
+      );
+    } finally {
+      updateDownloadInProgress = false;
+    }
   },
 );
 
-ipcMain.handle(IPC_CHANNELS.installUpdate, async (_event, filePath: string) => {
-  const resolvedPath = path.resolve(filePath);
+ipcMain.handle(IPC_CHANNELS.installUpdate, async () => {
+  if (!verifiedUpdate) throw new Error("没有已通过校验的安装包");
+  const resolvedPath = path.resolve(verifiedUpdate.filePath);
   const tempDirectory = path.resolve(app.getPath("temp"));
   if (
     !resolvedPath.startsWith(`${tempDirectory}${path.sep}`) ||
@@ -584,6 +654,13 @@ ipcMain.handle(IPC_CHANNELS.installUpdate, async (_event, filePath: string) => {
     .then((stats) => stats.isFile())
     .catch(() => false);
   if (!installerExists) throw new Error("安装包不存在，请重新下载");
+
+  const actualSha256 = await calculateFileSha256(resolvedPath);
+  if (actualSha256 !== verifiedUpdate.sha256) {
+    verifiedUpdate = null;
+    await fs.promises.rm(resolvedPath, { force: true });
+    throw new Error("安装包在下载后发生变化，已阻止执行");
+  }
 
   const errorMessage = await shell.openPath(resolvedPath);
   if (errorMessage) throw new Error(errorMessage);
@@ -800,7 +877,10 @@ ipcMain.handle(IPC_CHANNELS.watchWorkspace, async (_event, directoryPath: string
   await workspaceWatcher?.close();
   workspaceWatcher = chokidar.watch(authorizedPath, {
     ignoreInitial: true,
-    ignored: /(^|[/\\])\../,
+    // 忽略依赖和构建产物，避免大型项目产生大量无关文件监听与刷新事件。
+    ignored:
+      /(^|[/\\])(?:\.[^/\\]+|node_modules|out|dist|release|coverage)(?:[/\\]|$)/,
+    followSymlinks: false,
     awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 80 },
   });
   let notifyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -855,6 +935,24 @@ ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
     return { success: false, error: (error as Error).message };
   }
 });
+
+ipcMain.handle(
+  IPC_CHANNELS.openDroppedFiles,
+  async (_event, filePaths: string[]) => {
+    // 拖放路径来自渲染页面，主进程仍需逐个校验扩展名和文件类型。
+    const checkedPaths = await getFilePathsFromArguments(filePaths);
+    return Promise.all(
+      checkedPaths.map(async (filePath) => {
+        authorizeDocument(filePath);
+        const [content, stats] = await Promise.all([
+          fs.promises.readFile(filePath, "utf-8"),
+          fs.promises.stat(filePath),
+        ]);
+        return { filePath, content, modifiedTime: stats.mtimeMs };
+      }),
+    );
+  },
+);
 
 ipcMain.handle(
   IPC_CHANNELS.getDirectoryName,

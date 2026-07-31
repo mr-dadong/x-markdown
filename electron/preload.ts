@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ApplicationMenuPosition,
   AttachmentCopyProgress,
@@ -15,7 +15,13 @@ import type { UpdateDownloadProgress } from '../src/types/update'
 import { IPC_CHANNELS } from '../src/constants/ipcChannels'
 
 const electronAPI: ElectronAPI = {
+  // Electron 32 起不再向 File 暴露 path，统一通过官方接口取得系统文件路径。
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+
   openFile: (): Promise<OpenFileData[] | null> => ipcRenderer.invoke(IPC_CHANNELS.openFile),
+
+  openDroppedFiles: (filePaths: string[]): Promise<OpenFileData[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.openDroppedFiles, filePaths),
 
   getUpdateLogs: (): Promise<import('../src/types/update').UpdateLogsResult> => {
     return ipcRenderer.invoke(IPC_CHANNELS.getUpdateLogs)
@@ -53,8 +59,11 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.showApplicationMenu, position)
   },
 
-  notifyRendererReady: () => {
-    ipcRenderer.send(IPC_CHANNELS.rendererReady)
+  notifyRendererReady: (): Promise<OpenFileData[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.rendererReady),
+
+  notifyRendererViewReady: () => {
+    ipcRenderer.send(IPC_CHANNELS.rendererViewReady)
   },
 
   onMenuNewFile: (callback: () => void) => {
@@ -151,9 +160,9 @@ const electronAPI: ElectronAPI = {
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 
-  downloadUpdate: (updateUrl: string) => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate, updateUrl),
+  downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate),
 
-  installUpdate: (filePath: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.installUpdate, filePath),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.installUpdate),
 
   onUpdateDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => {
     ipcRenderer.on(IPC_CHANNELS.updateDownloadProgress, (_event, progress: UpdateDownloadProgress) => callback(progress))

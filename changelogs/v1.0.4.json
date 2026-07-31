@@ -1,0 +1,79 @@
+{
+  "latest": "1.0.4",
+  "releases": [
+    {
+      "version": "1.0.4",
+      "date": "2026-08-01",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增文档目录、Mermaid 图表、数学公式、Callout 提示块和脚注支持。",
+        "扩展斜杠菜单，可快速插入目录、图表、公式、提示块和脚注。",
+        "优化双击文档时的启动体验，避免打开过程中短暂显示欢迎页。",
+        "支持在欢迎页拖放打开 Markdown 和文本文件。",
+        "优化源码视图与渲染视图切换性能，减少不必要的文档解析。",
+        "新增更新安装包 SHA-256 校验，提升自动更新安全性。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.4-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.4/XMD-1.0.4-Windows-x64.exe",
+              "sha256": null
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.4-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.4/XMD-1.0.4-macOS-arm64.dmg",
+              "sha256": null
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.4-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.4/XMD-1.0.4-macOS-x64.dmg",
+              "sha256": null
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.4-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.4/XMD-1.0.4-Linux-x86_64.AppImage",
+              "sha256": null
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.4-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.4/XMD-1.0.4-Linux-arm64.AppImage",
+              "sha256": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
