@@ -1,8 +1,7 @@
 # XMD
+官网：[https://www.x-markdown.com/](https://www.x-markdown.com/)
 
 XMD 是一款基于 Electron、Vue 3、TipTap 和 TypeScript 构建的本地 Markdown 编辑器，提供所见即所得与源码两种编辑方式。
-
-官网：[https://www.x-markdown.com/](https://www.x-markdown.com/)
 
 ## 功能
 
@@ -75,6 +74,16 @@ bun run dist:linux
 git tag v1.0.3
 git push github v1.0.3
 ```
+
+## Code signing policy
+
+Free code signing is provided by [SignPath.io](https://signpath.io/), with a
+certificate issued by the [SignPath Foundation](https://signpath.org/).
+
+- Committer and reviewer: [mr-dadong](https://github.com/mr-dadong)
+- Approver: [mr-dadong](https://github.com/mr-dadong)
+- 完整政策：[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
+- 隐私政策：[PRIVACY.md](PRIVACY.md)
 
 ## 目录
 

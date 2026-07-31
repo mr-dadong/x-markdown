@@ -18,6 +18,8 @@
     "preview": "electron-vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "changelog:new": "bun scripts/changelog.mjs new",
+    "changelog:sync": "bun scripts/changelog.mjs sync",
     "bun:dev": "bun run dev",
     "bun:build": "bun run build",
     "bun:preview": "bun run preview",
