@@ -35,7 +35,7 @@ Pages 部署时，该接口由仓库根目录的
 `worker/index.js` 提供。服务端会读取下面的 CNB 版本清单：
 
 ```text
-https://cnb.cool/X-2026/xmd-released/-/git/raw/main/version.json
+https://cnb.cool/X-2026/x-markdown/-/git/raw/main/changelogs/version.json
 ```
 
 安装包不会经过 Cloudflare 代理。页面会读取版本清单中的下载地址，让用户
