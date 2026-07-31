@@ -2,6 +2,75 @@
   "latest": "1.0.2",
   "releases": [
     {
+      "version": "1.0.3",
+      "date": "2026-07-31",
+      "channel": "stable",
+      "title": "优化多个基础功能",
+      "content": [
+        "支持拖动或复制文件到 Markdown 文档，并自动识别文件类型。",
+        "项目代码开源，并更新新版本下载地址接口。",
+        "新增退出保存选择，支持保存全部、放弃修改或取消退出。",
+        "新增未保存草稿自动恢复，降低异常退出造成的内容丢失。",
+        "新增文件夹工作区、目录刷新和文件变化自动监听。",
+        "增强标签页右键菜单，支持保存、另存为以及关闭左侧、右侧或已保存标签页。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.3-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.3/XMD-1.0.3-Windows-x64.exe"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.3-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.3/XMD-1.0.3-macOS-arm64.dmg"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.3-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.3/XMD-1.0.3-macOS-x64.dmg"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.3-Linux-x64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.3/XMD-1.0.3-Linux-x86_64.AppImage"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.3-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.3/XMD-1.0.3-Linux-arm64.AppImage"
+            }
+          ]
+        }
+      }
+    },
+    {
       "version": "1.0.2",
       "date": "2026-07-31",
       "channel": "stable",
