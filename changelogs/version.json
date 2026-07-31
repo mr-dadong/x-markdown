@@ -1,0 +1,180 @@
+{
+  "latest": "1.0.2",
+  "releases": [
+    {
+      "version": "1.0.2",
+      "date": "2026-07-31",
+      "channel": "stable",
+      "title": "优化多个基础功能",
+      "content": [
+        "新增内容块操作菜单，支持新增、上下移动、复制文本、生成副本和删除内容块。",
+        "新增表格快捷工具栏，支持增删行列、切换表头、合并或拆分单元格及删除表格。",
+        "优化超链接插入与编辑体验，支持打开、编辑、复制和取消链接，并限制为安全链接类型。",
+        "新增附件卡片，展示文件名称、类型和大小，并可使用系统默认应用打开。",
+        "新增附件处理设置，可选择引用原文件或复制到文档同级 assets 目录。",
+        "新增附件复制实时进度，复制失败时自动清理不完整文件。",
+        "支持将粘贴和选择的图片保存到 assets 目录，并改进本地图片预览。",
+        "优化附件和视频的 Markdown 兼容性，其他编辑器也可识别并打开对应文件。",
+        "优化本地视频加载，支持流式播放，并在媒体内容后自动保留可继续输入的段落。",
+        "新增未保存文档关闭确认，并在文件被其他程序修改时提示保存冲突，避免误覆盖内容。",
+        "支持网页链接使用系统浏览器打开、本地链接按当前文档目录安全访问。",
+        "优化富文本与源码模式切换，按文档记忆编辑模式并保持阅读位置。",
+        "增强扩展 Markdown 语法兼容性，无法识别的内容块可原样保留。",
+        "优化文件访问权限校验和异步读写，提升本地文件操作的安全性与稳定性。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.2-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Windows-x64.exe"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.2-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-macOS-arm64.dmg"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.2-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-macOS-x64.dmg"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.2-Linux-x64.AppImage",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Linux-x86_64.AppImage"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.2-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Linux-arm64.AppImage"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-07-29",
+      "channel": "stable",
+      "title": "优化代码块功能",
+      "content": [
+        "代码块支持 Tab 缩进，并支持 Shift+Tab 减少缩进。",
+        "代码块内使用 Ctrl+A 或 Cmd+A 时，仅选中当前代码块内容。",
+        "移除不稳定的语言自动识别，未指定语言时默认使用纯文本。",
+        "优化代码语言选择器，使下拉样式跟随代码块主题并简化选中标识。",
+        "斜杠命令支持使用中文全拼及拼音首字母搜索。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.1-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.1/XMD-1.0.1-Windows-x64.exe"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-07-28",
+      "channel": "stable",
+      "title": "XMD 全新版本发布",
+      "content": [
+        "实时渲染 Markdown，支持标题、列表、引用、代码块和表格等内容",
+        "斜杠命令面板（/ 快速插入）支持一键插入段落、标题、列表、引用、代码块、分割线和图片等元素",
+        "支持拖拽内容块重新排序，章节标题可一键折叠或展开",
+        "支持一键切换 Markdown 源码视图，方便直接编辑原始文本",
+        "支持代码块内自动换行与行号显示",
+        "支持同时编辑多个 Markdown 文件",
+        "支持未保存状态提醒，文档状态一目了然"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.0-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Windows-x64.exe"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.0-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-macOS-arm64.dmg"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.0-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-macOS-x64.dmg"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.0-Linux-x64.AppImage",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Linux-x86_64.AppImage"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.0-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Linux-arm64.AppImage"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
