@@ -9,6 +9,7 @@ pnpm-debug.log*
 dist/
 dist-ssr/
 *.local
+.wrangler
 
 # Electron Vite 构建输出
 out/

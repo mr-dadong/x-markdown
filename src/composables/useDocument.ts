@@ -14,7 +14,7 @@ import {
 } from "../utils/file";
 import { useConfirmDialog } from "./useConfirmDialog";
 import type { EditorHandle } from "../types/editor";
-import type { OpenFileData } from "../types/electron";
+import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
 
@@ -24,6 +24,7 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
   const activeDocumentId = ref<number | null>(null);
   const documentSaveQueues = new Map<number, Promise<void>>();
   let nextDocumentId = 1;
+  let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   const currentDocument = computed(
     () =>
@@ -58,6 +59,44 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     },
     { immediate: true, flush: "post" },
   );
+
+  // 只保存尚未落盘的内容；正常保存或主动放弃后，对应草稿会自动移除。
+  watch(
+    documents,
+    (currentDocuments) => {
+      if (draftSaveTimer) clearTimeout(draftSaveTimer);
+      draftSaveTimer = setTimeout(() => {
+        const drafts: RecoveryDraftData[] = currentDocuments
+          .filter((document) => document.isModified)
+          .map(({ filePath, content, savedContent, modifiedTime }) => ({
+            filePath,
+            content,
+            savedContent,
+            modifiedTime,
+          }));
+        void documentService.saveRecoveryDrafts(drafts);
+        draftSaveTimer = null;
+      }, 300);
+    },
+    { deep: true },
+  );
+
+  const restoreRecoveryDrafts = async (): Promise<void> => {
+    const drafts = await documentService.loadRecoveryDrafts();
+    drafts.forEach((draft) => {
+      const document: OpenDocument = {
+        id: nextDocumentId++,
+        filePath: draft.filePath,
+        content: draft.content,
+        savedContent: draft.savedContent,
+        modifiedTime: draft.modifiedTime,
+        isModified: true,
+      };
+      documents.value.push(document);
+    });
+    const lastDocument = documents.value.at(-1);
+    if (lastDocument) activateDocument(lastDocument.id);
+  };
 
   // 文件名统一在这里处理，标签栏和当前文档标题会保持一致。
   const getDocumentTitle = (document: OpenDocument | null): string =>
@@ -281,7 +320,7 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     document: OpenDocument,
     saveAs: boolean,
     force = false,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     // 保存期间仍可能继续输入，因此用本次实际写入的内容判断保存后是否还有改动。
     const savedContent = document.content;
     const result = await documentService.saveFile({
@@ -298,32 +337,96 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
         tone: "danger",
       });
       // 冲突确认期间用户可能切换标签，因此必须继续保存最初捕获的文档。
-      if (shouldOverwrite) await performDocumentSave(document, saveAs, true);
-      return;
+      if (shouldOverwrite) return performDocumentSave(document, saveAs, true);
+      return false;
     }
     if (!result.success) {
       if (result.error) {
         console.error("保存文件失败:", result.error);
         await documentService.showErrorMessage("无法保存文档", result.error);
       }
-      return;
+      return false;
     }
 
     document.filePath = result.filePath ?? null;
     document.savedContent = savedContent;
     document.modifiedTime = result.modifiedTime ?? document.modifiedTime;
     document.isModified = document.content !== document.savedContent;
+    return true;
   };
 
-  const saveFile = async (saveAs = false): Promise<void> => {
+  const closeDocumentsOnSide = async (
+    documentId: number,
+    side: "left" | "right",
+  ): Promise<void> => {
+    const currentIndex = documents.value.findIndex(
+      (document) => document.id === documentId,
+    );
+    if (currentIndex < 0) return;
+
+    const documentsToClose = documents.value.filter((_, index) =>
+      side === "left" ? index < currentIndex : index > currentIndex,
+    );
+    const modifiedCount = documentsToClose.filter(
+      (document) => document.isModified,
+    ).length;
+    if (modifiedCount > 0) {
+      const direction = side === "left" ? "左侧" : "右侧";
+      const shouldClose = await requestConfirmation({
+        title: `关闭${direction}标签页？`,
+        message: `${direction}标签页中有 ${modifiedCount} 个文档尚未保存，关闭后修改将无法恢复。`,
+        confirmLabel: `关闭${direction}标签页`,
+        tone: "danger",
+      });
+      if (!shouldClose) return;
+    }
+
+    const documentIdsToClose = new Set(
+      documentsToClose.map((document) => document.id),
+    );
+    documents.value = documents.value.filter(
+      (document) => !documentIdsToClose.has(document.id),
+    );
+    activateDocument(documentId);
+  };
+
+  const closeLeftDocuments = (documentId: number): Promise<void> =>
+    closeDocumentsOnSide(documentId, "left");
+
+  const closeRightDocuments = (documentId: number): Promise<void> =>
+    closeDocumentsOnSide(documentId, "right");
+
+  const closeSavedDocuments = (): void => {
+    const activeIndex = documents.value.findIndex(
+      (document) => document.id === activeDocumentId.value,
+    );
+    const activeDocumentWasSaved = currentDocument.value?.isModified === false;
+
+    // 只移除已经落盘的标签，未保存内容无需确认且始终保留。
+    documents.value = documents.value.filter((document) => document.isModified);
+    if (!activeDocumentWasSaved) return;
+
+    const nextDocument =
+      documents.value[activeIndex] ?? documents.value[documents.value.length - 1];
+    if (nextDocument) {
+      activateDocument(nextDocument.id);
+    } else {
+      activeDocumentId.value = null;
+    }
+  };
+
+  const saveFile = async (saveAs = false): Promise<boolean> => {
     const document = currentDocument.value;
-    if (!document) return;
+    if (!document) return false;
 
     // 同一文档的保存严格按触发顺序执行，避免多个写入互相覆盖或产生虚假冲突。
     const previousSave = documentSaveQueues.get(document.id) ?? Promise.resolve();
+    let saved = false;
     const queuedSave = previousSave
       .catch(() => undefined)
-      .then(() => performDocumentSave(document, saveAs));
+      .then(async () => {
+        saved = await performDocumentSave(document, saveAs);
+      });
     documentSaveQueues.set(document.id, queuedSave);
 
     try {
@@ -333,19 +436,31 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
         documentSaveQueues.delete(document.id);
       }
     }
+    return saved;
   };
 
   const handleWindowCloseRequest = async (): Promise<void> => {
     const modifiedDocuments = documents.value.filter((document) => document.isModified);
-    if (modifiedDocuments.length > 0) {
-      const shouldClose = await requestConfirmation({
-        title: "退出并放弃修改？",
-        message: `还有 ${modifiedDocuments.length} 个文档尚未保存。退出 XMD 后，这些修改将无法恢复。`,
-        confirmLabel: "仍要退出",
-        tone: "danger",
-      });
-      if (!shouldClose) return;
+    if (documents.value.length > 1 || modifiedDocuments.length > 0) {
+      const choice = await documentService.confirmExit(
+        documents.value.length,
+        modifiedDocuments.length,
+      );
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        // 顺序保存可以逐一为无标题文档选择位置；任何一次取消都会终止退出。
+        for (const document of modifiedDocuments) {
+          activateDocument(document.id);
+          const saved = await saveFile(false);
+          if (!saved || document.isModified) return;
+        }
+      }
     }
+    if (draftSaveTimer) {
+      clearTimeout(draftSaveTimer);
+      draftSaveTimer = null;
+    }
+    await documentService.saveRecoveryDrafts([]);
     documentService.confirmWindowClose();
   };
 
@@ -361,7 +476,8 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     void saveFile(event.shiftKey);
   };
 
-  onMounted(() => {
+  onMounted(async () => {
+    await restoreRecoveryDrafts();
     documentService.onNewFile(handleNewFile);
     // 主进程会连续发送多选文件，把同一轮事件合并后只激活最后一个文件。
     let pendingMenuFiles: OpenFileData[] = [];
@@ -388,6 +504,7 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
 
   onUnmounted(() => {
     if (documentStatsTimer) clearTimeout(documentStatsTimer);
+    if (draftSaveTimer) clearTimeout(draftSaveTimer);
     documentService.removeListeners(IPC_CHANNELS.menuNewFile);
     documentService.removeListeners(IPC_CHANNELS.menuOpenFile);
     documentService.removeListeners(IPC_CHANNELS.menuSaveFile);
@@ -408,6 +525,9 @@ export const useDocument = (editorRef: Ref<EditorHandle | null>) => {
     activateDocument,
     closeDocument,
     closeOtherDocuments,
+    closeLeftDocuments,
+    closeRightDocuments,
+    closeSavedDocuments,
     closeAllDocuments,
     getDocumentTitle,
     handleContentUpdate,

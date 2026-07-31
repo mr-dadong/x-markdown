@@ -38,27 +38,63 @@
       :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
       @contextmenu.prevent>
       <button type="button"
-        class="flex h-8 items-center rounded px-2.5 text-left hover:bg-control-hover"
-        @click="handleCloseCurrent">
-        关闭当前标签页
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected"
+        @click="handleSave">
+        <Icon icon="lucide:save" :size="14" class="shrink-0" />
+        <span class="flex-1">保存</span>
+        <span class="text-[10px] text-muted">Ctrl+S</span>
       </button>
       <button type="button"
-        class="flex h-8 items-center rounded px-2.5 text-left hover:bg-control-hover disabled:text-muted disabled:hover:bg-paper"
-        :disabled="documents.length <= 1" @click="handleCloseOthers">
-        关闭其他标签页
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected"
+        @click="handleSaveAs">
+        <Icon icon="lucide:copy-plus" :size="14" class="shrink-0" />
+        <span class="flex-1">另存为</span>
+        <span class="text-[10px] text-muted">Ctrl+Shift+S</span>
       </button>
       <div class="my-1 flex border-t border-line" />
       <button type="button"
-        class="flex h-8 items-center rounded px-2.5 text-left text-danger hover:bg-control-hover"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left hover:bg-control-hover"
+        @click="handleCloseCurrent">
+        <Icon icon="lucide:x" :size="14" class="shrink-0 text-secondary" />
+        <span>关闭当前标签页</span>
+      </button>
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
+        :disabled="documents.length <= 1" @click="handleCloseOthers">
+        <Icon icon="lucide:files" :size="14" class="shrink-0" />
+        <span>关闭其他标签页</span>
+      </button>
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
+        :disabled="!hasLeftDocuments" @click="handleCloseLeft">
+        <Icon icon="lucide:panel-left-open" :size="14" class="shrink-0" />
+        <span>关闭左侧标签页</span>
+      </button>
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
+        :disabled="!hasRightDocuments" @click="handleCloseRight">
+        <Icon icon="lucide:panel-right-open" :size="14" class="shrink-0" />
+        <span>关闭右侧标签页</span>
+      </button>
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected disabled:text-muted disabled:hover:bg-paper"
+        :disabled="!hasSavedDocuments" @click="handleCloseSaved">
+        <Icon icon="lucide:check" :size="14" class="shrink-0" />
+        <span>关闭已保存标签页</span>
+      </button>
+      <div class="my-1 flex border-t border-line" />
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-danger hover:bg-control-hover"
         @click="handleCloseAll">
-        关闭所有标签页
+        <Icon icon="lucide:trash-2" :size="14" class="shrink-0" />
+        <span>关闭所有标签页</span>
       </button>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { OpenDocument } from '../types'
 
@@ -74,7 +110,12 @@ const emit = defineEmits<{
   newFile: []
   reorder: [sourceDocumentId: number, targetDocumentId: number | null, placeAfter: boolean]
   closeOthers: [documentId: number]
+  closeLeft: [documentId: number]
+  closeRight: [documentId: number]
+  closeSaved: []
   closeAll: []
+  save: []
+  saveAs: []
 }>()
 
 const draggedDocumentId = ref<number | null>(null)
@@ -83,6 +124,14 @@ const dragOverPlaceAfter = ref(false)
 const barRef = ref<HTMLElement | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
 const contextMenu = ref<{ documentId: number; x: number; y: number } | null>(null)
+const contextDocumentIndex = computed(() => props.documents.findIndex(
+  (document) => document.id === contextMenu.value?.documentId,
+))
+const hasLeftDocuments = computed(() => contextDocumentIndex.value > 0)
+const hasRightDocuments = computed(() => (
+  contextDocumentIndex.value >= 0 && contextDocumentIndex.value < props.documents.length - 1
+))
+const hasSavedDocuments = computed(() => props.documents.some((document) => !document.isModified))
 
 watch(
   () => [props.activeDocumentId, props.documents.length] as const,
@@ -197,6 +246,34 @@ const handleCloseCurrent = (): void => {
 const handleCloseOthers = (): void => {
   if (!contextMenu.value || props.documents.length <= 1) return
   emit('closeOthers', contextMenu.value.documentId)
+  closeContextMenu()
+}
+
+const handleCloseLeft = (): void => {
+  if (!contextMenu.value || !hasLeftDocuments.value) return
+  emit('closeLeft', contextMenu.value.documentId)
+  closeContextMenu()
+}
+
+const handleCloseRight = (): void => {
+  if (!contextMenu.value || !hasRightDocuments.value) return
+  emit('closeRight', contextMenu.value.documentId)
+  closeContextMenu()
+}
+
+const handleCloseSaved = (): void => {
+  if (!hasSavedDocuments.value) return
+  emit('closeSaved')
+  closeContextMenu()
+}
+
+const handleSave = (): void => {
+  emit('save')
+  closeContextMenu()
+}
+
+const handleSaveAs = (): void => {
+  emit('saveAs')
   closeContextMenu()
 }
 

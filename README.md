@@ -1,225 +1,93 @@
-# Markdown Editor
+# XMD
 
-Markdown 编辑器，基于 Electron + Vue 3 + TipTap + TypeScript 构建。
+XMD 是一款基于 Electron、Vue 3、TipTap 和 TypeScript 构建的本地 Markdown 编辑器，提供所见即所得与源码两种编辑方式。
 
-## 功能特性
+官网：[https://www.x-markdown.com/](https://www.x-markdown.com/)
 
-- ✅ 所见即所得的 Markdown 编辑体验
-- ✅ 实时预览
-- ✅ 支持标准 Markdown 语法
-- ✅ 代码高亮
-- ✅ 表格支持
-- ✅ 图片插入
-- ✅ 快捷键支持
-- ✅ 文件操作（新建、打开、保存、另存为）
-- ✅ 跨平台支持（Windows、macOS、Linux）
+## 功能
 
-## 技术栈
+- 所见即所得和 Markdown 源码模式，可保留每个标签页的编辑模式
+- 多标签文档，新建、批量打开、保存、另存为和标签排序
+- 表格、任务列表、代码高亮、链接、图片、视频与附件
+- 独立文件夹工作区、按需展开目录和外部文件变化自动刷新
+- 文档大纲、行数/词数/字符数统计、浅色与深色主题
+- 磁盘修改冲突检测和原子写入，避免静默覆盖外部修改
+- 退出时保存全部、放弃修改或取消退出
+- 未保存草稿自动恢复；正常保存或明确放弃后自动清理
+- Windows、macOS、Linux 安装包和应用内更新检查
 
-- **桌面框架**：Electron
-- **前端框架**：Vue 3 + Composition API + TypeScript
-- **构建工具**：Vite + electron-vite
-- **编辑器**：TipTap（基于 ProseMirror）
-- **Markdown 解析**：markdown-it
+## 开发
 
-## 快速开始
+项目使用 Bun 1.3.14，版本与 CI 保持一致。
 
-### 使用 Bun（推荐）
-
-```bash
-# 安装依赖
-bun install
-
-# 开发模式
+```powershell
+bun install --frozen-lockfile
 bun run dev
+```
 
-# 构建生产版本
+常用检查命令：
+
+```powershell
+# 渲染进程类型检查
+bun run typecheck
+
+# Electron 主进程和 preload 类型检查
+bunx tsc --noEmit -p tsconfig.node.json
+
+# 只检查，不修改文件
+bun run lint
+
+# 自动修复可修复的 lint 问题
+bun run lint:fix
+
+# 生产构建
 bun run build
-
-# 预览生产版本
-bun run preview
 ```
 
-### 使用 npm
+## 使用
 
-```bash
-# 安装依赖
-npm install
-
-# 开发模式
-npm run dev
-
-# 构建生产版本
-npm run build
-
-# 预览生产版本
-npm run preview
-```
-
-## 项目结构
-
-```
-markdown-editor/
-├── electron/              # Electron 主进程
-│   ├── main.ts            # 主进程入口
-│   └── preload.ts         # 预加载脚本（contextBridge API）
-├── src/                   # Vue 应用源码
-│   ├── components/        # Vue 组件
-│   │   └── MarkdownEditor.vue  # TipTap 编辑器组件
-│   ├── utils/             # 工具函数
-│   │   └── file.ts        # 文件操作工具
-│   ├── App.vue            # 主应用组件
-│   ├── main.ts            # Vue 入口
-│   └── vite-env.d.ts      # TypeScript 类型声明
-├── index.html             # HTML 入口
-├── package.json           # 项目配置
-├── tsconfig.json          # TypeScript 根配置
-├── tsconfig.node.json     # TypeScript Node 配置（主进程）
-├── tsconfig.web.json      # TypeScript Web 配置（渲染进程）
-├── electron.vite.config.ts # Vite 配置
-├── bunfig.toml            # Bun 配置文件
-├── BUN.md                 # Bun 使用指南
-└── README.md              # 项目说明
-```
-
-## 使用说明
-
-### 基本操作
-
-1. **新建文件**：点击工具栏的 📄 按钮或使用 `Ctrl+N`
-2. **打开文件**：点击工具栏的 📂 按钮或使用 `Ctrl+O`
-3. **保存文件**：点击工具栏的 💾 按钮或使用 `Ctrl+S`
-4. **另存为**：点击工具栏的 📝 按钮或使用 `Ctrl+Shift+S`
-
-### Markdown 语法
-
-支持标准 Markdown 语法，包括：
-
-- **标题**：`# H1`、`## H2`、`### H3`
-- **粗体**：`**粗体**`
-- **斜体**：`*斜体*`
-- **删除线**：`~~删除线~~`
-- **代码**：`` `代码` ``
-- **代码块**：``` ```代码块``` ```
-- **链接**：`[链接](url)`
-- **图片**：`![图片](url)`
-- **列表**：`- 无序列表`、`1. 有序列表`
-- **引用**：`> 引用`
-- **表格**：使用 Markdown 表格语法
-- **分割线**：`---`
-
-### 快捷键
-
-- `Ctrl+N`：新建文件
-- `Ctrl+O`：打开文件
-- `Ctrl+S`：保存文件
+- `Ctrl+N`：新建文档
+- `Ctrl+O`：打开一个或多个文档
+- `Ctrl+S`：保存
 - `Ctrl+Shift+S`：另存为
-- `Ctrl+Z`：撤销
-- `Ctrl+Shift+Z`：重做
-- `Ctrl+X`：剪切
-- `Ctrl+C`：复制
-- `Ctrl+V`：粘贴
-- `Ctrl+A`：全选
-- `F12`：开发者工具
+- `Ctrl+B`：显示或隐藏侧栏
+- `Ctrl+,`：打开设置
 
-## 自定义配置
+侧栏中的“打开文件夹”用于建立独立工作区。工作区路径会保存在 Electron 用户数据目录，下次启动时自动恢复；工作区内新增、删除或重命名文件后，文件树会自动刷新。
 
-### 修改编辑器配置
+编辑中的未保存内容会写入 Electron 用户数据目录。应用异常退出后，下次启动会恢复这些标签页。正常保存、关闭并放弃或退出并放弃时，对应草稿会被清理。
 
-编辑 `src/components/MarkdownEditor.vue` 文件，可以：
-
-- 添加或移除 TipTap 扩展
-- 修改编辑器样式
-- 配置 Markdown 解析选项
-
-### 修改应用配置
-
-编辑 `electron/main.ts` 文件，可以：
-
-- 修改窗口大小和样式
-- 自定义菜单
-- 添加更多 IPC 通信
-
-## 构建 Windows 安装包
-
-Windows 安装包会注册传统资源管理器右键菜单，不需要 MSIX 或签名证书。在
-Windows 11 中，该菜单显示在“显示更多选项”内：
+## 构建安装包
 
 ```powershell
 bun run dist:win
+bun run dist:mac
+bun run dist:linux
 ```
 
-## 自动构建与发布
+构建产物写入 `release/`。Windows 使用 NSIS，macOS 使用 DMG，Linux 使用 AppImage。当前安装包未配置代码签名，操作系统可能显示未知发布者提示。
 
-项目使用 GitHub Actions 自动构建 Windows、macOS 和 Linux 安装包。工作流配置位于
-`.github/workflows/build.yml`。
+## 自动发布
 
-### 构建产物
-
-| 操作系统 | 架构 | 安装包 |
-| --- | --- | --- |
-| Windows | x64 | `.exe` |
-| macOS | x64、arm64 | `.dmg` |
-| Linux | x64、arm64 | `.AppImage` |
-
-### 手动构建
-
-打开 GitHub 仓库的 **Actions** 页面，选择“构建多平台安装包”，点击
-**Run workflow**。手动构建完成后，可以在运行详情页面的 **Artifacts** 区域下载安装包，
-但不会创建 GitHub Release。
-
-### 发布新版本
-
-发布前需要确保 `package.json` 中的 `version` 与 Git 标签版本一致。例如发布
-`v1.0.3`：
+`.github/workflows/build.yml` 支持手动构建，也会在推送 `v*` 标签时构建三个平台并创建 GitHub Release。发布前需保证 `package.json` 中的版本与标签一致：
 
 ```powershell
-# 修改 package.json 中的 version 后提交并推送主分支
-git add package.json
-git commit -m "发布 1.0.3"
-git push github main
-
-# 创建并推送版本标签
 git tag v1.0.3
 git push github v1.0.3
 ```
 
-标签推送后，GitHub Actions 会自动执行以下操作：
+## 目录
 
-1. 并行构建 Windows、macOS 和 Linux 安装包。
-2. 汇总所有平台的构建产物。
-3. 创建名为 `XMD v1.0.3` 的 GitHub Release。
-4. 根据提交记录自动生成发行说明。
-5. 将 `.exe`、`.dmg` 和 `.AppImage` 安装包上传到 Release。
-
-只有三个平台全部构建成功后才会创建 Release。当前安装包没有配置 Windows 和 macOS
-代码签名，系统可能显示未知发布者或无法验证开发者的安全提示。
-
-## 常见问题
-
-### Q: 如何添加更多 TipTap 扩展？
-
-A: 在 `src/components/MarkdownEditor.vue` 文件中：
-
-1. 安装扩展包：`npm install @tiptap/extension-xxx`
-2. 在 `extensions` 数组中添加扩展
-
-### Q: 如何修改主题？
-
-A: 编辑 `src/components/MarkdownEditor.vue` 文件中的 `<style>` 部分，修改 CSS 变量和样式。
-
-### Q: 如何添加侧边栏文件树？
-
-A: 需要：
-
-1. 创建文件树组件
-2. 使用 Electron 的 `dialog.showOpenDialog` 打开文件夹
-3. 读取文件夹结构并显示
-
-## 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
+```text
+electron/   Electron 主进程、preload、IPC 与路径权限
+src/        Vue 界面、编辑器扩展、组合式状态和服务
+functions/  Cloudflare Pages Functions
+worker/     Cloudflare Worker
+site/       项目发布站点
+build/      安装包资源
+changelogs/ 应用更新清单与版本说明
+```
 
 ## 许可证
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 开源协议。
+[GNU General Public License v3.0](LICENSE)

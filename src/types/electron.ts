@@ -75,6 +75,13 @@ export interface ReadFileResult {
   error?: string;
 }
 
+export interface RecoveryDraftData {
+  filePath: string | null;
+  content: string;
+  savedContent: string;
+  modifiedTime: number | null;
+}
+
 export interface ElectronAPI {
   openFile: () => Promise<OpenFileData[] | null>;
   getUpdateLogs: () => Promise<UpdateLogsResult>;
@@ -93,6 +100,17 @@ export interface ElectronAPI {
   onMenuSaveAsFile: (callback: () => void) => void;
   removeAllListeners: (channel: IpcChannel) => void;
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>;
+  selectWorkspace: () => Promise<string | null>;
+  getWorkspace: () => Promise<string | null>;
+  watchWorkspace: (directoryPath: string) => Promise<void>;
+  unwatchWorkspace: () => Promise<void>;
+  onWorkspaceChanged: (callback: () => void) => () => void;
+  confirmExit: (
+    openCount: number,
+    modifiedCount: number,
+  ) => Promise<"save" | "discard" | "cancel">;
+  loadRecoveryDrafts: () => Promise<RecoveryDraftData[]>;
+  saveRecoveryDrafts: (drafts: RecoveryDraftData[]) => Promise<void>;
   readFile: (filePath: string) => Promise<ReadFileResult>;
   getDirectoryName: (filePath: string) => Promise<string>;
   selectEditorFile: (

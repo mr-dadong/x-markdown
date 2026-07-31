@@ -9,6 +9,11 @@ export const documentService = {
   showErrorMessage: (title: string, message: string) =>
     window.electronAPI.showErrorMessage(title, message),
   confirmWindowClose: () => window.electronAPI.confirmWindowClose(),
+  confirmExit: (openCount: number, modifiedCount: number) =>
+    window.electronAPI.confirmExit(openCount, modifiedCount),
+  loadRecoveryDrafts: () => window.electronAPI.loadRecoveryDrafts(),
+  saveRecoveryDrafts: (drafts: import("../types/electron").RecoveryDraftData[]) =>
+    window.electronAPI.saveRecoveryDrafts(drafts),
   notifyRendererReady: () => window.electronAPI.notifyRendererReady(),
   onNewFile: (callback: () => void) =>
     window.electronAPI.onMenuNewFile(callback),

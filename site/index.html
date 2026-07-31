@@ -9,7 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="assets/css/style.css" />
+<!-- 更新版本号可避免浏览器继续使用旧的首页样式缓存 -->
+<link rel="stylesheet" href="assets/css/style.css?v=20260731-6" />
 </head>
 <body>
 
@@ -56,6 +57,7 @@
     <!-- 应用窗口模拟 -->
     <div class="hero__visual reveal">
       <div class="hero-showcase">
+      <div class="hero-stage">
       <div class="window window--hero">
         <div class="win__titlebar">
           <span class="win__logo"><svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg></span>
@@ -93,13 +95,18 @@
               <div class="win__doc-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="tab-name">周报.md</span><span class="tab-mod"></span></div>
             </div>
             <div class="win__editor">
+              <div class="hero-doc-meta">
+                <span>2026.07.31</span>
+                <span>专注模式</span>
+              </div>
               <h1>晨间笔记</h1>
-              <p>今天要做三件事，按顺序来。</p>
-              <ul>
-                <li>写完接口文档的请求与响应部分</li>
-                <li>给 <code>parseHeadings</code> 补一条边界测试</li>
-                <li>把会议纪要归档到 <code>notes/</code></li>
-              </ul>
+              <p class="hero-doc-intro">把今天真正重要的事情写下来，然后一件件完成。</p>
+              <div class="hero-task-list">
+                <div class="hero-task is-done"><span class="hero-check">✓</span><span>整理新版产品文档结构</span></div>
+                <div class="hero-task"><span class="hero-check"></span><span>完成接口文档的请求与响应</span></div>
+                <div class="hero-task"><span class="hero-check"></span><span>给 <code>parseHeadings</code> 补充边界测试</span></div>
+              </div>
+              <blockquote>写作不应该被工具打断。</blockquote>
             </div>
           </div>
         </div>
@@ -116,6 +123,7 @@
             <span>6,820 字符</span>
           </div>
         </div>
+      </div>
       </div>
       </div>
     </div>

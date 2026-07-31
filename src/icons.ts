@@ -61,6 +61,7 @@ import arrowDownIcon from '@iconify-icons/lucide/arrow-down'
 import copyPlusIcon from '@iconify-icons/lucide/copy-plus'
 import alertTriangleIcon from '@iconify-icons/lucide/alert-triangle'
 import fileWarningIcon from '@iconify-icons/lucide/file-warning'
+import saveIcon from '@iconify-icons/lucide/save'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -131,6 +132,7 @@ addIcon('lucide:arrow-down', arrowDownIcon)
 addIcon('lucide:copy-plus', copyPlusIcon)
 addIcon('lucide:alert-triangle', alertTriangleIcon)
 addIcon('lucide:file-warning', fileWarningIcon)
+addIcon('lucide:save', saveIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

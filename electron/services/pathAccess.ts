@@ -16,6 +16,11 @@ export function authorizeDocument(filePath: string): void {
   authorizedDirectoryRoots.add(normalizeFilePath(path.dirname(filePath)));
 }
 
+// 用户明确选择工作区后，授权该目录及其子目录供文件树按需读取。
+export function authorizeDirectory(directoryPath: string): void {
+  authorizedDirectoryRoots.add(normalizeFilePath(directoryPath));
+}
+
 // 用户通过文件选择器选择的单个文件也可以被后续操作访问。
 export function authorizeFile(filePath: string): void {
   authorizedFiles.add(normalizeFilePath(filePath));

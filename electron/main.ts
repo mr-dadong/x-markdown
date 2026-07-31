@@ -14,9 +14,11 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { Readable } from "stream";
+import chokidar, { type FSWatcher } from "chokidar";
 import { fileURLToPath, pathToFileURL } from "url";
 import {
   assertAuthorizedPath,
+  authorizeDirectory,
   authorizeDocument,
   authorizeFile,
 } from "./services/pathAccess";
@@ -27,6 +29,7 @@ import type { AttachmentCopyProgress } from "../src/types/electron";
 let mainWindow: BrowserWindow | null = null;
 let rendererReady = false;
 let closeApproved = false;
+let workspaceWatcher: FSWatcher | null = null;
 const pendingFilePaths: string[] = [];
 const supportedFileExtensions = new Set([".md", ".markdown", ".txt"]);
 const updateManifestUrl =
@@ -685,6 +688,74 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
   );
 });
 
+ipcMain.handle(IPC_CHANNELS.confirmExit, async (
+  _event,
+  { openCount, modifiedCount }: { openCount: number; modifiedCount: number },
+) => {
+  if (!mainWindow) return "cancel";
+  if (modifiedCount === 0) {
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "关闭 XMD？",
+      message: `当前打开了 ${openCount} 个文档。`,
+      detail: "确认关闭全部标签页并退出程序吗？",
+      buttons: ["关闭并退出", "取消"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+    return result.response === 0 ? "discard" : "cancel";
+  }
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "保存修改后退出？",
+    message: `还有 ${modifiedCount} 个文档尚未保存。`,
+    detail: "可以先保存全部文档，也可以放弃这些修改。",
+    buttons: ["保存全部并退出", "放弃修改", "取消"],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+  });
+  return (["save", "discard", "cancel"] as const)[result.response] ?? "cancel";
+});
+
+ipcMain.handle(IPC_CHANNELS.loadRecoveryDrafts, async () => {
+  const draftPath = path.join(app.getPath("userData"), "recovery-drafts.json");
+  try {
+    const drafts = JSON.parse(await fs.promises.readFile(draftPath, "utf-8")) as Array<{
+      filePath: string | null;
+      content: string;
+      savedContent: string;
+      modifiedTime: number | null;
+    }>;
+    drafts.forEach((draft) => {
+      if (draft.filePath) authorizeDocument(draft.filePath);
+    });
+    return drafts;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.saveRecoveryDrafts, async (_event, drafts: Array<{
+  filePath: string | null;
+  content: string;
+  savedContent: string;
+  modifiedTime: number | null;
+}>) => {
+  // 仅持久化用户已经通过文件对话框授权过的路径，未命名草稿不包含路径。
+  drafts.forEach((draft) => {
+    if (draft.filePath) assertAuthorizedPath(draft.filePath);
+  });
+  const draftPath = path.join(app.getPath("userData"), "recovery-drafts.json");
+  if (drafts.length === 0) {
+    await fs.promises.rm(draftPath, { force: true });
+    return;
+  }
+  await writeTextFileAtomically(draftPath, JSON.stringify(drafts));
+});
+
 // 更新日志直接使用版本清单中的 releases，客户端只需维护一个远程数据源。
 ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
   try {
@@ -696,6 +767,57 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
 });
 
 // 文件系统 API
+ipcMain.handle(IPC_CHANNELS.selectWorkspace, async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const directoryPath = result.filePaths[0];
+  // 工作区内的文件会由侧栏按需读取，因此选择目录后授权整个目录树。
+  authorizeDirectory(directoryPath);
+  await fs.promises.writeFile(
+    path.join(app.getPath("userData"), "workspace.txt"),
+    directoryPath,
+    "utf-8",
+  );
+  return directoryPath;
+});
+
+ipcMain.handle(IPC_CHANNELS.getWorkspace, async () => {
+  const statePath = path.join(app.getPath("userData"), "workspace.txt");
+  try {
+    const directoryPath = (await fs.promises.readFile(statePath, "utf-8")).trim();
+    const stats = await fs.promises.stat(directoryPath);
+    if (!stats.isDirectory()) return null;
+    authorizeDirectory(directoryPath);
+    return directoryPath;
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.watchWorkspace, async (_event, directoryPath: string) => {
+  const authorizedPath = assertAuthorizedPath(directoryPath);
+  await workspaceWatcher?.close();
+  workspaceWatcher = chokidar.watch(authorizedPath, {
+    ignoreInitial: true,
+    ignored: /(^|[/\\])\../,
+    awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 80 },
+  });
+  let notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  workspaceWatcher.on("all", () => {
+    if (notifyTimer) clearTimeout(notifyTimer);
+    notifyTimer = setTimeout(() => {
+      mainWindow?.webContents.send(IPC_CHANNELS.workspaceChanged);
+      notifyTimer = null;
+    }, 120);
+  });
+});
+
+ipcMain.handle(IPC_CHANNELS.unwatchWorkspace, async () => {
+  await workspaceWatcher?.close();
+  workspaceWatcher = null;
+});
+
 ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, dirPath: string) => {
   try {
     const authorizedPath = assertAuthorizedPath(dirPath);
@@ -716,7 +838,7 @@ ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, dirPath: string) => {
         return a.name.localeCompare(b.name);
       });
     return result;
-  } catch (error) {
+  } catch {
     return [];
   }
 });

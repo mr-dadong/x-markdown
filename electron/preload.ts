@@ -6,6 +6,7 @@ import type {
   ImportEditorFileOptions,
   IpcChannel,
   OpenFileData,
+  RecoveryDraftData,
   SaveFileData,
   SaveFileResult,
   SelectEditorFileOptions,
@@ -80,6 +81,29 @@ const electronAPI: ElectronAPI = {
   readDirectory: (dirPath: string): Promise<{ name: string; isDirectory: boolean; path: string }[]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.readDirectory, dirPath)
   },
+
+  selectWorkspace: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.selectWorkspace),
+  getWorkspace: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.getWorkspace),
+
+  watchWorkspace: (directoryPath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.watchWorkspace, directoryPath),
+
+  unwatchWorkspace: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.unwatchWorkspace),
+
+  onWorkspaceChanged: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on(IPC_CHANNELS.workspaceChanged, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.workspaceChanged, listener)
+  },
+
+  confirmExit: (openCount: number, modifiedCount: number): Promise<'save' | 'discard' | 'cancel'> =>
+    ipcRenderer.invoke(IPC_CHANNELS.confirmExit, { openCount, modifiedCount }),
+
+  loadRecoveryDrafts: (): Promise<RecoveryDraftData[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.loadRecoveryDrafts),
+
+  saveRecoveryDrafts: (drafts: RecoveryDraftData[]): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.saveRecoveryDrafts, drafts),
 
   readFile: (filePath: string): Promise<{ success: boolean; content?: string; modifiedTime?: number; error?: string }> => {
     return ipcRenderer.invoke(IPC_CHANNELS.readFile, filePath)

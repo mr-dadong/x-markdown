@@ -19,6 +19,20 @@
         </div>
       </div>
 
+      <div class="flex items-center gap-2">
+        <button type="button"
+          class="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-line bg-paper px-2 text-[11px] font-medium text-secondary hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+          @click="selectWorkspace">
+          <Icon icon="lucide:folder-open" :size="14" />
+          <span>{{ currentDir ? '更换文件夹' : '打开文件夹' }}</span>
+        </button>
+        <button v-if="currentDir" type="button" title="刷新工作区"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-paper text-muted hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+          @click="loadFiles">
+          <Icon icon="lucide:refresh-cw" :size="14" />
+        </button>
+      </div>
+
       <div class="flex h-8 items-center rounded-md bg-toolbar p-0.5">
         <button v-for="tab in tabs" :key="tab.id" type="button"
           class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
@@ -47,7 +61,7 @@
               <Icon icon="lucide:folder-open" :size="19" />
             </div>
             <p class="text-[13px] font-medium text-secondary">尚未打开项目</p>
-            <p class="text-[11px] leading-5 text-muted">打开一个 Markdown 文档后，这里会显示同级文件。</p>
+            <p class="text-[11px] leading-5 text-muted">选择一个文件夹，在独立工作区中浏览 Markdown 文档。</p>
           </div>
 
           <div v-else-if="files.length === 0"
@@ -102,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import FileTreeItem from './FileTreeItem.vue'
 import type { FileItem, Heading, SidebarTab } from '../types'
@@ -125,6 +139,8 @@ const currentDir = ref<string | null>(null)
 const files = ref<FileItem[]>([])
 const headings = ref<Heading[]>([])
 let headingParseTimer: ReturnType<typeof setTimeout> | null = null
+let workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let stopWorkspaceListener: (() => void) | null = null
 
 const tabs = SIDEBAR_CONFIG.tabs
 
@@ -134,21 +150,37 @@ const directoryCount = computed(() => files.value.filter((file) => file.isDirect
 const documentCount = computed(() => files.value.length - directoryCount.value)
 
 const loadFiles = async (): Promise<void> => {
-  if (!props.currentFilePath) {
-    currentDir.value = null
+  if (!currentDir.value) {
     files.value = []
     return
   }
 
   try {
-    const dirPath = await fileSystemService.getDirectoryName(props.currentFilePath)
-    currentDir.value = dirPath
-    const items = await fileSystemService.readDirectory(dirPath)
+    const items = await fileSystemService.readDirectory(currentDir.value)
     files.value = items.filter((item) => item.isDirectory || isMarkdownFile(item.name))
   } catch (error) {
     console.error('读取目录失败:', error)
     files.value = []
   }
+}
+
+const openWorkspace = async (directoryPath: string): Promise<void> => {
+  currentDir.value = directoryPath
+  await fileSystemService.watchWorkspace(directoryPath)
+  await loadFiles()
+}
+
+const selectWorkspace = async (): Promise<void> => {
+  const directoryPath = await fileSystemService.selectWorkspace()
+  if (directoryPath) await openWorkspace(directoryPath)
+}
+
+const scheduleWorkspaceRefresh = (): void => {
+  if (workspaceRefreshTimer) clearTimeout(workspaceRefreshTimer)
+  workspaceRefreshTimer = setTimeout(() => {
+    void loadFiles()
+    workspaceRefreshTimer = null
+  }, 180)
 }
 
 const toggleFolder = async (folder: FileItem): Promise<void> => {
@@ -233,10 +265,34 @@ watch(
   },
   { immediate: true, flush: 'post' },
 )
-watch(() => props.currentFilePath, loadFiles, { immediate: true })
+onMounted(async () => {
+  stopWorkspaceListener = fileSystemService.onWorkspaceChanged(scheduleWorkspaceRefresh)
+  const savedWorkspace = await fileSystemService.getWorkspace()
+  if (savedWorkspace) {
+    try {
+      await openWorkspace(savedWorkspace)
+      return
+    } catch (error) {
+      console.error('恢复工作区失败:', error)
+    }
+  }
+  if (props.currentFilePath) {
+    const directoryPath = await fileSystemService.getDirectoryName(props.currentFilePath)
+    await openWorkspace(directoryPath)
+  }
+})
+
+watch(() => props.currentFilePath, async (filePath) => {
+  if (currentDir.value || !filePath) return
+  const directoryPath = await fileSystemService.getDirectoryName(filePath)
+  await openWorkspace(directoryPath)
+})
 
 onUnmounted(() => {
   if (headingParseTimer) clearTimeout(headingParseTimer)
+  if (workspaceRefreshTimer) clearTimeout(workspaceRefreshTimer)
+  stopWorkspaceListener?.()
+  void fileSystemService.unwatchWorkspace()
 })
 </script>
 

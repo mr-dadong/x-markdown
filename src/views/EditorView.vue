@@ -11,7 +11,10 @@
                 <DocumentBar v-if="isDocumentOpen" :documents="documents" :active-document-id="activeDocumentId"
                     :get-document-title="getDocumentTitle" @activate="activateDocument" @close="closeDocument"
                     @new-file="handleNewFile" @reorder="reorderDocument"
-                    @close-others="closeOtherDocuments" @close-all="closeAllDocuments" />
+                    @close-others="closeOtherDocuments" @close-left="closeLeftDocuments"
+                    @close-right="closeRightDocuments" @close-all="closeAllDocuments"
+                    @close-saved="closeSavedDocuments"
+                    @save="saveFile()" @save-as="saveFile(true)" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath"
                     v-show="!isSourceMode" @update:content="handleContentUpdate" />
@@ -93,6 +96,9 @@ const {
     activateDocument,
     closeDocument,
     closeOtherDocuments,
+    closeLeftDocuments,
+    closeRightDocuments,
+    closeSavedDocuments,
     closeAllDocuments,
     getDocumentTitle,
     handleContentUpdate,
@@ -100,6 +106,7 @@ const {
     reorderDocument,
     handleOpenFile,
     handleOpenFileFromSidebar,
+    saveFile,
 } = useDocument(editorRef)
 
 const toggleSidebar = (): void => {

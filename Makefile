@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev typecheck build preview dist-all dist-win dist-mac dist-mac-x64 dist-mac-arm64 dist-linux dist-linux-x64 dist-linux-arm64
+.PHONY: help install dev typecheck build preview site deploy dist-all dist-win dist-mac dist-mac-x64 dist-mac-arm64 dist-linux dist-linux-x64 dist-linux-arm64
 
 # 展示项目中常用的开发和打包命令。
 help:
@@ -10,6 +10,8 @@ help:
 	@echo   make typecheck  检查前端与 Electron 主进程类型
 	@echo   make build      执行类型检查并生成生产构建
 	@echo   make preview    预览生产构建
+	@echo   make site       在本地启动网站开发服务
+	@echo   make deploy     部署网站到 xmd-site 项目
 	@echo   make dist-all   依次生成 Windows、macOS 双架构和 Linux 双架构安装包
 	@echo   make dist-win   生成 Windows 安装包
 	@echo   make dist-mac         生成 macOS x64 和 arm64 DMG 安装包（需要在 macOS 执行）
@@ -35,6 +37,14 @@ build: typecheck
 
 preview:
 	bun run preview
+
+# 使用 site 目录中的静态文件启动 Cloudflare Pages 本地开发服务。
+site:
+	npx wrangler pages dev site
+
+# 将 site 目录部署到 Cloudflare Pages 的 xmd-site 项目。
+deploy:
+	npx wrangler pages deploy site --project-name xmd-site
 
 # 依次打包所有平台；执行环境需要具备各平台对应的打包及签名工具。
 dist-all: dist-win dist-mac dist-linux
