@@ -162,11 +162,53 @@ jobs:
       contents: write
 
     steps:
+      - name: 下载仓库代码
+        uses: actions/checkout@v4
+
       - name: 下载所有平台安装包
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: 生成发行说明
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # 标签 v1.0.4 对应 changelogs/v1.0.4.json。
+          CHANGELOG_FILE="changelogs/$RELEASE_TAG.json"
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+
+          if [[ ! -f "$CHANGELOG_FILE" ]]; then
+            echo "::error::缺少版本记录文件 $CHANGELOG_FILE"
+            exit 1
+          fi
+
+          # 精确查找当前版本，文件存在但版本字段错误时也停止发布。
+          if ! RELEASE_DATA="$(jq -ec \
+            --arg version "$RELEASE_VERSION" \
+            '.releases[] | select(.version == $version)' \
+            "$CHANGELOG_FILE")"; then
+            echo "::error::$CHANGELOG_FILE 中不存在版本 $RELEASE_VERSION"
+            exit 1
+          fi
+
+          RELEASE_TITLE="$(jq -r \
+            --arg tag "$RELEASE_TAG" \
+            '"XMD \($tag) - \(.title)"' \
+            <<< "$RELEASE_DATA")"
+
+          # 将 JSON 中的发布日期和更新内容转换为 Release 使用的 Markdown。
+          jq -r '
+            "## " + .title + "\n\n" +
+            "**发布日期：** " + .date + "\n\n" +
+            (.content | map("- " + .) | join("\n"))
+          ' <<< "$RELEASE_DATA" > release-notes.md
+
+          printf '%s' "$RELEASE_TITLE" > release-title.txt
 
       - name: 创建 Release 并上传安装包
         env:
@@ -174,5 +216,89 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" artifacts/* \
             --repo "${{ github.repository }}" \
-            --title "XMD ${{ github.ref_name }}" \
-            --generate-notes
+            --title "$(cat release-title.txt)" \
+            --notes-file release-notes.md
+
+      - name: 同步 Release 到 CNB
+        shell: bash
+        env:
+          # CNB 访问令牌需要具有目标仓库的 repo-release 读写权限。
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          CNB_REPO: X-2026/x-markdown
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # 未配置令牌时立即给出明确错误，避免发送无效的 CNB API 请求。
+          if [[ -z "$CNB_TOKEN" ]]; then
+            echo "::error::请先在 GitHub Actions Secrets 中配置 CNB_TOKEN"
+            exit 1
+          fi
+
+          # 使用同一份标题和发行说明，确保 GitHub 与 CNB 内容一致。
+          RELEASE_TITLE="$(cat release-title.txt)"
+          RELEASE_BODY="$(cat release-notes.md)"
+
+          RELEASE_REQUEST="$(jq -n \
+            --arg tag "$RELEASE_TAG" \
+            --arg name "$RELEASE_TITLE" \
+            --arg body "$RELEASE_BODY" \
+            '{
+              tag_name: $tag,
+              target_commitish: "main",
+              name: $name,
+              body: $body,
+              draft: false,
+              prerelease: false,
+              make_latest: "true"
+            }')"
+
+          # 在 CNB 创建同名 Release，并取得后续上传附件所需的版本 ID。
+          CNB_RELEASE="$(curl --fail-with-body \
+            --request POST \
+            --header "Authorization: Bearer $CNB_TOKEN" \
+            --header "Accept: application/vnd.cnb.api+json" \
+            --header "Content-Type: application/json" \
+            --data "$RELEASE_REQUEST" \
+            "https://api.cnb.cool/$CNB_REPO/-/releases")"
+
+          RELEASE_ID="$(jq -er '.id' <<< "$CNB_RELEASE")"
+
+          # CNB 附件上传分为申请地址、上传文件和确认上传三个步骤。
+          for FILE_PATH in artifacts/*; do
+            FILE_NAME="$(basename "$FILE_PATH")"
+            FILE_SIZE="$(stat --format='%s' "$FILE_PATH")"
+
+            UPLOAD_REQUEST="$(jq -n \
+              --arg name "$FILE_NAME" \
+              --argjson size "$FILE_SIZE" \
+              '{
+                asset_name: $name,
+                size: $size,
+                overwrite: true,
+                ttl: 0
+              }')"
+
+            UPLOAD_INFO="$(curl --fail-with-body \
+              --request POST \
+              --header "Authorization: Bearer $CNB_TOKEN" \
+              --header "Accept: application/vnd.cnb.api+json" \
+              --header "Content-Type: application/json" \
+              --data "$UPLOAD_REQUEST" \
+              "https://api.cnb.cool/$CNB_REPO/-/releases/$RELEASE_ID/asset-upload-url")"
+
+            UPLOAD_URL="$(jq -er '.upload_url' <<< "$UPLOAD_INFO")"
+            VERIFY_URL="$(jq -er '.verify_url' <<< "$UPLOAD_INFO")"
+
+            curl --fail-with-body \
+              --request PUT \
+              --upload-file "$FILE_PATH" \
+              "$UPLOAD_URL"
+
+            curl --fail-with-body \
+              --request POST \
+              --get \
+              --data-urlencode "ttl=0" \
+              --header "Authorization: Bearer $CNB_TOKEN" \
+              "$VERIFY_URL"
+          done
