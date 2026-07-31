@@ -32,7 +32,7 @@
               "format": "exe",
               "installer": "NSIS",
               "filename": "XMD-1.0.2-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Windows-x64.exe"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.2/XMD-1.0.2-Windows-x64.exe"
             }
           ]
         },
@@ -45,14 +45,14 @@
               "format": "dmg",
               "installer": "DMG",
               "filename": "XMD-1.0.2-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-macOS-arm64.dmg"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.2/XMD-1.0.2-macOS-arm64.dmg"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
               "filename": "XMD-1.0.2-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-macOS-x64.dmg"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.2/XMD-1.0.2-macOS-x64.dmg"
             }
           ]
         },
@@ -65,14 +65,14 @@
               "format": "AppImage",
               "installer": "AppImage",
               "filename": "XMD-1.0.2-Linux-x64.AppImage",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Linux-x86_64.AppImage"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.2/XMD-1.0.2-Linux-x86_64.AppImage"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
               "filename": "XMD-1.0.2-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Linux-arm64.AppImage"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.2/XMD-1.0.2-Linux-arm64.AppImage"
             }
           ]
         }
@@ -100,7 +100,7 @@
               "format": "exe",
               "installer": "NSIS",
               "filename": "XMD-1.0.1-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.1/XMD-1.0.1-Windows-x64.exe"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.1/XMD-1.0.1-Windows-x64.exe"
             }
           ]
         }
@@ -130,7 +130,7 @@
               "format": "exe",
               "installer": "NSIS",
               "filename": "XMD-1.0.0-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Windows-x64.exe"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.0/XMD-1.0.0-Windows-x64.exe"
             }
           ]
         },
@@ -143,14 +143,14 @@
               "format": "dmg",
               "installer": "DMG",
               "filename": "XMD-1.0.0-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-macOS-arm64.dmg"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.0/XMD-1.0.0-macOS-arm64.dmg"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
               "filename": "XMD-1.0.0-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-macOS-x64.dmg"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.0/XMD-1.0.0-macOS-x64.dmg"
             }
           ]
         },
@@ -163,14 +163,14 @@
               "format": "AppImage",
               "installer": "AppImage",
               "filename": "XMD-1.0.0-Linux-x64.AppImage",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Linux-x86_64.AppImage"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.0/XMD-1.0.0-Linux-x86_64.AppImage"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
               "filename": "XMD-1.0.0-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.0/XMD-1.0.0-Linux-arm64.AppImage"
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.0/XMD-1.0.0-Linux-arm64.AppImage"
             }
           ]
         }
