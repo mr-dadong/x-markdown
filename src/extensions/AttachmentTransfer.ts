@@ -15,6 +15,7 @@ export const AttachmentTransfer = Node.create({
       fileName: { default: '正在准备文件' },
       copiedBytes: { default: 0 },
       totalBytes: { default: 0 },
+      bytesPerSecond: { default: 0 },
       status: { default: 'copying' },
       error: { default: '' },
     }

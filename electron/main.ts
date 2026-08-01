@@ -1,11 +1,13 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   Menu,
   dialog,
   ipcMain,
   MenuItemConstructorOptions,
   net,
+  nativeImage,
   protocol,
   session,
   shell,
@@ -1013,6 +1015,8 @@ async function copyAttachmentWithProgress(
   const sourceStats = await fs.promises.stat(sourcePath);
   let copiedBytes = 0;
   let lastReportedAt = 0;
+  let bytesPerSecond = 0;
+  const copyStartedAt = Date.now();
 
   const reportProgress = (
     status: AttachmentCopyProgress["status"],
@@ -1023,6 +1027,7 @@ async function copyAttachmentWithProgress(
       fileName: path.basename(sourcePath),
       copiedBytes,
       totalBytes: sourceStats.size,
+      bytesPerSecond,
       status,
       error,
     } satisfies AttachmentCopyProgress);
@@ -1047,6 +1052,9 @@ async function copyAttachmentWithProgress(
       copiedBytes += chunk.length;
       const now = Date.now();
       if (now - lastReportedAt >= 80 || copiedBytes === sourceStats.size) {
+        // 使用累计字节和累计耗时计算平均速率，首个数据块后即可得到稳定的非零结果。
+        const elapsedMilliseconds = Math.max(now - copyStartedAt, 1);
+        bytesPerSecond = (copiedBytes * 1000) / elapsedMilliseconds;
         lastReportedAt = now;
         reportProgress("copying");
       }
@@ -1434,6 +1442,52 @@ ipcMain.handle(
     return readEditorImageDataUrl(
       resolveEditorFilePath(url, currentDocumentPath),
     );
+  },
+);
+
+ipcMain.handle(
+  IPC_CHANNELS.editorFileExists,
+  async (
+    _event,
+    {
+      url,
+      currentDocumentPath,
+    }: { url: string; currentDocumentPath: string | null },
+  ) => {
+    const filePath = resolveEditorFilePath(url, currentDocumentPath);
+    return fs.promises
+      .stat(filePath)
+      .then((stats) => stats.isFile())
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      });
+  },
+);
+
+ipcMain.handle(
+  IPC_CHANNELS.copyEditorImage,
+  async (
+    _event,
+    {
+      url,
+      currentDocumentPath,
+    }: { url: string; currentDocumentPath: string | null },
+  ) => {
+    // 系统剪贴板需要真实位图，不能只写入 Markdown 中的相对图片地址。
+    let image;
+    if (/^https?:/i.test(url)) {
+      const response = await net.fetch(url);
+      if (!response.ok) throw new Error(`下载图片失败：${response.status}`);
+      image = nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
+    } else if (/^data:/i.test(url)) {
+      image = nativeImage.createFromDataURL(url);
+    } else {
+      image = nativeImage.createFromPath(resolveEditorFilePath(url, currentDocumentPath));
+    }
+
+    if (image.isEmpty()) throw new Error("无法读取选中的图片");
+    clipboard.writeImage(image);
   },
 );
 

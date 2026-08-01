@@ -58,6 +58,7 @@ export interface AttachmentCopyProgress {
   fileName: string;
   copiedBytes: number;
   totalBytes: number;
+  bytesPerSecond: number;
   status: "copying" | "completed" | "failed";
   error?: string;
 }
@@ -134,6 +135,10 @@ export interface ElectronAPI {
     url: string,
     currentDocumentPath: string | null,
   ) => Promise<string>;
+  copyEditorImage: (
+    url: string,
+    currentDocumentPath: string | null,
+  ) => Promise<void>;
   resolveEditorVideo: (
     url: string,
     currentDocumentPath: string | null,
@@ -142,6 +147,10 @@ export interface ElectronAPI {
     url: string,
     currentDocumentPath: string | null,
   ) => Promise<string>;
+  editorFileExists: (
+    url: string,
+    currentDocumentPath: string | null,
+  ) => Promise<boolean>;
   openLocalLink: (
     url: string,
     currentDocumentPath: string | null,

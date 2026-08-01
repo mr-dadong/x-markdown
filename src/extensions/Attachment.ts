@@ -14,6 +14,10 @@ interface AttachmentMarkdownMetadata {
   fileType: string;
 }
 
+interface AttachmentOptions {
+  getCurrentDocumentPath: () => string | null;
+}
+
 const ATTACHMENT_TITLE_PREFIX = "xmd-attachment:";
 
 // 链接文字中的反斜杠和方括号需要转义，否则文件名可能截断 Markdown 链接。
@@ -77,12 +81,18 @@ const getAttachmentTypeLabel = (fileType: string): string =>
 const cardClasses =
   "xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border border-line bg-paper px-3 text-left hover:border-muted hover:bg-toolbar focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent";
 
-export const Attachment = Node.create({
+export const Attachment = Node.create<AttachmentOptions>({
   name: "attachment",
   group: "block",
   atom: true,
   selectable: true,
   draggable: true,
+
+  addOptions() {
+    return {
+      getCurrentDocumentPath: () => null,
+    };
+  },
 
   addNodeView() {
     return VueNodeViewRenderer(AttachmentView);

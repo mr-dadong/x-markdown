@@ -263,6 +263,64 @@ export const useMarkdownEditor = (
     for (const file of files) {
       const kind = getFileKind(file);
       const nativePath = getNativeFilePath(file);
+      const showCopyProgress =
+        Boolean(nativePath) &&
+        kind === "file" &&
+        settings.attachmentHandling === "copy-to-assets";
+      const requestId = showCopyProgress ? crypto.randomUUID() : undefined;
+      let transferInserted = false;
+
+      const findTransferPosition = (): number | null => {
+        if (!requestId || !editor.value) return null;
+        let position: number | null = null;
+        editor.value.state.doc.descendants((node, nodePosition) => {
+          if (node.type.name === "attachmentTransfer" && node.attrs.requestId === requestId) {
+            position = nodePosition;
+            return false;
+          }
+          return position === null;
+        });
+        return position;
+      };
+
+      // 粘贴与拖入附件复用斜杠菜单相同的进度事件，避免后台复制时界面没有反馈。
+      const removeProgressListener = requestId
+        ? mediaService.onAttachmentCopyProgress((progress) => {
+            if (progress.requestId !== requestId || !editor.value) return;
+            if (!transferInserted) {
+              transferInserted = true;
+              editor.value.chain().focus().insertContentAt(insertPosition, [
+                {
+                  type: "attachmentTransfer",
+                  attrs: {
+                    requestId,
+                    fileName: progress.fileName,
+                    copiedBytes: progress.copiedBytes,
+                    totalBytes: progress.totalBytes,
+                    bytesPerSecond: progress.bytesPerSecond,
+                    status: progress.status,
+                    error: progress.error ?? "",
+                  },
+                },
+                { type: "paragraph" },
+              ]).run();
+              return;
+            }
+
+            const position = findTransferPosition();
+            if (position === null) return;
+            editor.value.view.dispatch(
+              editor.value.state.tr.setNodeMarkup(position, undefined, {
+                ...editor.value.state.doc.nodeAt(position)?.attrs,
+                copiedBytes: progress.copiedBytes,
+                totalBytes: progress.totalBytes,
+                bytesPerSecond: progress.bytesPerSecond,
+                status: progress.status,
+                error: progress.error ?? "",
+              }),
+            );
+          })
+        : null;
       try {
         const imported = nativePath
           ? await mediaService.importFile({
@@ -270,6 +328,7 @@ export const useMarkdownEditor = (
               kind,
               currentDocumentPath: getCurrentDocumentPath?.() ?? null,
               attachmentHandling: settings.attachmentHandling,
+              requestId,
             })
           : kind === "image"
             ? await mediaService.saveImage(
@@ -279,6 +338,26 @@ export const useMarkdownEditor = (
               )
             : null;
         if (!imported) continue;
+
+        const transferPosition = findTransferPosition();
+        if (transferPosition !== null && editor.value) {
+          const transferNode = editor.value.state.doc.nodeAt(transferPosition);
+          if (transferNode) {
+            editor.value.view.dispatch(
+              editor.value.state.tr.replaceWith(
+                transferPosition,
+                transferPosition + transferNode.nodeSize,
+                editor.value.schema.nodes.attachment.create({
+                  fileName: imported.fileName,
+                  fileSize: imported.fileSize,
+                  fileType: imported.fileType,
+                  url: imported.url,
+                }),
+              ),
+            );
+            continue;
+          }
+        }
 
         if (kind === "image") {
           content.push({ type: "image", attrs: { src: imported.url, alt: imported.fileName } });
@@ -299,6 +378,8 @@ export const useMarkdownEditor = (
         console.error(`插入文件“${file.name}”失败:`, error);
         const message = error instanceof Error ? error.message : "无法读取该文件";
         await window.electronAPI.showErrorMessage("插入附件失败", `${file.name}\n${message}`);
+      } finally {
+        removeProgressListener?.();
       }
     }
 
@@ -980,7 +1061,9 @@ export const useMarkdownEditor = (
       Video.configure({
         getCurrentDocumentPath: () => getCurrentDocumentPath?.() ?? null,
       }),
-      Attachment,
+      Attachment.configure({
+        getCurrentDocumentPath: () => getCurrentDocumentPath?.() ?? null,
+      }),
       AttachmentTransfer,
       SectionCollapse,
     ],
@@ -1009,6 +1092,22 @@ export const useMarkdownEditor = (
         return true;
       },
       handleDOMEvents: {
+        copy: (view, event) => {
+          const { selection } = view.state;
+          if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") {
+            return false;
+          }
+
+          // 阻止默认节点序列化覆盖剪贴板，再由主进程写入可粘贴到其他软件的真实位图。
+          event.preventDefault();
+          void mediaService
+            .copyImage(String(selection.node.attrs.src), getCurrentDocumentPath?.() ?? null)
+            .catch((error: unknown) => {
+              const message = error instanceof Error ? error.message : "未知错误";
+              void window.electronAPI.showErrorMessage("复制图片失败", message);
+            });
+          return true;
+        },
         blur: (view, event) => {
           // 焦点移到菜单内部时不要关闭，否则点击滚动条或菜单项会丢失菜单。
           const related = event.relatedTarget as Node | null;

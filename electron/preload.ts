@@ -147,11 +147,17 @@ const electronAPI: ElectronAPI = {
   readEditorImage: (url: string, currentDocumentPath: string | null): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.readEditorImage, { url, currentDocumentPath }),
 
+  copyEditorImage: (url: string, currentDocumentPath: string | null): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.copyEditorImage, { url, currentDocumentPath }),
+
   resolveEditorVideo: (url: string, currentDocumentPath: string | null): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.resolveEditorVideo, { url, currentDocumentPath }),
 
   openEditorFile: (url: string, currentDocumentPath: string | null): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.openEditorFile, { url, currentDocumentPath }),
+
+  editorFileExists: (url: string, currentDocumentPath: string | null): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.editorFileExists, { url, currentDocumentPath }),
 
   openLocalLink: (url: string, currentDocumentPath: string | null): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.openLocalLink, { url, currentDocumentPath }),
