@@ -3,9 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>功能特性 — XMD</title>
+<title>XMD 功能 — 所见即所得 Markdown 编辑器、代码高亮与大纲</title>
 <link rel="icon" type="image/png" href="favicon.png" />
 <meta name="description" content="XMD 功能详情：所见即所得编辑、斜杠命令、大纲与文件树、块拖拽与折叠、代码语法高亮、主题与外观、多文档标签、快捷键定制。" />
+<link rel="canonical" href="https://www.x-markdown.com/features" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="XMD" />
+<meta property="og:locale" content="zh_CN" />
+<meta property="og:title" content="XMD 功能 — 所见即所得 Markdown 编辑器" />
+<meta property="og:description" content="了解 XMD 的所见即所得编辑、斜杠命令、大纲、代码高亮和多文档标签等功能。" />
+<meta property="og:url" content="https://www.x-markdown.com/features" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="XMD 功能 — 所见即所得 Markdown 编辑器" />
+<meta name="twitter:description" content="了解 XMD 的编辑、大纲、代码高亮和多文档功能。" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -16,17 +26,17 @@
 <!-- ============================ 导航 ============================ -->
 <nav class="nav">
   <div class="container nav__inner">
-    <a href="index.html" class="nav__brand">
+    <a href="/" class="nav__brand">
       <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg>
       XMD
     </a>
     <button class="nav__toggle" aria-label="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
     <div class="nav__links">
-      <a href="index.html" class="nav__link">首页</a>
-      <a href="features.html" class="nav__link is-active">功能</a>
-      <a href="download.html" class="nav__link">下载</a>
-      <a href="changelog.html" class="nav__link">更新日志</a>
-      <a href="download.html" class="nav__cta">免费下载</a>
+      <a href="/" class="nav__link">首页</a>
+      <a href="/features" class="nav__link is-active">功能</a>
+      <a href="/download" class="nav__link">下载</a>
+      <a href="/changelog" class="nav__link">更新日志</a>
+      <a href="/download" class="nav__cta">免费下载</a>
     </div>
   </div>
 </nav>
@@ -72,7 +82,7 @@
           </div>
           <div class="win__body">
             <div class="win__editor" style="padding:20px 40px">
-              <h1>接口设计文档</h1>
+              <div class="win-editor-title">接口设计文档</div>
               <h2>用户认证</h2>
               <p>使用 <code>Bearer Token</code> 进行身份验证，令牌有效期为 24 小时。</p>
               <ul>
@@ -189,7 +199,7 @@
                 <div class="win__doc-tab is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="tab-name">api-design.md</span></div>
               </div>
               <div class="win__editor">
-                <h1>API 设计文档</h1>
+                <div class="win-editor-title">API 设计文档</div>
                 <h2>用户认证</h2>
                 <p>使用 Bearer Token 进行身份验证。</p>
                 <h3>登录接口</h3>
@@ -434,7 +444,7 @@
   <div class="container reveal">
     <h2 class="h2">准备好了吗？</h2>
     <p>免费下载 XMD，开始你的 Markdown 写作。</p>
-    <a href="download.html" class="btn btn--light btn--lg">
+    <a href="/download" class="btn btn--light btn--lg">
       <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
       免费下载
     </a>
@@ -457,17 +467,17 @@
       <div class="footer__col">
         <h4>产品</h4>
         <ul>
-          <li><a href="index.html">首页</a></li>
-          <li><a href="features.html">功能</a></li>
-          <li><a href="download.html">下载</a></li>
+          <li><a href="/">首页</a></li>
+          <li><a href="/features">功能</a></li>
+          <li><a href="/download">下载</a></li>
         </ul>
       </div>
       <div class="footer__col">
         <h4>资源</h4>
         <ul>
-          <li><a href="changelog.html">更新日志</a></li>
-          <li><a href="features.html#shortcuts">快捷键</a></li>
-          <li><a href="features.html#languages">支持语言</a></li>
+          <li><a href="/changelog">更新日志</a></li>
+          <li><a href="/features#shortcuts">快捷键</a></li>
+          <li><a href="/features#languages">支持语言</a></li>
         </ul>
       </div>
       <div class="footer__col">

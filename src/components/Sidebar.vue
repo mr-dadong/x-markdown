@@ -19,17 +19,12 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center">
         <button type="button"
           class="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-line bg-paper px-2 text-[11px] font-medium text-secondary hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
           @click="selectWorkspace">
           <Icon icon="lucide:folder-open" :size="14" />
           <span>{{ currentDir ? '更换文件夹' : '打开文件夹' }}</span>
-        </button>
-        <button v-if="currentDir" type="button" title="刷新工作区"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-paper text-muted hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-          @click="loadFiles">
-          <Icon icon="lucide:refresh-cw" :size="14" />
         </button>
       </div>
 
