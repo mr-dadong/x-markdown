@@ -3,29 +3,64 @@ import { TextSelection } from '@tiptap/pm/state'
 
 const TAB_TEXT = '  '
 
-/** 在代码块中插入缩进；Shift+Tab 会移除当前行开头最多两个空格。 */
+/** 在代码块中缩进当前行或选中的多行，操作后继续保留原来的文本选区。 */
 export const handleCodeBlockTab = (view: EditorView, event: KeyboardEvent): boolean => {
   if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey) return false
 
   const { selection } = view.state
-  const { $from } = selection
-  if ($from.parent.type.name !== 'codeBlock') return false
+  const { $from, $to } = selection
+  if ($from.parent.type.name !== 'codeBlock' || $to.parent !== $from.parent) return false
 
   event.preventDefault()
 
-  if (!event.shiftKey) {
+  if (selection.empty && !event.shiftKey) {
     view.dispatch(view.state.tr.insertText(TAB_TEXT, selection.from, selection.to))
     return true
   }
 
-  const textBeforeCursor = $from.parent.textBetween(0, $from.parentOffset)
-  const lineStartOffset = textBeforeCursor.lastIndexOf('\n') + 1
-  const lineText = $from.parent.textBetween(lineStartOffset, $from.parentOffset)
-  const indentationLength = lineText.match(/^ {1,2}/)?.[0].length ?? 0
-  if (!indentationLength) return true
+  const codeText = $from.parent.textContent
+  const selectionStartOffset = $from.parentOffset
+  const selectionEndOffset = $to.parentOffset
+  const firstLineOffset = codeText.lastIndexOf('\n', Math.max(0, selectionStartOffset - 1)) + 1
+  // 选区恰好停在下一行行首时，不处理这条未真正选中的行。
+  const effectiveEndOffset = selectionEndOffset > selectionStartOffset && codeText[selectionEndOffset - 1] === '\n'
+    ? selectionEndOffset - 1
+    : selectionEndOffset
+  const lastLineEnd = codeText.indexOf('\n', effectiveEndOffset)
+  const blockEndOffset = lastLineEnd === -1 ? codeText.length : lastLineEnd
+  const selectedLines = codeText.slice(firstLineOffset, blockEndOffset)
 
-  const lineStartPosition = $from.start() + lineStartOffset
-  view.dispatch(view.state.tr.delete(lineStartPosition, lineStartPosition + indentationLength))
+  if (!event.shiftKey) {
+    const indentedText = TAB_TEXT + selectedLines.replaceAll('\n', `\n${TAB_TEXT}`)
+    const lineCount = selectedLines.split('\n').length
+    const transaction = view.state.tr.insertText(
+      indentedText,
+      $from.start() + firstLineOffset,
+      $from.start() + blockEndOffset,
+    )
+    const nextFrom = selection.from + TAB_TEXT.length
+    const nextTo = selection.empty ? nextFrom : selection.to + TAB_TEXT.length * lineCount
+    transaction.setSelection(TextSelection.create(transaction.doc, nextFrom, nextTo))
+    view.dispatch(transaction)
+    return true
+  }
+
+  const lineTexts = selectedLines.split('\n')
+  const removedLengths = lineTexts.map((line) => line.match(/^ {1,2}/)?.[0].length ?? 0)
+  if (removedLengths.every((length) => length === 0)) return true
+
+  const unindentedText = lineTexts.map((line, index) => line.slice(removedLengths[index])).join('\n')
+  const transaction = view.state.tr.insertText(
+    unindentedText,
+    $from.start() + firstLineOffset,
+    $from.start() + blockEndOffset,
+  )
+  const removedBeforeStart = removedLengths[0]
+  const totalRemoved = removedLengths.reduce((total, length) => total + length, 0)
+  const nextFrom = Math.max($from.start() + firstLineOffset, selection.from - removedBeforeStart)
+  const nextTo = selection.empty ? nextFrom : Math.max(nextFrom, selection.to - totalRemoved)
+  transaction.setSelection(TextSelection.create(transaction.doc, nextFrom, nextTo))
+  view.dispatch(transaction)
   return true
 }
 

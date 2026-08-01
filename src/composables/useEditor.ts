@@ -964,6 +964,35 @@ export const useMarkdownEditor = (
     if (handleCodeBlockSelectAll(view, event)) return true;
     if (handleCodeBlockTab(view, event)) return true;
 
+    if (
+      event.key === "Tab" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+
+      // 表格中的 Tab 保留电子表格式导航，最后一个单元格由 TipTap 负责新增行。
+      if (editor.value?.isActive("table")) {
+        return event.shiftKey
+          ? editor.value.commands.goToPreviousCell()
+          : editor.value.commands.goToNextCell();
+      }
+
+      // 普通列表和任务列表使用相同的层级操作，无法继续缩进时也不让焦点逃出编辑器。
+      const listItemType = editor.value?.isActive("taskItem")
+        ? "taskItem"
+        : editor.value?.isActive("listItem")
+          ? "listItem"
+          : null;
+      if (listItemType) {
+        if (event.shiftKey) editor.value?.commands.liftListItem(listItemType);
+        else editor.value?.commands.sinkListItem(listItemType);
+      }
+
+      return true;
+    }
+
     const { selection } = view.state;
     const { $from } = selection;
     if (!selection.empty || $from.parent.type.name !== "codeBlock")
