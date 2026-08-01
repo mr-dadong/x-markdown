@@ -201,7 +201,7 @@ jobs:
 
           RELEASE_TITLE="$(jq -r \
             --arg tag "$RELEASE_TAG" \
-            '"XMD \($tag) - \(.title)"' \
+            '"XMD \($tag)"' \
             <<< "$RELEASE_DATA")"
 
           # 将 JSON 中的发布日期和更新内容转换为 Release 使用的 Markdown。
@@ -303,6 +303,8 @@ jobs:
               --get \
               --data-urlencode "ttl=0" \
               --header "Authorization: Bearer $CNB_TOKEN" \
+              --header "Accept: application/vnd.cnb.api+json" \
+              --header "Content-Type: application/json" \
               "$VERIFY_URL"
           done
 
