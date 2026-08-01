@@ -37,18 +37,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <!-- 更新版本号可避免浏览器继续使用旧的首页样式缓存 -->
-<link rel="stylesheet" href="assets/css/style.css?v=20260731-7" />
+<link rel="stylesheet" href="assets/css/style.css?v=20260801-1" />
 </head>
 <body>
 
 <!-- ============================ 导航 ============================ -->
+<!-- 公共导航开始：修改后运行 bun run site:sync-nav 同步到其他页面。 -->
 <nav class="nav">
   <div class="container nav__inner">
     <a href="/" class="nav__brand">
       <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#161614"/><text x="16" y="22" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">XM</text></svg>
       XMD
     </a>
-    <button class="nav__toggle" aria-label="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <button class="nav__toggle" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
     <div class="nav__links">
       <a href="/" class="nav__link is-active">首页</a>
       <a href="/features" class="nav__link">功能</a>
@@ -66,6 +67,7 @@
     </div>
   </div>
 </nav>
+<!-- 公共导航结束 -->
 
 <main>
 

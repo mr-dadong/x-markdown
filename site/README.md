@@ -83,6 +83,8 @@ Workers 会上传该目录中的网站资源，并通过 Worker 提供 `/api/ver
 
 - 新增公共样式时统一写入 `assets/css/style.css`。
 - 新增通用交互时写入 `assets/js/main.js`。
+- 公共导航统一在 `index.html` 的“公共导航”区域维护，修改后运行
+  `bun run site:sync-nav`，不要分别修改其他页面的导航。
 - 版本、发布日期、更新内容和安装包地址统一维护在 CNB 的
   `version.json`，不要在 HTML 中重复维护。
 - 新增依赖 Pages Function 的接口时，需要同步调整 `_routes.json`。
