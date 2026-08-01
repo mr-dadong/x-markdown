@@ -233,6 +233,7 @@ export const useMarkdownEditor = (
   const draggedBlockPosition = ref<number | null>(null);
   const editorRenderVersion = ref(0);
   let lastEmittedMarkdown: string | null = null;
+  let renderedDocumentPath = getCurrentDocumentPath?.() ?? null;
   const linkInsertVisible = ref(false);
   const linkInsertUrl = ref("");
   const linkInsertLabel = ref("");
@@ -1142,18 +1143,27 @@ export const useMarkdownEditor = (
 
   // 富文本视图重新显示或切换标签时才同步内容，源码输入期间不解析隐藏的编辑器。
   watch(
-    [getContent, getIsActive],
-    ([newContent, isActive]) => {
+    [getContent, getIsActive, () => getCurrentDocumentPath?.() ?? null],
+    ([newContent, isActive, currentDocumentPath]) => {
       if (!editor.value || !isActive) return;
 
+      // 相对资源地址必须以当前 Markdown 文件所在目录为基准。
+      // 即使两个标签页正文完全相同，只要文件路径发生变化，也要重建媒体节点，
+      // 防止图片、视频和附件继续使用上一个标签页的目录进行解析。
+      const documentPathChanged = currentDocumentPath !== renderedDocumentPath;
+      renderedDocumentPath = currentDocumentPath;
+
       // 编辑器刚发出的内容不需要再次序列化比较，避免每次输入重复扫描全文。
-      if (newContent === lastEmittedMarkdown) {
+      if (!documentPathChanged && newContent === lastEmittedMarkdown) {
         lastEmittedMarkdown = null;
         return;
       }
-      if (newContent === editor.value.storage.markdown.getMarkdown()) return;
+      if (
+        !documentPathChanged &&
+        newContent === editor.value.storage.markdown.getMarkdown()
+      ) return;
 
-      // 外部载入文档时不触发编辑事件，避免刚打开文件就被标记为已修改。
+      // 外部载入文档或切换文件目录时不触发编辑事件，避免文档被误标记为已修改。
       editor.value.commands.setContent(newContent, false);
     },
   );

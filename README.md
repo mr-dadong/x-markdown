@@ -1,7 +1,33 @@
 # XMD
-官网：[https://www.x-markdown.com/](https://www.x-markdown.com/)
+官网：[https://www.x-markdown.com](https://www.x-markdown.com)
 
 XMD 是一款基于 Electron、Vue 3、TipTap 和 TypeScript 构建的本地 Markdown 编辑器，提供所见即所得与源码两种编辑方式。
+
+## 界面展示
+
+### 欢迎页
+
+![XMD 欢迎页](docs/images/welcome-screen.jpg)
+
+### Markdown 预览
+
+![Markdown 文档预览](docs/images/markdown-preview.jpg)
+
+### 工作区与文档大纲
+
+![工作区与文档大纲](docs/images/workspace-outline.jpg)
+
+### 通用设置
+
+![XMD 通用设置](docs/images/general-settings.jpg)
+
+### 图片预览
+
+![Markdown 图片预览](docs/images/image-preview.jpg)
+
+### 附件与视频
+
+![Markdown 附件与视频展示](docs/images/attachments-and-video.jpg)
 
 ## 功能
 
