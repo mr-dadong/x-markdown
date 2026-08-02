@@ -24,7 +24,8 @@
     "bun:dev": "bun run dev",
     "bun:build": "bun run build",
     "bun:preview": "bun run preview",
-    "bun:install": "bun install"
+    "bun:install": "bun install",
+    "postinstall": "node node_modules/electron/install.js"
   },
   "packageManager": "bun@1.3.14",
   "dependencies": {
