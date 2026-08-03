@@ -1,6 +1,82 @@
 {
-  "latest": "1.0.4",
+  "latest": "1.0.5",
   "releases": [
+    {
+      "version": "1.0.5",
+      "date": "2026-08-03",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "优化编辑器 Tab 键交互，列表和任务列表支持 Tab 降级、Shift+Tab 提升级，表格支持前后单元格导航。",
+        "代码块和 Markdown 源码模式支持单行及多行批量缩进，并修复连续按 Tab 时页面滚动和编辑焦点丢失的问题。",
+        "精简侧栏工作区操作，移除已有自动刷新机制下重复的手动刷新按钮。",
+        "优化图片、附件等内容块之间的点击编辑，未输入内容时自动清理临时空行。",
+        "新增 HTML 源码块，支持通过斜杠命令插入、语法高亮、实时安全预览、全屏编辑和源码无损保存，脚本内容不会执行。",
+        "完善普通段落和标题的 Tab 缩进，按 Tab 可插入两个空格，按 Shift+Tab 可移除光标前的一到两个缩进空格。",
+        "升级 Mermaid 图表编辑器，新增源码行号、Ctrl+Enter 快速保存，并优化编辑弹窗的标题、尺寸和定位。",
+        "优化提示块样式与编辑体验，强化类型辨识，支持 Ctrl+Enter 快速保存，并统一 Markdown 扩展内容的编辑弹窗布局。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.5-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.5/XMD-1.0.5-Windows-x64.exe",
+              "sha256": "11ab193ec9405a010ac2d96197b1ecdf64d1976decb03f63e5be371f66c0f35e"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.5-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.5/XMD-1.0.5-macOS-arm64.dmg",
+              "sha256": "c2aa79ad385b21eed2f75a32e3d67f31025ab19f8798cac55d119ac6e2155f7d"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.5-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.5/XMD-1.0.5-macOS-x64.dmg",
+              "sha256": "f5f4079143b1af0c07f0e600d90831288b79b14fa638fbc659ef5f4aa1b936ec"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.5-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.5/XMD-1.0.5-Linux-x86_64.AppImage",
+              "sha256": "905e377ce8896bead11a2eff5004dc3083832582151283b4f795e10db0db07ab"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.5-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.5/XMD-1.0.5-Linux-arm64.AppImage",
+              "sha256": "c1c469024212071ae16a74fe05a5e2b13168c56e208a6ddc0ec9f123f9f3591e"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.0.4",
       "date": "2026-08-01",
