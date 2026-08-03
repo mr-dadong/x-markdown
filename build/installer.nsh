@@ -24,6 +24,10 @@
   WriteRegStr HKCU "Software\Classes\.markdown\OpenWithProgids" "XMD.Markdown" ""
   WriteRegStr HKCU "Software\Classes\.txt\OpenWithProgids" "XMD.Markdown" ""
 
+  ; 注册 Windows 资源管理器“右键 -> 新建”菜单，创建一个空的 Markdown 文件。
+  ; 仅注册常用的 .md 扩展名，避免 .md 和 .markdown 在“新建”菜单中重复出现。
+  WriteRegStr HKCU "Software\Classes\.md\ShellNew" "NullFile" ""
+
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 !macroend
 
@@ -37,5 +41,8 @@
   DeleteRegValue HKCU "Software\Classes\.md\OpenWithProgids" "XMD.Markdown"
   DeleteRegValue HKCU "Software\Classes\.markdown\OpenWithProgids" "XMD.Markdown"
   DeleteRegValue HKCU "Software\Classes\.txt\OpenWithProgids" "XMD.Markdown"
+  ; 只删除 XMD 写入的值，避免误删其他软件在 ShellNew 下保存的配置。
+  DeleteRegValue HKCU "Software\Classes\.md\ShellNew" "NullFile"
+  DeleteRegKey /ifempty HKCU "Software\Classes\.md\ShellNew"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 !macroend

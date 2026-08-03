@@ -26,6 +26,14 @@ export const documentService = {
     window.electronAPI.onMenuSaveFile(callback),
   onSaveAsFile: (callback: () => void) =>
     window.electronAPI.onMenuSaveAsFile(callback),
+  onFindReplace: (callback: () => void) =>
+    window.electronAPI.onMenuFindReplace(callback),
+  onExportHtml: (callback: () => void) =>
+    window.electronAPI.onMenuExportHtml(callback),
+  onExportPdf: (callback: () => void) =>
+    window.electronAPI.onMenuExportPdf(callback),
+  onExportZip: (callback: () => void) =>
+    window.electronAPI.onMenuExportZip(callback),
   onWindowCloseRequest: (callback: () => void) =>
     window.electronAPI.onRequestWindowClose(callback),
   removeListeners: (channel: (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]) =>

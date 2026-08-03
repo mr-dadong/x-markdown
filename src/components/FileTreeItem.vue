@@ -8,6 +8,7 @@
         : 'bg-transparent text-secondary hover:bg-control-hover hover:text-ink'"
       :title="node.path"
       @click="handleClick"
+      @contextmenu.stop.prevent="emit('context-menu', node, $event.clientX, $event.clientY)"
     >
       <span
         v-if="node.path === currentFilePath"
@@ -51,6 +52,7 @@
         :current-file-path="currentFilePath"
         @open-file="emit('open-file', $event)"
         @toggle-folder="emit('toggle-folder', $event)"
+        @context-menu="(child, x, y) => emit('context-menu', child, x, y)"
       />
       <span
         v-if="!node.isLoading && node.children?.length === 0"
@@ -83,6 +85,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'open-file': [filePath: string]
   'toggle-folder': [node: FileTreeNode]
+  'context-menu': [node: FileTreeNode, x: number, y: number]
 }>()
 
 const fileLabel = computed(() => {

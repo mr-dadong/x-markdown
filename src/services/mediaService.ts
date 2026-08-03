@@ -58,6 +58,8 @@ export const mediaService = {
     ),
   readImage: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.readEditorImage(url, currentDocumentPath),
+  readFileBytes: (url: string, currentDocumentPath: string | null) =>
+    window.electronAPI.readEditorFileBytes(url, currentDocumentPath),
   copyImage: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.copyEditorImage(url, currentDocumentPath),
   resolveVideo: (url: string, currentDocumentPath: string | null) =>

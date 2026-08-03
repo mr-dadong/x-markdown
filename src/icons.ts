@@ -1,5 +1,6 @@
 import { addIcon } from '@iconify/vue/offline'
 import bracesIcon from '@iconify-icons/lucide/braces'
+import caseSensitiveIcon from '@iconify-icons/lucide/case-sensitive'
 import circleIcon from '@iconify-icons/lucide/circle'
 import chevronDownIcon from '@iconify-icons/lucide/chevron-down'
 import chevronRightIcon from '@iconify-icons/lucide/chevron-right'
@@ -65,6 +66,7 @@ import copyPlusIcon from '@iconify-icons/lucide/copy-plus'
 import alertTriangleIcon from '@iconify-icons/lucide/alert-triangle'
 import fileWarningIcon from '@iconify-icons/lucide/file-warning'
 import saveIcon from '@iconify-icons/lucide/save'
+import replaceIcon from '@iconify-icons/lucide/replace'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -74,6 +76,7 @@ import tableColumnRemoveIcon from '@iconify-icons/mdi/table-column-remove'
 
 // 应用启动时一次性注册实际使用的图标，后续渲染不再访问在线图标服务。
 addIcon('lucide:braces', bracesIcon)
+addIcon('lucide:case-sensitive', caseSensitiveIcon)
 addIcon('lucide:circle', circleIcon)
 addIcon('lucide:chevron-down', chevronDownIcon)
 addIcon('lucide:chevron-right', chevronRightIcon)
@@ -139,6 +142,7 @@ addIcon('lucide:copy-plus', copyPlusIcon)
 addIcon('lucide:alert-triangle', alertTriangleIcon)
 addIcon('lucide:file-warning', fileWarningIcon)
 addIcon('lucide:save', saveIcon)
+addIcon('lucide:replace', replaceIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

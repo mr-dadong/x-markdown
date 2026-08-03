@@ -489,6 +489,7 @@ defineExpose<EditorHandle>({
   scrollToHeading,
   getScrollProgress,
   setScrollProgress,
+  getEditor: () => editor.value ?? null,
 } as EditorHandle)
 </script>
 
@@ -825,5 +826,17 @@ defineExpose<EditorHandle>({
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* ===== 查找替换高亮 ===== */
+/* 匹配项与当前项使用不同强度，避免与文字选区高亮混淆。 */
+.xmd-find-match {
+  background-color: rgba(255, 205, 40, 0.35);
+  border-radius: 2px;
+}
+
+.xmd-find-current {
+  background-color: rgba(255, 130, 40, 0.45);
+  border-radius: 2px;
 }
 </style>

@@ -7,7 +7,7 @@
             <Sidebar v-if="isSidebarVisible" :current-file-path="currentFilePath" :content="currentContent"
                 @open-file="handleOpenFileFromSidebar" @scroll-to="handleScrollToHeading" />
             <!-- min-w-0 允许编辑区在 flex 布局中正确收缩，避免右侧残留空白。 -->
-            <main class="flex min-w-0 flex-1 flex-col overflow-hidden bg-paper">
+            <main class="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-paper">
                 <DocumentBar v-if="isDocumentOpen" :documents="documents" :active-document-id="activeDocumentId"
                     :get-document-title="getDocumentTitle" @activate="activateDocument" @close="closeDocument"
                     @new-file="handleNewFile" @reorder="reorderDocument"
@@ -15,6 +15,7 @@
                     @close-right="closeRightDocuments" @close-all="closeAllDocuments"
                     @close-saved="closeSavedDocuments"
                     @save="saveFile()" @save-as="saveFile(true)" />
+                <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode"
                     v-show="!isSourceMode" @update:content="handleContentUpdate" />
@@ -65,15 +66,21 @@ import AppHeader from '../components/AppHeader.vue'
 import AppStatusBar from '../components/AppStatusBar.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import DocumentBar from '../components/DocumentBar.vue'
+import FindReplacePanel from '../components/FindReplacePanel.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownSourceEditor from '../components/MarkdownSourceEditor.vue'
 import Sidebar from '../components/Sidebar.vue'
 import SettingsModal from '../components/SettingsModal.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
+import { buildExportHtml, buildExportZip } from '../composables/useExport'
+import { useFindReplace } from '../composables/useFindReplace'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
 import { useUpdater } from '../composables/useUpdater'
+import { IPC_CHANNELS } from '../constants/ipcChannels'
+import { documentService } from '../services/documentService'
+import { exportService } from '../services/exportService'
 import type { EditorHandle, SourceEditorHandle } from '../types/editor'
 
 const editorRef = ref<EditorHandle | null>(null)
@@ -85,6 +92,13 @@ const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
 const { isDarkTheme, toggleTheme } = useTheme()
 const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUpdater()
+
+// 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
+const findReplaceController = useFindReplace(
+    () => editorRef.value?.getEditor() ?? null,
+    () => sourceEditorRef.value?.getTextarea() ?? null,
+    isSourceMode,
+)
 
 const {
     currentContent,
@@ -159,6 +173,13 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
         return
     }
 
+    // 查找面板打开时 Esc 优先关闭查找，回到正常的编辑状态。
+    if (event.key === 'Escape' && findReplaceController.isOpen.value) {
+        event.preventDefault()
+        findReplaceController.close()
+        return
+    }
+
     if (
         event.ctrlKey &&
         !event.altKey &&
@@ -168,6 +189,32 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
     ) {
         event.preventDefault()
         isSettingsOpen.value = true
+        return
+    }
+
+    // Ctrl/Cmd+F 打开查找面板并聚焦输入框；已打开时再次按下用于重新聚焦。
+    if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !event.repeat &&
+        event.key.toLowerCase() === 'f'
+    ) {
+        event.preventDefault()
+        findReplaceController.open()
+        return
+    }
+
+    // F3 在未打开时打开并跳到第一个匹配，已打开时继续跳转下一个。
+    if (event.key === 'F3') {
+        event.preventDefault()
+        if (!findReplaceController.isOpen.value) {
+            findReplaceController.open()
+        } else if (event.shiftKey) {
+            findReplaceController.goToPrev()
+        } else {
+            findReplaceController.goToNext()
+        }
         return
     }
 
@@ -186,15 +233,58 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
 
 onMounted(() => {
     window.addEventListener('keydown', handleWindowKeydown, true)
+    // 编辑菜单的“查找”入口与 Ctrl+F 快捷键最终都会走到这里。
+    documentService.onFindReplace(() => findReplaceController.open())
+    // 文件菜单的三个导出入口统一进入 handleExport，按类型分发。
+    documentService.onExportHtml(() => void handleExport('html'))
+    documentService.onExportPdf(() => void handleExport('pdf'))
+    documentService.onExportZip(() => void handleExport('zip'))
     // 每次软件启动只自动检测一次；没有新版本时不打断用户。
     void checkForUpdates(false)
 })
 
 onUnmounted(() => {
     window.removeEventListener('keydown', handleWindowKeydown, true)
+    documentService.removeListeners(IPC_CHANNELS.menuFindReplace)
+    documentService.removeListeners(IPC_CHANNELS.menuExportHtml)
+    documentService.removeListeners(IPC_CHANNELS.menuExportPdf)
+    documentService.removeListeners(IPC_CHANNELS.menuExportZip)
 })
 
 const handleScrollToHeading = (headingIndex: number): void => {
     editorRef.value?.scrollToHeading(headingIndex)
 }
+
+// 从文档路径提取不带扩展名的文件名，用于导出保存对话框的默认文件名。
+const getSuggestedName = (): string => {
+    const filePath = currentFilePath.value
+    if (!filePath) return '未命名'
+    const segments = filePath.split(/[\\/]/)
+    const fileName = segments[segments.length - 1] ?? '未命名'
+    return fileName.replace(/\.[^.]+$/, '') || '未命名'
+}
+
+// 统一导出入口：HTML/PDF 先渲染自包含 HTML，ZIP 直接打包 Markdown 与本地图片。
+const handleExport = async (type: 'html' | 'pdf' | 'zip'): Promise<void> => {
+    if (!isDocumentOpen.value) return
+    const suggestedName = getSuggestedName()
+    try {
+        if (type === 'zip') {
+            // ZIP 内的 Markdown 文件保留原文件名，未保存的新文档使用 untitled.md。
+            const filePath = currentFilePath.value
+            const fileName = filePath ? filePath.split(/[\\/]/).pop()! : 'untitled.md'
+            const zipData = await buildExportZip(currentContent.value, filePath, fileName)
+            await exportService.exportZip(zipData, suggestedName)
+            return
+        }
+        const html = await buildExportHtml(currentContent.value, currentFilePath.value, suggestedName)
+        if (type === 'html') await exportService.exportHtml(html, suggestedName)
+        else await exportService.exportPdf(html, suggestedName)
+    } catch (error) {
+        await window.electronAPI.showErrorMessage('导出失败', (error as Error).message)
+    }
+}
+
+// 文档内容或编辑模式变化时，若查找面板打开则重新收集匹配，保证计数与高亮始终准确。
+watch([currentContent, isSourceMode], () => findReplaceController.refresh())
 </script>

@@ -1,30 +1,12 @@
 <template>
   <aside class="flex h-full w-[292px] shrink-0 flex-col overflow-hidden border-r border-line bg-panel">
-    <!-- 项目铭牌让用户先确认当前目录，再进入文件或大纲。 -->
-    <div class="flex shrink-0 flex-col gap-3 border-b border-line px-4 pb-4 pt-5">
-      <div class="flex min-w-0 items-center gap-3">
-        <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line bg-paper text-secondary">
-          <Icon icon="lucide:braces" :size="18" />
-        </div>
-        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span class="text-[10px] font-semibold tracking-[0.16em] text-muted">当前项目</span>
-          <strong class="truncate text-[14px] font-semibold text-ink" :title="currentDir ?? undefined">
-            {{ projectName }}
-          </strong>
-        </div>
-        <div v-if="currentDir"
-          class="flex shrink-0 items-center rounded border border-line bg-toolbar px-1.5 py-1 font-mono text-[10px] text-muted">
-          {{ files.length }}
-        </div>
-      </div>
-
-      <div class="flex items-center">
+    <div class="flex shrink-0 flex-col gap-3 border-b border-line px-4 py-3">
+      <div v-if="!currentDir" class="flex items-center">
         <button type="button"
           class="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-line bg-paper px-2 text-[11px] font-medium text-secondary hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
           @click="selectWorkspace">
           <Icon icon="lucide:folder-open" :size="14" />
-          <span>{{ currentDir ? '更换文件夹' : '打开文件夹' }}</span>
+          <span>打开文件夹</span>
         </button>
       </div>
 
@@ -50,7 +32,8 @@
           </span>
         </div>
 
-        <div class="file-list flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+        <div class="file-list flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3"
+          @contextmenu.prevent="openWorkspaceMenu">
           <div v-if="!currentDir" class="flex h-full flex-col items-center justify-center gap-2 px-7 text-center">
             <div class="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-paper text-muted">
               <Icon icon="lucide:folder-open" :size="19" />
@@ -70,7 +53,7 @@
 
           <div v-else class="flex flex-col gap-0.5">
             <FileTreeItem v-for="file in files" :key="file.path" :node="file" :current-file-path="currentFilePath"
-              @open-file="emit('open-file', $event)" @toggle-folder="toggleFolder" />
+              @open-file="emit('open-file', $event)" @toggle-folder="toggleFolder" @context-menu="openFileTreeMenu" />
           </div>
         </div>
       </div>
@@ -108,11 +91,25 @@
       </div>
     </div>
   </aside>
+
+  <Teleport to="body">
+    <div v-if="contextMenu" class="fixed inset-0 z-50 flex" @click="closeFileTreeMenu" @contextmenu.prevent="closeFileTreeMenu">
+      <div class="fixed flex w-48 flex-col rounded-md border border-line bg-paper p-1 text-[12px] text-secondary"
+        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }" @click.stop>
+        <button v-for="item in contextMenuItems" :key="item.action" type="button"
+          class="flex h-8 items-center rounded px-2 text-left hover:bg-control-hover hover:text-ink"
+          :class="item.action === 'delete' ? 'text-danger' : ''" @click="runFileTreeAction(item.action)">
+          {{ item.label }}
+        </button>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
+import MarkdownIt from 'markdown-it'
 import FileTreeItem from './FileTreeItem.vue'
 import type { FileItem, Heading, SidebarTab } from '../types'
 import { SIDEBAR_CONFIG } from '../constants'
@@ -133,16 +130,95 @@ const activeTab = ref<SidebarTab>('files')
 const currentDir = ref<string | null>(null)
 const files = ref<FileItem[]>([])
 const headings = ref<Heading[]>([])
+const contextMenu = ref<{ node: FileItem; x: number; y: number; isRoot: boolean } | null>(null)
 let headingParseTimer: ReturnType<typeof setTimeout> | null = null
 let workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let stopWorkspaceListener: (() => void) | null = null
 
 const tabs = SIDEBAR_CONFIG.tabs
+const inlineMarkdownParser = new MarkdownIt({ html: false, linkify: false, typographer: false })
+
+const getHeadingPlainText = (source: string): string => {
+  const inlineToken = inlineMarkdownParser.parseInline(source, {})[0]
+  if (!inlineToken?.children) return source.trim()
+
+  // 大纲只展示标题的可见文字，粗体、链接、行内代码等 Markdown 定界符不应出现。
+  return inlineToken.children
+    .filter((token) => token.type === 'text' || token.type === 'code_inline' || token.type === 'image')
+    .map((token) => token.content)
+    .join('')
+    .trim()
+}
 
 // Windows 与 macOS 路径都从最后一个分隔符取项目名。
 const projectName = computed(() => getDirectoryName(currentDir.value))
 const directoryCount = computed(() => files.value.filter((file) => file.isDirectory).length)
 const documentCount = computed(() => files.value.length - directoryCount.value)
+type FileTreeAction = 'new-file' | 'new-folder' | 'rename' | 'delete' | 'copy-path' | 'show-entry'
+const contextMenuItems = computed<{ action: FileTreeAction; label: string }[]>(() => {
+  const createItems = contextMenu.value?.node.isDirectory
+    ? [
+        { action: 'new-file' as const, label: '新建文件' },
+        { action: 'new-folder' as const, label: '新建文件夹' },
+      ]
+    : []
+  const entryItems = contextMenu.value?.isRoot ? [] : [
+    { action: 'rename' as const, label: '重命名' },
+    { action: 'delete' as const, label: '删除' },
+  ]
+  return [
+    ...createItems,
+    ...entryItems,
+    { action: 'copy-path', label: '复制路径' },
+    { action: 'show-entry', label: '在资源管理器中显示' },
+  ]
+})
+
+const openFileTreeMenu = (node: FileItem, x: number, y: number): void => {
+  // 菜单靠近视口边缘时向内收，保证所有操作都能被点击。
+  contextMenu.value = { node, x: Math.min(x, window.innerWidth - 200), y: Math.min(y, window.innerHeight - 210), isRoot: false }
+}
+
+const openWorkspaceMenu = (event: MouseEvent): void => {
+  if (!currentDir.value) return
+  openFileTreeMenu({ name: projectName.value, path: currentDir.value, isDirectory: true }, event.clientX, event.clientY)
+  if (contextMenu.value) contextMenu.value.isRoot = true
+}
+
+const closeFileTreeMenu = (): void => {
+  contextMenu.value = null
+}
+
+const runFileTreeAction = async (action: FileTreeAction): Promise<void> => {
+  const node = contextMenu.value?.node
+  closeFileTreeMenu()
+  if (!node) return
+
+  try {
+    if (action === 'new-file' || action === 'new-folder') {
+      const name = window.prompt(action === 'new-file' ? '请输入文件名' : '请输入文件夹名')
+      if (name === null) return
+      await fileSystemService.createEntry(node.path, name, action === 'new-folder')
+    } else if (action === 'rename') {
+      const newName = window.prompt('请输入新名称', node.name)
+      if (newName === null || newName === node.name) return
+      await fileSystemService.renameEntry(node.path, newName)
+    } else if (action === 'delete') {
+      if (!window.confirm(`确定删除“${node.name}”吗？${node.isDirectory ? '文件夹内的内容也会一并删除。' : ''}`)) return
+      await fileSystemService.deleteEntry(node.path)
+    } else if (action === 'copy-path') {
+      await fileSystemService.copyPath(node.path)
+      return
+    } else {
+      await fileSystemService.showEntry(node.path)
+      return
+    }
+    await loadFiles()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    await window.electronAPI.showErrorMessage('文件操作失败', message)
+  }
+}
 
 const loadFiles = async (): Promise<void> => {
   if (!currentDir.value) {
@@ -234,7 +310,9 @@ const parseHeadings = (): void => {
     if (!match) return
 
     const level = match[1].length
-    const text = match[2].trim()
+    // ATX 标题末尾允许使用一组 # 作为闭合标记，这组字符也不是标题正文。
+    const headingSource = match[2].replace(/\s+#+\s*$/, '').trim()
+    const text = getHeadingPlainText(headingSource)
     const index = newHeadings.length
     const id = `heading-${lineIndex}-${text.replace(/\s+/g, '-').toLowerCase()}`
     newHeadings.push({ id, text, level, index })

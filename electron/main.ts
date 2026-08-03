@@ -26,7 +26,11 @@ import {
 } from "./services/pathAccess";
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
-import type { AttachmentCopyProgress } from "../src/types/electron";
+import type {
+  AttachmentCopyProgress,
+  ExportHtmlData,
+  ExportZipData,
+} from "../src/types/electron";
 
 let mainWindow: BrowserWindow | null = null;
 let rendererReady = false;
@@ -436,6 +440,26 @@ function createMenu(): void {
         },
         { type: "separator" },
         {
+          label: "导出为 HTML…",
+          accelerator: "CmdOrCtrl+Shift+E",
+          click: () => {
+            mainWindow?.webContents.send(IPC_CHANNELS.menuExportHtml);
+          },
+        },
+        {
+          label: "导出为 PDF…",
+          click: () => {
+            mainWindow?.webContents.send(IPC_CHANNELS.menuExportPdf);
+          },
+        },
+        {
+          label: "导出为 ZIP 包…",
+          click: () => {
+            mainWindow?.webContents.send(IPC_CHANNELS.menuExportZip);
+          },
+        },
+        { type: "separator" },
+        {
           label: "退出",
           accelerator: "CmdOrCtrl+Q",
           click: () => {
@@ -454,6 +478,14 @@ function createMenu(): void {
         { label: "复制", accelerator: "CmdOrCtrl+C", role: "copy" },
         { label: "粘贴", accelerator: "CmdOrCtrl+V", role: "paste" },
         { label: "全选", accelerator: "CmdOrCtrl+A", role: "selectAll" },
+        { type: "separator" },
+        {
+          label: "查找",
+          accelerator: "CmdOrCtrl+F",
+          click: () => {
+            mainWindow?.webContents.send(IPC_CHANNELS.menuFindReplace);
+          },
+        },
       ],
     },
     {
@@ -743,6 +775,101 @@ ipcMain.handle(
   },
 );
 
+// 导出为 HTML：渲染进程已生成自包含的 HTML 文档，这里只负责选路径写文件。
+ipcMain.handle(
+  IPC_CHANNELS.exportHtml,
+  async (_event, { html, suggestedName }: ExportHtmlData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.html`,
+      filters: [{ name: "HTML", extensions: ["html"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, html, "utf-8");
+    return { canceled: false, filePath: result.filePath };
+  },
+);
+
+// 给异步操作加超时保护，避免某个环节异常卡死时导出窗口一直挂起。
+// promise 提前完成时清理定时器，避免无意义的迟到 reject。
+const withTimeout = <T>(promise: Promise<T>, errorMessage: string, timeoutMs: number): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+
+// 导出为 PDF：用隐藏窗口加载导出的 HTML 后调用系统打印能力生成 PDF，
+// 不影响当前编辑窗口；窗口在结束后无论成败都会销毁。
+ipcMain.handle(
+  IPC_CHANNELS.exportPdf,
+  async (_event, { html, suggestedName }: ExportHtmlData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.pdf`,
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+
+    const printWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        sandbox: true,
+        contextIsolation: true,
+        // 导出的 HTML 是纯静态内容，禁用脚本执行提高安全性。
+        javascript: false,
+      },
+    });
+    try {
+      const dataUrl = `data:text/html;charset=utf-8;base64,${Buffer.from(html, "utf-8").toString("base64")}`;
+      // data URL 本身是即时加载的，但 HTML 内保留的 http(s) 图片会拖慢加载事件，
+      // 因此加载和打印两个阶段都要有超时保护。
+      await withTimeout(printWindow.loadURL(dataUrl), "PDF 页面加载超时（15 秒）", 15000);
+      const pdfBuffer = await withTimeout(
+        printWindow.webContents.printToPDF({
+          printBackground: true,
+          pageSize: "A4",
+          margins: {
+            top: 0.5,
+            bottom: 0.5,
+            left: 0.5,
+            right: 0.5,
+          },
+        }),
+        "PDF 生成超时（30 秒）",
+        30000,
+      );
+      await fs.promises.writeFile(result.filePath, pdfBuffer);
+      return { canceled: false, filePath: result.filePath };
+    } finally {
+      printWindow.destroy();
+    }
+  },
+);
+
+// 导出为 ZIP 包：渲染进程已经完成 Markdown 与图片的打包，这里只负责落盘。
+ipcMain.handle(
+  IPC_CHANNELS.exportZip,
+  async (_event, { zipData, suggestedName }: ExportZipData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.zip`,
+      filters: [{ name: "ZIP 压缩包", extensions: ["zip"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, Buffer.from(zipData));
+    return { canceled: false, filePath: result.filePath };
+  },
+);
+
 ipcMain.handle(IPC_CHANNELS.openFile, async () => {
   if (!mainWindow) return null;
 
@@ -923,6 +1050,50 @@ ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, dirPath: string) => {
   } catch {
     return [];
   }
+});
+
+// 文件名只能是单个路径片段，防止菜单操作越过当前工作区。
+const validateFileTreeName = (name: string): string => {
+  const trimmedName = name.trim();
+  if (!trimmedName || trimmedName === "." || trimmedName === ".." || /[\\/:*?"<>|]/.test(trimmedName)) {
+    throw new Error("名称不能为空，也不能包含 \\ / : * ? \" < > |");
+  }
+  return trimmedName;
+};
+
+ipcMain.handle(IPC_CHANNELS.createFileTreeEntry, async (_event, data: {
+  parentPath: string;
+  name: string;
+  isDirectory: boolean;
+}) => {
+  const parentPath = assertAuthorizedPath(data.parentPath);
+  const targetPath = path.join(parentPath, validateFileTreeName(data.name));
+  assertAuthorizedPath(targetPath);
+  if (data.isDirectory) await fs.promises.mkdir(targetPath);
+  else await fs.promises.writeFile(targetPath, "", { flag: "wx" });
+});
+
+ipcMain.handle(IPC_CHANNELS.renameFileTreeEntry, async (_event, data: {
+  entryPath: string;
+  newName: string;
+}) => {
+  const entryPath = assertAuthorizedPath(data.entryPath);
+  const targetPath = path.join(path.dirname(entryPath), validateFileTreeName(data.newName));
+  assertAuthorizedPath(targetPath);
+  await fs.promises.rename(entryPath, targetPath);
+});
+
+ipcMain.handle(IPC_CHANNELS.deleteFileTreeEntry, async (_event, entryPath: string) => {
+  const authorizedPath = assertAuthorizedPath(entryPath);
+  await fs.promises.rm(authorizedPath, { recursive: true });
+});
+
+ipcMain.handle(IPC_CHANNELS.copyFileTreePath, async (_event, entryPath: string) => {
+  clipboard.writeText(assertAuthorizedPath(entryPath));
+});
+
+ipcMain.handle(IPC_CHANNELS.showFileTreeEntry, async (_event, entryPath: string) => {
+  shell.showItemInFolder(assertAuthorizedPath(entryPath));
 });
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
@@ -1442,6 +1613,19 @@ ipcMain.handle(
     return readEditorImageDataUrl(
       resolveEditorFilePath(url, currentDocumentPath),
     );
+  },
+);
+
+ipcMain.handle(
+  IPC_CHANNELS.readEditorFileBytes,
+  async (
+    _event,
+    { url, currentDocumentPath }: { url: string; currentDocumentPath: string | null },
+  ) => {
+    const filePath = resolveEditorFilePath(url, currentDocumentPath);
+    const stats = await fs.promises.stat(filePath);
+    if (!stats.isFile()) throw new Error("资源文件不存在");
+    return new Uint8Array(await fs.promises.readFile(filePath));
   },
 );
 

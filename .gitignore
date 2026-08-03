@@ -18,6 +18,8 @@ out/
 .vscode/*
 !.vscode/extensions.json
 .idea
+.reasonix
+reasonix.toml
 
 # 系统文件
 .DS_Store

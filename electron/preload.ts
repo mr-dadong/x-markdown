@@ -3,6 +3,8 @@ import type {
   ApplicationMenuPosition,
   AttachmentCopyProgress,
   ElectronAPI,
+  ExportHtmlData,
+  ExportZipData,
   ImportEditorFileOptions,
   IpcChannel,
   OpenFileData,
@@ -82,6 +84,22 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.menuSaveAsFile, () => callback())
   },
 
+  onMenuFindReplace: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuFindReplace, () => callback())
+  },
+
+  onMenuExportHtml: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportHtml, () => callback())
+  },
+
+  onMenuExportPdf: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportPdf, () => callback())
+  },
+
+  onMenuExportZip: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportZip, () => callback())
+  },
+
   removeAllListeners: (channel: IpcChannel) => {
     ipcRenderer.removeAllListeners(channel)
   },
@@ -90,6 +108,17 @@ const electronAPI: ElectronAPI = {
   readDirectory: (dirPath: string): Promise<{ name: string; isDirectory: boolean; path: string }[]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.readDirectory, dirPath)
   },
+
+  createFileTreeEntry: (parentPath: string, name: string, isDirectory: boolean): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.createFileTreeEntry, { parentPath, name, isDirectory }),
+  renameFileTreeEntry: (entryPath: string, newName: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.renameFileTreeEntry, { entryPath, newName }),
+  deleteFileTreeEntry: (entryPath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.deleteFileTreeEntry, entryPath),
+  copyFileTreePath: (entryPath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.copyFileTreePath, entryPath),
+  showFileTreeEntry: (entryPath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.showFileTreeEntry, entryPath),
 
   selectWorkspace: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.selectWorkspace),
   getWorkspace: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.getWorkspace),
@@ -147,6 +176,9 @@ const electronAPI: ElectronAPI = {
   readEditorImage: (url: string, currentDocumentPath: string | null): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.readEditorImage, { url, currentDocumentPath }),
 
+  readEditorFileBytes: (url: string, currentDocumentPath: string | null): Promise<Uint8Array> =>
+    ipcRenderer.invoke(IPC_CHANNELS.readEditorFileBytes, { url, currentDocumentPath }),
+
   copyEditorImage: (url: string, currentDocumentPath: string | null): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.copyEditorImage, { url, currentDocumentPath }),
 
@@ -163,6 +195,12 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.openLocalLink, { url, currentDocumentPath }),
 
   checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.checkForUpdates),
+
+  exportHtml: (data: ExportHtmlData) => ipcRenderer.invoke(IPC_CHANNELS.exportHtml, data),
+
+  exportPdf: (data: ExportHtmlData) => ipcRenderer.invoke(IPC_CHANNELS.exportPdf, data),
+
+  exportZip: (data: ExportZipData) => ipcRenderer.invoke(IPC_CHANNELS.exportZip, data),
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 

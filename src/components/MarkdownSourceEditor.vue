@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { SourceEditorHandle } from '../types/editor'
 
 defineProps<{
   content: string
@@ -97,8 +98,9 @@ const handleKeydown = (event: KeyboardEvent): void => {
   emit('update:content', element.value)
 }
 
-defineExpose({
+defineExpose<SourceEditorHandle>({
   getScrollProgress,
   setScrollProgress,
+  getTextarea: () => sourceEditor.value,
 })
 </script>

@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "desktopName": "com.xmd.markdown-editor.desktop",
   "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
   "main": "out/main/index.js",
@@ -67,6 +67,7 @@
     "eslint": "^9.32.0",
     "eslint-plugin-vue": "^10.3.0",
     "highlight.js": "^11.11.1",
+    "jszip": "3.10.1",
     "katex": "0.18.1",
     "lowlight": "^3.0.0",
     "markdown-it": "^14.0.0",
