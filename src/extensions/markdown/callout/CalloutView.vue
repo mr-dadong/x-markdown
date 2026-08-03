@@ -2,18 +2,18 @@
   <NodeViewWrapper class="relative my-[0.8em] flex w-full" data-xmd-callout-view>
     <div
       ref="anchorElement"
-      class="relative flex w-full items-start gap-3 rounded-lg border px-4 py-3"
+      class="relative flex w-full items-start gap-3 rounded-lg border border-l-[3px] px-3.5 py-3"
       :class="[typeStyle.surface, props.selected ? 'outline outline-1 outline-accent/30' : '']"
       contenteditable="false"
       title="双击编辑提示块"
       @dblclick.stop="startEditing"
     >
-      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" :class="typeStyle.iconSurface">
-        <Icon :icon="typeIcon" :size="16" :class="typeStyle.icon" />
+      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" :class="typeStyle.iconSurface">
+        <Icon :icon="typeIcon" :size="14" :class="typeStyle.icon" />
       </div>
 
-      <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div class="flex min-h-8 min-w-0 items-center justify-between gap-3">
+      <div class="flex min-w-0 flex-1 flex-col gap-1">
+        <div class="flex min-h-6 min-w-0 items-center justify-between gap-3">
           <span class="min-w-0 truncate text-[13px] font-semibold leading-5 text-ink">{{ displayTitle }}</span>
 
           <div class="flex shrink-0 items-center gap-1">
@@ -50,12 +50,13 @@
       v-if="editing"
       title="编辑提示块"
       :icon="draftTypeIcon"
+      description="设置提示类型、标题和正文内容"
       :position="popoverPosition"
-      :width="460"
+      :width="420"
       @cancel="cancelEditing"
       @submit="saveEditing"
     >
-      <div class="flex flex-col gap-3 p-3">
+      <div class="flex flex-col gap-3 p-3.5" @keydown="handleEditorKeydown">
         <div class="flex gap-3">
           <div class="flex min-w-0 flex-1 flex-col gap-1.5">
             <span class="text-[11px] font-medium text-secondary">类型</span>
@@ -82,13 +83,13 @@
 
         <label class="flex flex-col gap-1.5">
           <span class="text-[11px] font-medium text-secondary">内容</span>
-          <span class="flex min-h-28 rounded-lg border border-line bg-paper px-3 py-2 focus-within:border-muted/60">
+          <span class="flex min-h-24 rounded-lg border border-line bg-paper px-3 py-2 focus-within:border-muted/60">
             <textarea
               v-model="draftBody"
-              rows="5"
+              rows="4"
               spellcheck="false"
               placeholder="输入 Markdown 内容"
-              class="min-h-24 min-w-0 flex-1 resize-none bg-transparent font-mono text-[12px] leading-5 text-ink outline-none placeholder:text-muted/50"
+              class="min-h-20 min-w-0 flex-1 resize-none bg-transparent font-mono text-[12px] leading-5 text-ink outline-none placeholder:text-muted/50"
               @keydown.stop
             />
           </span>
@@ -148,17 +149,19 @@ const renderedBody = computed(() => renderSafeMarkdown(String(props.node.attrs.b
 const typeIcon = computed(() => supportedTypes.find((type) => type.value === calloutType.value)?.icon ?? 'lucide:info')
 const draftTypeIcon = computed(() => supportedTypes.find((type) => type.value === draftType.value)?.icon ?? 'lucide:info')
 
-const typeStyle = computed(() => {
+const getTypeStyle = (type: string): { surface: string; iconSurface: string; icon: string } => {
   // 每种提示只改变语义色，卡片结构保持一致，切换类型时界面不会跳动。
   const styles: Record<string, { surface: string; iconSurface: string; icon: string }> = {
-    NOTE: { surface: 'border-line bg-toolbar', iconSurface: 'bg-control', icon: 'text-secondary' },
-    TIP: { surface: 'border-link/30 bg-link/5', iconSurface: 'bg-link/10', icon: 'text-link' },
-    IMPORTANT: { surface: 'border-folder/30 bg-folder/5', iconSurface: 'bg-folder/10', icon: 'text-folder' },
-    WARNING: { surface: 'border-folder/30 bg-folder/5', iconSurface: 'bg-folder/10', icon: 'text-folder' },
-    CAUTION: { surface: 'border-danger/30 bg-danger/5', iconSurface: 'bg-danger/10', icon: 'text-danger' },
+    NOTE: { surface: 'border-line border-l-secondary bg-toolbar', iconSurface: 'bg-control', icon: 'text-secondary' },
+    TIP: { surface: 'border-link/20 border-l-link bg-link/5', iconSurface: 'bg-link/10', icon: 'text-link' },
+    IMPORTANT: { surface: 'border-folder/20 border-l-folder bg-folder/5', iconSurface: 'bg-folder/10', icon: 'text-folder' },
+    WARNING: { surface: 'border-folder/20 border-l-folder bg-folder/5', iconSurface: 'bg-folder/10', icon: 'text-folder' },
+    CAUTION: { surface: 'border-danger/20 border-l-danger bg-danger/5', iconSurface: 'bg-danger/10', icon: 'text-danger' },
   }
-  return styles[calloutType.value] ?? styles.NOTE
-})
+  return styles[type] ?? styles.NOTE
+}
+
+const typeStyle = computed(() => getTypeStyle(calloutType.value))
 
 const saveDraft = (): void => {
   props.updateAttributes({
@@ -187,6 +190,12 @@ const cancelEditing = (): void => {
 const saveEditing = (): void => {
   saveDraft()
   editing.value = false
+}
+
+const handleEditorKeydown = (event: KeyboardEvent): void => {
+  if (event.key !== 'Enter' || !event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
+  event.preventDefault()
+  saveEditing()
 }
 
 watch(

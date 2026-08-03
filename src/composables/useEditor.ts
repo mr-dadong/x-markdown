@@ -40,6 +40,7 @@ import {
   Callout,
   FootnoteDefinition,
   FootnoteReference,
+  HtmlBlock,
   MathBlock,
   MathInline,
   MermaidBlock,
@@ -988,6 +989,35 @@ export const useMarkdownEditor = (
       if (listItemType) {
         if (event.shiftKey) editor.value?.commands.liftListItem(listItemType);
         else editor.value?.commands.sinkListItem(listItemType);
+        return true;
+      }
+
+      const { selection } = view.state;
+
+      // 普通段落和标题同样使用两个空格缩进，避免 Tab 被拦截后看起来没有响应。
+      if (!event.shiftKey) {
+        view.dispatch(
+          view.state.tr.insertText("  ", selection.from, selection.to),
+        );
+        return true;
+      }
+
+      // Shift+Tab 只删除光标前紧邻的一到两个空格，不会误删用户输入的正文。
+      if (!selection.empty) return true;
+      const textBeforeCursor = selection.$from.parent.textBetween(
+        0,
+        selection.$from.parentOffset,
+        undefined,
+        "\ufffc",
+      );
+      const indentationLength = textBeforeCursor.match(/ {1,2}$/)?.[0].length ?? 0;
+      if (indentationLength > 0) {
+        view.dispatch(
+          view.state.tr.delete(
+            selection.from - indentationLength,
+            selection.from,
+          ),
+        );
       }
 
       return true;
@@ -1045,6 +1075,7 @@ export const useMarkdownEditor = (
       LegacyMediaFilter,
       RawMarkdownBlock,
       // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
+      HtmlBlock,
       MermaidBlock,
       MathBlock,
       MathInline,

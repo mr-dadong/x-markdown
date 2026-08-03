@@ -4,6 +4,7 @@ import circleIcon from '@iconify-icons/lucide/circle'
 import chevronDownIcon from '@iconify-icons/lucide/chevron-down'
 import chevronRightIcon from '@iconify-icons/lucide/chevron-right'
 import code2Icon from '@iconify-icons/lucide/code-2'
+import fileCode2Icon from '@iconify-icons/lucide/file-code-2'
 import copyIcon from '@iconify-icons/lucide/copy'
 import fileTextIcon from '@iconify-icons/lucide/file-text'
 import filePlus2Icon from '@iconify-icons/lucide/file-plus-2'
@@ -26,6 +27,8 @@ import moonIcon from '@iconify-icons/lucide/moon'
 import panelLeftIcon from '@iconify-icons/lucide/panel-left'
 import paperclipIcon from '@iconify-icons/lucide/paperclip'
 import penLineIcon from '@iconify-icons/lucide/pen-line'
+import maximize2Icon from '@iconify-icons/lucide/maximize-2'
+import minimize2Icon from '@iconify-icons/lucide/minimize-2'
 import pilcrowIcon from '@iconify-icons/lucide/pilcrow'
 import quoteIcon from '@iconify-icons/lucide/quote'
 import searchIcon from '@iconify-icons/lucide/search'
@@ -75,6 +78,7 @@ addIcon('lucide:circle', circleIcon)
 addIcon('lucide:chevron-down', chevronDownIcon)
 addIcon('lucide:chevron-right', chevronRightIcon)
 addIcon('lucide:code-2', code2Icon)
+addIcon('lucide:file-code-2', fileCode2Icon)
 addIcon('lucide:copy', copyIcon)
 addIcon('lucide:file-text', fileTextIcon)
 addIcon('lucide:file-plus-2', filePlus2Icon)
@@ -97,6 +101,8 @@ addIcon('lucide:moon', moonIcon)
 addIcon('lucide:panel-left', panelLeftIcon)
 addIcon('lucide:paperclip', paperclipIcon)
 addIcon('lucide:pen-line', penLineIcon)
+addIcon('lucide:maximize-2', maximize2Icon)
+addIcon('lucide:minimize-2', minimize2Icon)
 addIcon('lucide:pilcrow', pilcrowIcon)
 addIcon('lucide:quote', quoteIcon)
 addIcon('lucide:search', searchIcon)

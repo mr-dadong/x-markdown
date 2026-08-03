@@ -204,6 +204,19 @@ export const slashCommands: SlashCommand[] = [
       }),
   },
   {
+    id: "html-block",
+    group: "扩展内容",
+    label: "HTML 源码块",
+    description: "插入原样保存的 HTML 块",
+    icon: "lucide:file-code-2",
+    iconClass: "bg-toolbar text-danger",
+    keywords: ["HTML", "源码块", "标签", "html", "source", "tag", "yuanmakuai", "ymk"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "htmlBlock", {
+        source: "<div>HTML 内容</div>",
+      }),
+  },
+  {
     id: "math-block",
     group: "扩展内容",
     label: "数学公式",

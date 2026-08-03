@@ -316,4 +316,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "changelogs/${{ github.ref_name }}.json" changelogs/version.json
           git commit --message "chore: update ${{ github.ref_name }} release hashes"
+
+          # 标签构建处于 detached HEAD，推送前先把清单提交放到最新 main 之后，
+          # 避免构建期间 main 出现新提交时触发 non-fast-forward 拒绝。
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
