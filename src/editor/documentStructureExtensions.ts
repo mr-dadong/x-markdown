@@ -1,6 +1,15 @@
 import { Extension } from "@tiptap/core";
 import { GapCursor } from "@tiptap/pm/gapcursor";
-import { Plugin, TextSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+
+type TemporaryParagraphMeta =
+  | { add: number }
+  | { replace: number[] };
+
+// 只跟踪通过点击块间空隙产生的段落，避免误删用户主动按回车创建的空行。
+const temporaryParagraphPluginKey = new PluginKey<number[]>(
+  "temporaryGapParagraph",
+);
 
 // 文档以块内容结尾时补充可输入段落，确保用户能继续输入。
 export const TrailingParagraph = Extension.create({
@@ -41,6 +50,9 @@ export const ReadableGapCursor = Extension.create({
             newState.selection.from,
             paragraph.create(),
           );
+          transaction.setMeta(temporaryParagraphPluginKey, {
+            add: newState.selection.from,
+          } satisfies TemporaryParagraphMeta);
           transaction.setSelection(
             TextSelection.create(transaction.doc, newState.selection.from + 1),
           );
@@ -56,7 +68,66 @@ export const ClickableBlockGap = Extension.create({
   name: "clickableBlockGap",
   addProseMirrorPlugins() {
     return [
-      new Plugin({
+      new Plugin<number[]>({
+        key: temporaryParagraphPluginKey,
+        state: {
+          init: () => [],
+          apply: (transaction, positions) => {
+            const meta = transaction.getMeta(
+              temporaryParagraphPluginKey,
+            ) as TemporaryParagraphMeta | undefined;
+            if (meta && "replace" in meta) return meta.replace;
+
+            // 文档变化后同步位置；段落一旦有内容，就不再属于临时段落。
+            const mappedPositions = positions
+              .map((position) => transaction.mapping.mapResult(position, 1))
+              .filter((result) => !result.deleted)
+              .map((result) => result.pos)
+              .filter((position) => {
+                const node = transaction.doc.nodeAt(position);
+                return node?.type.name === "paragraph" && node.content.size === 0;
+              });
+
+            if (meta && "add" in meta && !mappedPositions.includes(meta.add)) {
+              mappedPositions.push(meta.add);
+            }
+            return mappedPositions;
+          },
+        },
+        appendTransaction: (_transactions, _oldState, newState) => {
+          const positions = temporaryParagraphPluginKey.getState(newState) ?? [];
+          const positionsToDelete = positions.filter((position) => {
+            const node = newState.doc.nodeAt(position);
+            if (node?.type.name !== "paragraph" || node.content.size !== 0) return false;
+
+            // 光标还在临时段落内时保留，移到其他内容后再清理。
+            const cursorPosition = position + 1;
+            return !(
+              newState.selection.from === cursorPosition &&
+              newState.selection.to === cursorPosition
+            );
+          });
+          if (positionsToDelete.length === 0) return null;
+
+          const transaction = newState.tr;
+          positionsToDelete
+            .slice()
+            .sort((left, right) => right - left)
+            .forEach((position) => {
+              const node = transaction.doc.nodeAt(position);
+              if (node?.type.name === "paragraph" && node.content.size === 0) {
+                transaction.delete(position, position + node.nodeSize);
+              }
+            });
+
+          const remainingPositions = positions
+            .filter((position) => !positionsToDelete.includes(position))
+            .map((position) => transaction.mapping.map(position, 1));
+          transaction.setMeta(temporaryParagraphPluginKey, {
+            replace: remainingPositions,
+          } satisfies TemporaryParagraphMeta);
+          return transaction;
+        },
         props: {
           handleClick: (view, _position, event) => {
             const paragraph = view.state.schema.nodes.paragraph;
@@ -86,6 +157,9 @@ export const ClickableBlockGap = Extension.create({
               }
 
               const transaction = view.state.tr.insert(position, paragraph.create());
+              transaction.setMeta(temporaryParagraphPluginKey, {
+                add: position,
+              } satisfies TemporaryParagraphMeta);
               transaction.setSelection(
                 TextSelection.create(transaction.doc, position + 1),
               );

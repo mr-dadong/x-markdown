@@ -150,6 +150,7 @@
               <div class="flex flex-col gap-1">
                 <strong class="text-[18px] tracking-tight text-ink">XMD</strong>
                 <span class="text-[13px] text-muted">让 Markdown 写作回归内容本身</span>
+                <span class="text-[12px] text-muted">作者：{{ appAuthor }}</span>
               </div>
               <span
                 class="ml-auto rounded border border-line bg-paper px-2 py-1 font-mono text-[10px] text-muted">v{{ appVersion }}</span>
@@ -193,8 +194,9 @@ import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
 
 const emit = defineEmits<{ close: [] }>()
-// 版本号统一读取 package.json，发布时只需维护一处即可。
+// 版本号和作者统一读取 package.json，发布时只需维护一处即可。
 const appVersion = packageInfo.version
+const appAuthor = packageInfo.author
 const { settings, resetShortcuts } = useSettings()
 const { isChecking, checkMessage, checkForUpdates } = useUpdater()
 const activeSection = ref<SettingsSection>('general')

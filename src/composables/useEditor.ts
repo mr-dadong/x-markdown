@@ -1037,6 +1037,8 @@ export const useMarkdownEditor = (
       }),
       Markdown.configure({
         html: true,
+        // 普通文本中的单个换行也应在编辑器中显示为换行，符合所见即所得的使用习惯。
+        breaks: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),
