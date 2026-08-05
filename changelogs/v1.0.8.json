@@ -1,0 +1,75 @@
+{
+  "latest": "1.0.8",
+  "releases": [
+    {
+      "version": "1.0.8",
+      "date": "2026-08-07",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "优化编辑器后台任务调度，减少长文档输入、查找、字数统计和大纲更新时的卡顿。",
+        "优化恢复草稿监听与保存频率，降低多文档编辑时的资源占用。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.8-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.8/XMD-1.0.8-Windows-x64.exe",
+              "sha256": null
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.8-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.8/XMD-1.0.8-macOS-arm64.dmg",
+              "sha256": null
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.8-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.8/XMD-1.0.8-macOS-x64.dmg",
+              "sha256": null
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.8-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.8/XMD-1.0.8-Linux-x86_64.AppImage",
+              "sha256": null
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.8-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.8/XMD-1.0.8-Linux-arm64.AppImage",
+              "sha256": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

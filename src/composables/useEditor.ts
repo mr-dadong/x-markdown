@@ -989,9 +989,13 @@ export const useMarkdownEditor = (
         editor.state.selection instanceof AllSelection,
       );
     },
-    onTransaction: () => {
-      editorRenderVersion.value += 1;
-      if (blockControlVisible.value) void nextTick(refreshBlockControlPosition);
+    onTransaction: ({ transaction }) => {
+      // 光标移动也会产生事务，但不会改变正文或折叠状态，无需刷新块控件相关视图。
+      const collapseStateChanged = transaction.getMeta(sectionCollapseKey) !== undefined;
+      if (transaction.docChanged || collapseStateChanged) {
+        editorRenderVersion.value += 1;
+        if (blockControlVisible.value) void nextTick(refreshBlockControlPosition);
+      }
     },
   });
 

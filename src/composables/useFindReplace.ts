@@ -160,15 +160,15 @@ export const useFindReplace = (
     else refreshEditor(anchor);
   };
 
-  // 输入和文档变化会高频触发刷新，合并到同一帧执行避免大文档反复全量扫描。
-  let refreshFrame: number | null = null;
+  // 查找需要遍历全文；连续输入时稍后只扫描最终内容，给编辑器绘制留出时间。
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   const refresh = (): void => {
     if (!isOpen.value) return;
-    if (refreshFrame !== null) return;
-    refreshFrame = requestAnimationFrame(() => {
-      refreshFrame = null;
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
       refreshNow();
-    });
+    }, 120);
   };
 
   // 跳转到当前匹配：富文本模式选中并滚动，源码模式定位选区并估算滚动位置。
@@ -301,7 +301,7 @@ export const useFindReplace = (
   };
 
   onUnmounted(() => {
-    if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
+    if (refreshTimer) clearTimeout(refreshTimer);
     // EditorView 卸载时子编辑器组件已先销毁，unregisterPlugin 内部有 isDestroyed 守卫；
     // 若编辑器仍存活则主动注销查找插件，避免高亮装饰残留。
     getEditor()?.unregisterPlugin(findReplaceKey);

@@ -59,6 +59,19 @@ export const useDocument = () => {
   });
   let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // 只提取恢复草稿真正依赖的字段，避免标签激活等无关状态变化触发深度遍历。
+  const recoveryDraftSnapshot = computed(() =>
+    documents.value.map(
+      ({ filePath, content, savedContent, modifiedTime, isModified }) => ({
+        filePath,
+        content,
+        savedContent,
+        modifiedTime,
+        isModified,
+      }),
+    ),
+  );
+
   // 全文统计包含多次字符串扫描，延后到编辑器完成当前渲染后再执行。
   // 连续输入期间只统计最后一版内容，避免每次按键都阻塞编辑器。
   watch(
@@ -68,14 +81,14 @@ export const useDocument = () => {
       documentStatsTimer = setTimeout(() => {
         documentStats.value = getDocumentStats(content);
         documentStatsTimer = null;
-      }, 120);
+      }, 220);
     },
     { immediate: true, flush: "post" },
   );
 
   // 只保存尚未落盘的内容；正常保存或主动放弃后，对应草稿会自动移除。
   watch(
-    documents,
+    recoveryDraftSnapshot,
     (currentDocuments) => {
       if (draftSaveTimer) clearTimeout(draftSaveTimer);
       draftSaveTimer = setTimeout(() => {
@@ -89,7 +102,7 @@ export const useDocument = () => {
           }));
         void enqueueDraftSave(drafts).catch(() => undefined);
         draftSaveTimer = null;
-      }, 300);
+      }, 800);
     },
     { deep: true },
   );

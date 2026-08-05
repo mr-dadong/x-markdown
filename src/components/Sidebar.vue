@@ -335,7 +335,7 @@ watch(
     headingParseTimer = setTimeout(() => {
       parseHeadings()
       headingParseTimer = null
-    }, 150)
+    }, 260)
   },
   { immediate: true, flush: 'post' },
 )
