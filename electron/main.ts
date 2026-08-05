@@ -70,6 +70,12 @@ async function writeTextFileAtomically(
       encoding: "utf-8",
       flag: "wx",
     });
+
+    // Windows 无法稳定地通过 rename 覆盖已有文件，会返回 EPERM。
+    // 临时文件已经完整写入，删除旧文件后再移动，可避免直接写入时产生半截内容。
+    if (process.platform === "win32") {
+      await fs.promises.rm(filePath, { force: true });
+    }
     await fs.promises.rename(temporaryPath, filePath);
   } catch (error) {
     await fs.promises.rm(temporaryPath, { force: true }).catch(() => undefined);

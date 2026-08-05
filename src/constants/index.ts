@@ -18,8 +18,8 @@ export const EDITOR_CONFIG = {
 export const SIDEBAR_CONFIG = {
   width: 292,
   tabs: [
-    { id: "files" as const, label: "文件", icon: "lucide:files" },
     { id: "outline" as const, label: "大纲", icon: "lucide:list-tree" },
+    { id: "files" as const, label: "文件", icon: "lucide:files" },
   ],
 } as const;
 

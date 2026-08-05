@@ -544,6 +544,11 @@ export const useDocument = () => {
       await restoreRecoveryDrafts();
       applyOpenedFiles(startupFiles);
       await nextTick();
+      // nextTick 只表示 Vue 已更新 DOM，浏览器此时可能还没有把文档画面提交给窗口。
+      // 等待下一帧完成绘制后再显示主窗口，避免先闪出欢迎页再切换到目标文档。
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => window.setTimeout(resolve, 0));
+      });
     } catch (error) {
       initializationError = error;
       console.error("初始化文档失败:", error);

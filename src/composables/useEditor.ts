@@ -1,6 +1,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { Extension, type Editor } from "@tiptap/core";
+import { DOMSerializer } from "@tiptap/pm/model";
 import { AllSelection, NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import {
@@ -910,6 +911,44 @@ export const useMarkdownEditor = (
       handleDOMEvents: {
         copy: (view, event) => {
           const { selection } = view.state;
+
+          if (selection instanceof TextSelection && !selection.empty && event.clipboardData) {
+            let sharedTableCellDepth: number | null = null;
+            for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
+              const nodeName = selection.$from.node(depth).type.name;
+              if (
+                (nodeName === "tableCell" || nodeName === "tableHeader") &&
+                depth <= selection.$to.depth &&
+                selection.$from.before(depth) === selection.$to.before(depth)
+              ) {
+                sharedTableCellDepth = depth;
+                break;
+              }
+            }
+
+            // 同一文本块内属于普通局部复制；同一单元格还需覆盖跨段落选择的情况。
+            const isLocalTextSelection = selection.$from.parent === selection.$to.parent;
+            if (isLocalTextSelection || sharedTableCellDepth !== null) {
+              const selectedSlice = selection.content();
+              const container = document.createElement("div");
+              container.appendChild(
+                DOMSerializer.fromSchema(view.state.schema).serializeFragment(selectedSlice.content),
+              );
+
+              /*
+               * 局部文字只复制实际选中的内容，不让 Markdown 序列化器补上标题、列表、
+               * 代码围栏或 table 标签。HTML 数据用于保留加粗等行内格式，纯文本用于普通粘贴。
+               */
+              event.preventDefault();
+              event.clipboardData.setData(
+                "text/plain",
+                view.state.doc.textBetween(selection.from, selection.to, "\n"),
+              );
+              event.clipboardData.setData("text/html", container.innerHTML);
+              return true;
+            }
+          }
+
           if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") {
             return false;
           }

@@ -10,12 +10,12 @@
         </button>
       </div>
 
-      <div class="flex h-8 items-center rounded-md bg-toolbar p-0.5">
+      <div class="flex h-8 items-center rounded-md border border-line/60 bg-paper p-0.5">
         <button v-for="tab in tabs" :key="tab.id" type="button"
           class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
           :class="activeTab === tab.id
-            ? 'border border-line bg-paper text-ink'
-            : 'border border-transparent bg-transparent text-muted hover:text-ink'" @click="activeTab = tab.id">
+            ? 'border border-transparent bg-control text-secondary'
+            : 'border border-transparent bg-transparent text-muted hover:bg-control/50 hover:text-secondary'" @click="activeTab = tab.id">
           <Icon :icon="tab.icon" :size="14" />
           <span>{{ tab.label }}</span>
         </button>
@@ -126,7 +126,8 @@ const emit = defineEmits<{
   'scroll-to': [headingIndex: number]
 }>()
 
-const activeTab = ref<SidebarTab>('files')
+// 默认先展示文档结构，文件入口放在右侧，需要时再切换。
+const activeTab = ref<SidebarTab>('outline')
 const currentDir = ref<string | null>(null)
 const files = ref<FileItem[]>([])
 const headings = ref<Heading[]>([])

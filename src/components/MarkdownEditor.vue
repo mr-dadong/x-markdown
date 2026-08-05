@@ -691,6 +691,16 @@ defineExpose<EditorHandle>({
   font-size: inherit;
 }
 
+/*
+ * 代码高亮会为关键字、字符串等内容设置不同文字色。
+ * 选中代码时统一使用高对比文字色，避免高亮色与选区背景混在一起。
+ */
+.tiptap pre code ::selection,
+.tiptap pre code::selection {
+  background-color: var(--color-link);
+  color: var(--color-inverse);
+}
+
 /* ===== 图片 ===== */
 .tiptap img {
   max-width: 100%;
