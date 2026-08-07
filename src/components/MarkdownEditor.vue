@@ -337,6 +337,13 @@ const handleLinkMouseOver = (event: MouseEvent): void => {
     return
   }
 
+  // 目录锚点只负责文档内跳转，不显示用于编辑普通链接的操作浮层。
+  if ((anchor.getAttribute('href') ?? '').startsWith('#')) {
+    activeLink.value = null
+    editingLink.value = false
+    return
+  }
+
   cancelLinkMenuClose()
   const rect = anchor.getBoundingClientRect()
   activeLink.value = {
@@ -351,12 +358,54 @@ const handleLinkMouseOver = (event: MouseEvent): void => {
   linkCopied.value = false
 }
 
+// Markdown 目录通常使用 GitHub 风格的标题锚点：保留中文，把空白转为连字符并移除标点。
+// 同名标题从第二个开始追加 -1、-2，保证手写目录和常见 Markdown 平台的行为一致。
+const createHeadingAnchors = (): Map<string, HTMLElement> => {
+  const anchors = new Map<string, HTMLElement>()
+  const occurrences = new Map<string, number>()
+  const headingElements = editor.value?.view.dom.querySelectorAll<HTMLElement>(
+    'h1, h2, h3, h4, h5, h6',
+  ) ?? []
+
+  headingElements.forEach((heading) => {
+    const baseAnchor = (heading.textContent ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\p{L}\p{N}\p{M}_-]/gu, '')
+    if (!baseAnchor) return
+
+    const occurrence = occurrences.get(baseAnchor) ?? 0
+    occurrences.set(baseAnchor, occurrence + 1)
+    const anchor = occurrence === 0 ? baseAnchor : `${baseAnchor}-${occurrence}`
+    anchors.set(anchor, heading)
+  })
+
+  return anchors
+}
+
+const openHeadingAnchor = (href: string): void => {
+  // 浏览器读取 href 属性时可能返回百分号编码的中文，先还原后再匹配标题。
+  let anchor = href.slice(1)
+  try {
+    anchor = decodeURIComponent(anchor)
+  } catch {
+    // 非法百分号编码无法对应合法标题锚点，保持未命中即可。
+  }
+
+  const targetHeading = createHeadingAnchors().get(anchor.toLowerCase())
+  targetHeading?.scrollIntoView({ block: 'start' })
+}
+
 const openMarkdownLink = async (href: string): Promise<void> => {
   if (/^(?:https?:|mailto:)/i.test(href)) {
     await windowService.openExternalLink(href)
     return
   }
-  if (href.startsWith('#')) return
+  if (href.startsWith('#')) {
+    openHeadingAnchor(href)
+    return
+  }
 
   try {
     await mediaService.openLocalLink(href, props.currentFilePath)
@@ -820,6 +869,13 @@ defineExpose<EditorHandle>({
 .tiptap a:hover {
   color: var(--color-link-hover);
   text-decoration-thickness: 2px;
+}
+
+/* 文档内目录保留跳转能力，但视觉上作为普通目录文字展示。 */
+.tiptap a[href^='#'],
+.tiptap a[href^='#']:hover {
+  color: inherit;
+  text-decoration-line: none;
 }
 
 /* ===== 高亮 ===== */

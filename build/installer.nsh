@@ -9,6 +9,11 @@
   WriteRegStr HKCU "Software\Classes\Applications\XMD.exe\SupportedTypes" ".markdown" ""
   WriteRegStr HKCU "Software\Classes\Applications\XMD.exe\SupportedTypes" ".txt" ""
 
+  ; ShellNew 需要扩展名能够解析到具名文件类型，否则 Windows 11 可能忽略该菜单项。
+  ; UserChoice 仍由 Windows 管理，这里不会覆盖用户已经选择的默认打开程序。
+  WriteRegStr HKCU "Software\Classes\.md" "" "XMD.Markdown"
+  WriteRegStr HKCU "Software\Classes\.md" "Content Type" "text/markdown"
+
   ; 在支持的文件右键菜单中增加“使用 XMD 打开”快捷入口。
   WriteRegStr HKCU "Software\Classes\SystemFileAssociations\.md\shell\XMD" "" "使用 XMD 打开"
   WriteRegStr HKCU "Software\Classes\SystemFileAssociations\.md\shell\XMD" "Icon" '"$INSTDIR\XMD.exe",0'
@@ -44,5 +49,9 @@
   ; 只删除 XMD 写入的值，避免误删其他软件在 ShellNew 下保存的配置。
   DeleteRegValue HKCU "Software\Classes\.md\ShellNew" "NullFile"
   DeleteRegKey /ifempty HKCU "Software\Classes\.md\ShellNew"
+  ; 仅当扩展名仍指向 XMD 时清理，避免破坏安装后由其他软件写入的关联。
+  ReadRegStr $0 HKCU "Software\Classes\.md" ""
+  StrCmp $0 "XMD.Markdown" 0 +2
+  DeleteRegValue HKCU "Software\Classes\.md" ""
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 !macroend
