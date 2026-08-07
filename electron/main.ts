@@ -2,10 +2,8 @@ import {
   app,
   BrowserWindow,
   clipboard,
-  Menu,
   dialog,
   ipcMain,
-  MenuItemConstructorOptions,
   net,
   nativeImage,
   protocol,
@@ -16,7 +14,6 @@ import path from "path";
 import fs from "fs";
 import { createHash, randomUUID } from "crypto";
 import { Readable } from "stream";
-import chokidar, { type FSWatcher } from "chokidar";
 import { fileURLToPath, pathToFileURL } from "url";
 import {
   assertAuthorizedPath,
@@ -25,6 +22,9 @@ import {
   authorizeFile,
 } from "./services/pathAccess";
 import { registerWindowIpc } from "./ipc/windowIpc";
+import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
+import { createApplicationMenu } from "./app/applicationMenu";
+import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
 import type {
   AttachmentCopyProgress,
@@ -37,7 +37,6 @@ let rendererReady = false;
 let rendererViewReady = false;
 let windowReadyToShow = false;
 let closeApproved = false;
-let workspaceWatcher: FSWatcher | null = null;
 let selectedUpdate: SelectedUpdate | null = null;
 let verifiedUpdate: { filePath: string; sha256: string } | null = null;
 let updateDownloadInProgress = false;
@@ -328,198 +327,33 @@ function createWindow(): void {
   rendererViewReady = false;
   windowReadyToShow = false;
   closeApproved = false;
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    frame: false,
-    titleBarStyle: "hidden",
-    backgroundColor: "#f5f5f5",
-    icon: path.join(__dirname, "../../build/icons/256x256.png"),
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
+  mainWindow = createMainWindow({
+    isCloseApproved: () => closeApproved,
+    isRendererReady: () => rendererReady,
+    onReadyToShow: () => {
+      windowReadyToShow = true;
+      if (rendererViewReady) mainWindow?.show();
     },
-    show: false,
-  });
-
-  // electron-vite 仅在开发模式提供该地址，生产预览直接加载构建产物。
-  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
-  if (rendererUrl) {
-    mainWindow.loadURL(rendererUrl);
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
-
-  // 窗口准备好后显示
-  mainWindow.once("ready-to-show", () => {
-    windowReadyToShow = true;
-    if (rendererViewReady) mainWindow?.show();
-  });
-
-  // 应用窗口不允许跳转到远程页面；网页统一交给受协议限制的系统浏览器。
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsedUrl = new URL(url);
-      if (["http:", "https:", "mailto:"].includes(parsedUrl.protocol))
-        void shell.openExternal(parsedUrl.toString());
-    } catch {
-      // 无效地址直接拒绝，不让它进入应用窗口。
-    }
-    return { action: "deny" };
-  });
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    const currentUrl = mainWindow?.webContents.getURL();
-    if (url !== currentUrl) event.preventDefault();
-  });
-
-  mainWindow.on("close", (event) => {
-    if (closeApproved || !rendererReady) return;
-    event.preventDefault();
-    mainWindow?.webContents.send(IPC_CHANNELS.requestWindowClose);
-  });
-
-  // 窗口关闭事件
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+    onClosed: () => {
+      mainWindow = null;
+    },
   });
 }
 
-// 创建菜单
 function createMenu(): void {
-  const template: MenuItemConstructorOptions[] = [
-    {
-      label: "文件",
-      submenu: [
-        {
-          label: "新建",
-          accelerator: "CmdOrCtrl+N",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuNewFile);
-          },
-        },
-        {
-          label: "打开",
-          accelerator: "CmdOrCtrl+O",
-          click: async () => {
-            if (!mainWindow) return;
-            const result = await dialog.showOpenDialog(mainWindow, {
-              properties: ["openFile", "multiSelections"],
-              filters: [
-                { name: "Markdown", extensions: ["md", "markdown", "txt"] },
-                { name: "所有文件", extensions: ["*"] },
-              ],
-            });
-            if (!result.canceled) {
-              const files = await Promise.all(
-                result.filePaths.map(async (filePath) => {
-                  authorizeDocument(filePath);
-                  const [content, stats] = await Promise.all([
-                    fs.promises.readFile(filePath, "utf-8"),
-                    fs.promises.stat(filePath),
-                  ]);
-                  return { filePath, content, modifiedTime: stats.mtimeMs };
-                }),
-              );
-              files.forEach((file) =>
-                mainWindow?.webContents.send(IPC_CHANNELS.menuOpenFile, file),
-              );
-            }
-          },
-        },
-        {
-          label: "保存",
-          accelerator: "CmdOrCtrl+S",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuSaveFile);
-          },
-        },
-        {
-          label: "另存为",
-          accelerator: "CmdOrCtrl+Shift+S",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuSaveAsFile);
-          },
-        },
-        { type: "separator" },
-        {
-          label: "导出为 HTML…",
-          accelerator: "CmdOrCtrl+Shift+E",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuExportHtml);
-          },
-        },
-        {
-          label: "导出为 PDF…",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuExportPdf);
-          },
-        },
-        {
-          label: "导出为 ZIP 包…",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuExportZip);
-          },
-        },
-        { type: "separator" },
-        {
-          label: "退出",
-          accelerator: "CmdOrCtrl+Q",
-          click: () => {
-            app.quit();
-          },
-        },
-      ],
-    },
-    {
-      label: "编辑",
-      submenu: [
-        { label: "撤销", accelerator: "CmdOrCtrl+Z", role: "undo" },
-        { label: "重做", accelerator: "CmdOrCtrl+Shift+Z", role: "redo" },
-        { type: "separator" },
-        { label: "剪切", accelerator: "CmdOrCtrl+X", role: "cut" },
-        { label: "复制", accelerator: "CmdOrCtrl+C", role: "copy" },
-        { label: "粘贴", accelerator: "CmdOrCtrl+V", role: "paste" },
-        { label: "全选", accelerator: "CmdOrCtrl+A", role: "selectAll" },
-        { type: "separator" },
-        {
-          label: "查找",
-          accelerator: "CmdOrCtrl+F",
-          click: () => {
-            mainWindow?.webContents.send(IPC_CHANNELS.menuFindReplace);
-          },
-        },
-      ],
-    },
-    {
-      label: "视图",
-      submenu: [
-        { label: "重新加载", accelerator: "CmdOrCtrl+R", role: "reload" },
-        { type: "separator" },
-        { label: "实际大小", accelerator: "CmdOrCtrl+0", role: "resetZoom" },
-        { label: "放大", accelerator: "CmdOrCtrl+Plus", role: "zoomIn" },
-        { label: "缩小", accelerator: "CmdOrCtrl+-", role: "zoomOut" },
-        { type: "separator" },
-        { label: "全屏", accelerator: "F11", role: "togglefullscreen" },
-      ],
-    },
-    {
-      label: "窗口",
-      submenu: [
-        { label: "最小化", accelerator: "CmdOrCtrl+M", role: "minimize" },
-        { label: "关闭", accelerator: "CmdOrCtrl+W", role: "close" },
-      ],
-    },
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
-
-  // 仅隐藏原生菜单栏，不能移除窗口菜单，否则 Windows 下 Ctrl+S 等菜单快捷键会失效。
-  mainWindow?.setMenuBarVisibility(false);
+  createApplicationMenu({
+    getMainWindow: () => mainWindow,
+    readDocuments: async (filePaths) => Promise.all(
+      filePaths.map(async (filePath) => {
+        authorizeDocument(filePath);
+        const [content, stats] = await Promise.all([
+          fs.promises.readFile(filePath, "utf-8"),
+          fs.promises.stat(filePath),
+        ]);
+        return { filePath, content, modifiedTime: stats.mtimeMs };
+      }),
+    ),
+  });
 }
 
 registerWindowIpc({
@@ -978,129 +812,7 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
   }
 });
 
-// 文件系统 API
-ipcMain.handle(IPC_CHANNELS.selectWorkspace, async () => {
-  if (!mainWindow) return null;
-  const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"] });
-  if (result.canceled || !result.filePaths[0]) return null;
-  const directoryPath = result.filePaths[0];
-  // 工作区内的文件会由侧栏按需读取，因此选择目录后授权整个目录树。
-  authorizeDirectory(directoryPath);
-  await fs.promises.writeFile(
-    path.join(app.getPath("userData"), "workspace.txt"),
-    directoryPath,
-    "utf-8",
-  );
-  return directoryPath;
-});
-
-ipcMain.handle(IPC_CHANNELS.getWorkspace, async () => {
-  const statePath = path.join(app.getPath("userData"), "workspace.txt");
-  try {
-    const directoryPath = (await fs.promises.readFile(statePath, "utf-8")).trim();
-    const stats = await fs.promises.stat(directoryPath);
-    if (!stats.isDirectory()) return null;
-    authorizeDirectory(directoryPath);
-    return directoryPath;
-  } catch {
-    return null;
-  }
-});
-
-ipcMain.handle(IPC_CHANNELS.watchWorkspace, async (_event, directoryPath: string) => {
-  const authorizedPath = assertAuthorizedPath(directoryPath);
-  await workspaceWatcher?.close();
-  workspaceWatcher = chokidar.watch(authorizedPath, {
-    ignoreInitial: true,
-    // 忽略依赖和构建产物，避免大型项目产生大量无关文件监听与刷新事件。
-    ignored:
-      /(^|[/\\])(?:\.[^/\\]+|node_modules|out|dist|release|coverage)(?:[/\\]|$)/,
-    followSymlinks: false,
-    awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 80 },
-  });
-  let notifyTimer: ReturnType<typeof setTimeout> | null = null;
-  workspaceWatcher.on("all", () => {
-    if (notifyTimer) clearTimeout(notifyTimer);
-    notifyTimer = setTimeout(() => {
-      mainWindow?.webContents.send(IPC_CHANNELS.workspaceChanged);
-      notifyTimer = null;
-    }, 120);
-  });
-});
-
-ipcMain.handle(IPC_CHANNELS.unwatchWorkspace, async () => {
-  await workspaceWatcher?.close();
-  workspaceWatcher = null;
-});
-
-ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, dirPath: string) => {
-  try {
-    const authorizedPath = assertAuthorizedPath(dirPath);
-    const items = await fs.promises.readdir(authorizedPath, {
-      withFileTypes: true,
-    });
-    const result = items
-      .filter((item) => !item.name.startsWith(".")) // 过滤隐藏文件
-      .map((item) => ({
-        name: item.name,
-        isDirectory: item.isDirectory(),
-        path: path.join(authorizedPath, item.name),
-      }))
-      .sort((a, b) => {
-        // 目录排在前面，然后按名称排序
-        if (a.isDirectory && !b.isDirectory) return -1;
-        if (!a.isDirectory && b.isDirectory) return 1;
-        return a.name.localeCompare(b.name);
-      });
-    return result;
-  } catch {
-    return [];
-  }
-});
-
-// 文件名只能是单个路径片段，防止菜单操作越过当前工作区。
-const validateFileTreeName = (name: string): string => {
-  const trimmedName = name.trim();
-  if (!trimmedName || trimmedName === "." || trimmedName === ".." || /[\\/:*?"<>|]/.test(trimmedName)) {
-    throw new Error("名称不能为空，也不能包含 \\ / : * ? \" < > |");
-  }
-  return trimmedName;
-};
-
-ipcMain.handle(IPC_CHANNELS.createFileTreeEntry, async (_event, data: {
-  parentPath: string;
-  name: string;
-  isDirectory: boolean;
-}) => {
-  const parentPath = assertAuthorizedPath(data.parentPath);
-  const targetPath = path.join(parentPath, validateFileTreeName(data.name));
-  assertAuthorizedPath(targetPath);
-  if (data.isDirectory) await fs.promises.mkdir(targetPath);
-  else await fs.promises.writeFile(targetPath, "", { flag: "wx" });
-});
-
-ipcMain.handle(IPC_CHANNELS.renameFileTreeEntry, async (_event, data: {
-  entryPath: string;
-  newName: string;
-}) => {
-  const entryPath = assertAuthorizedPath(data.entryPath);
-  const targetPath = path.join(path.dirname(entryPath), validateFileTreeName(data.newName));
-  assertAuthorizedPath(targetPath);
-  await fs.promises.rename(entryPath, targetPath);
-});
-
-ipcMain.handle(IPC_CHANNELS.deleteFileTreeEntry, async (_event, entryPath: string) => {
-  const authorizedPath = assertAuthorizedPath(entryPath);
-  await fs.promises.rm(authorizedPath, { recursive: true });
-});
-
-ipcMain.handle(IPC_CHANNELS.copyFileTreePath, async (_event, entryPath: string) => {
-  clipboard.writeText(assertAuthorizedPath(entryPath));
-});
-
-ipcMain.handle(IPC_CHANNELS.showFileTreeEntry, async (_event, entryPath: string) => {
-  shell.showItemInFolder(assertAuthorizedPath(entryPath));
-});
+registerWorkspaceIpc({ getMainWindow: () => mainWindow });
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
   try {
