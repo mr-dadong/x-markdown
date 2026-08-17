@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "desktopName": "com.xmd.markdown-editor.desktop",
   "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
   "main": "out/main/index.js",

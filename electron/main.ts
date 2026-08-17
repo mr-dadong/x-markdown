@@ -160,7 +160,12 @@ function isUpdateManifest(value: unknown): value is UpdateManifest {
 
 // 更新检测和更新日志统一读取同一份版本清单，避免两份发布信息出现差异。
 async function fetchUpdateManifest(): Promise<UpdateManifest> {
-  const response = await net.fetch(updateManifestUrl);
+  const requestUrl = new URL(updateManifestUrl);
+  // 主分支清单地址固定不变，附加时间戳可绕过客户端与 CDN 的历史缓存，确保跨版本更新时拿到真正的最新版本。
+  requestUrl.searchParams.set("timestamp", Date.now().toString());
+  const response = await net.fetch(requestUrl.toString(), {
+    cache: "no-store",
+  });
   if (!response.ok) throw new Error(`获取版本信息失败（${response.status}）`);
 
   const manifest: unknown = await response.json();
