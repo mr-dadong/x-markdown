@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "desktopName": "com.xmd.markdown-editor.desktop",
   "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
   "main": "out/main/index.js",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@codemirror/lang-html": "6.4.11",
+    "@codemirror/lang-markdown": "6.5.2",
     "@iconify-icons/lucide": "1.2.135",
     "@iconify-icons/mdi": "1.2.48",
     "@iconify/vue": "^4.1.1",
@@ -124,7 +125,10 @@
       "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
       "fileAssociations": [
         {
-          "ext": ["md", "markdown"],
+          "ext": [
+            "md",
+            "markdown"
+          ],
           "name": "Markdown",
           "description": "Markdown 文档",
           "role": "Editor",
@@ -147,7 +151,10 @@
       "artifactName": "${productName}-${version}-Linux-${arch}.${ext}",
       "fileAssociations": [
         {
-          "ext": ["md", "markdown"],
+          "ext": [
+            "md",
+            "markdown"
+          ],
           "name": "Markdown",
           "description": "Markdown 文档",
           "mimeType": "text/markdown"

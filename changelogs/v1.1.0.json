@@ -1,0 +1,92 @@
+{
+  "latest": "1.1.0",
+  "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-08-19",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "设置页新增快捷键自定义：点击组合键即可录制，支持清除与恢复默认。",
+        "快捷键配置全局生效，系统菜单的加速键同步跟随，保存、新建、打开等均可自由修改。",
+        "补全「切换编辑模式」快捷键（默认 Ctrl+/），此前配置后不生效。",
+        "窗口内快捷键提示（设置、侧边栏、保存等）会实时显示当前配置。",
+        "标签页右键菜单新增「在资源管理器中显示」，可快速定位文件所在位置。",
+        "新增 Emoji 插入：输入冒号短代码（如 :smile:）即弹出表情建议，方向键选择后回车插入。",
+        "斜杠命令新增「插入 Emoji」，可打开完整表情选择器，支持搜索与分类浏览。",
+        "内置 900+ 高频 Emoji，支持中文、英文与短代码关键词搜索。",
+        "编辑器与源码模式的字体栈补充 Emoji 字体回退，确保表情在 Windows 等平台彩色渲染。",
+        "源码模式支持查找高亮：当前匹配项用醒目颜色加描边，其余匹配项黄色背景，关闭查找时自动清除。",
+        "修复源码模式选中文字与活动行背景同色导致选区不可见的问题，选区改用独立颜色，选中内容清晰可辨。",
+        "源码模式选中某个词时，文档中其他相同的词同步显示黄色高亮背景。",
+        "优化源码模式行号栏：等宽字体、栏内水平居中显示，当前行行号用深色加粗标识，行号栏与正文以细分隔线区分。",
+        "修复源码模式正文列随行数增多（行号位数变宽）逐渐偏离中心的问题，居中公式实时补偿行号栏宽度，任意行数下正文保持水平居中。",
+        "优化状态栏左侧切换按钮：缩小按钮尺寸，与状态栏上下边缘保留适当呼吸空间，激活状态增加可见边框。",
+        "「导出」升级为一级菜单，集中承载 HTML、PDF、Word、纯文本与 ZIP 五种导出格式，原「文件」菜单中的导出入口同步移入。",
+        "新增导出为纯文本：文档内容原样保存为 UTF-8 的 .txt 文件，方便在纯文本场景下使用。",
+        "新增导出为 Word 文档（.docx）：无需安装 Office 即可生成，支持标题、加粗/斜体等行内格式、有序/无序/任务清单、代码块、引用块、表格、图片与超链接。",
+        "DOCX 导出同时支持 Mermaid 图表（自动转为位图嵌入）、公式（保留可读文本）、Callout 提示块、脚注与目录等扩展内容。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.1.0-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.0/XMD-1.1.0-Windows-x64.exe",
+              "sha256": null
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.0-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.0/XMD-1.1.0-macOS-arm64.dmg",
+              "sha256": null
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.0-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.0/XMD-1.1.0-macOS-x64.dmg",
+              "sha256": null
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.0-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.0/XMD-1.1.0-Linux-x86_64.AppImage",
+              "sha256": null
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.0-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.0/XMD-1.1.0-Linux-arm64.AppImage",
+              "sha256": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

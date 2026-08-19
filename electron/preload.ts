@@ -3,7 +3,9 @@ import type {
   ApplicationMenuPosition,
   AttachmentCopyProgress,
   ElectronAPI,
+  ExportDocxData,
   ExportHtmlData,
+  ExportTextData,
   ExportZipData,
   ImportEditorFileOptions,
   IpcChannel,
@@ -31,6 +33,10 @@ const electronAPI: ElectronAPI = {
 
   saveFile: (data: SaveFileData): Promise<SaveFileResult> => {
     return ipcRenderer.invoke(IPC_CHANNELS.saveFile, data)
+  },
+
+  updateShortcuts: (shortcuts: Record<string, string>): void => {
+    ipcRenderer.send(IPC_CHANNELS.updateShortcuts, shortcuts)
   },
 
   showErrorMessage: (title: string, message: string): Promise<void> => {
@@ -98,6 +104,14 @@ const electronAPI: ElectronAPI = {
 
   onMenuExportZip: (callback: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.menuExportZip, () => callback())
+  },
+
+  onMenuExportText: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportText, () => callback())
+  },
+
+  onMenuExportDocx: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportDocx, () => callback())
   },
 
   onMenuOpenRecentFile: (callback: (filePath: string) => void) => {
@@ -219,6 +233,10 @@ const electronAPI: ElectronAPI = {
   exportPdf: (data: ExportHtmlData) => ipcRenderer.invoke(IPC_CHANNELS.exportPdf, data),
 
   exportZip: (data: ExportZipData) => ipcRenderer.invoke(IPC_CHANNELS.exportZip, data),
+
+  exportText: (data: ExportTextData) => ipcRenderer.invoke(IPC_CHANNELS.exportText, data),
+
+  exportDocx: (data: ExportDocxData) => ipcRenderer.invoke(IPC_CHANNELS.exportDocx, data),
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 

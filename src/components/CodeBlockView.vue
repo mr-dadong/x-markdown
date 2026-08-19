@@ -48,7 +48,7 @@
       contenteditable="false"
       class="mr-4 flex shrink-0 select-none flex-col border-r border-current pr-3 text-right opacity-60"
       :class="activeCodeBlockStyle.codeClass"
-    ><span v-for="lineNumber in lineNumbers" :key="lineNumber">{{ lineNumber }}</span></span><node-view-content
+    ><span v-for="lineNumber in lineNumbers" :key="lineNumber" class="leading-[1.5] min-h-[1.5em]">{{ lineNumber }}</span></span><node-view-content
       as="code"
       class="min-w-0 flex-1"
       :class="activeCodeBlockStyle.codeClass"

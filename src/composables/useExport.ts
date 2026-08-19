@@ -3,6 +3,7 @@ import DOMPurify from "dompurify";
 import JSZip from "jszip";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { mediaService } from "../services/mediaService";
+import { buildDocx } from "../utils/htmlToDocx";
 
 // —— HTML 导出 ——
 
@@ -99,14 +100,12 @@ body {
 }
 `;
 
-// 把 Markdown 渲染成自包含的完整 HTML 文档。
-// 渲染复用了和主编辑器完全相同的扩展配置，因此 Mermaid、KaTeX、代码高亮、
-// Callout 等扩展的显示效果与编辑器一致；图片会以 data URL 形式内联。
-export const buildExportHtml = async (
+// 创建隐藏的导出渲染编辑器，把 Markdown 渲染成与主编辑器一致的 DOM。
+// 返回 .tiptap 内容元素；调用方负责执行 cleanup 释放编辑器与容器。
+const renderExportContent = async (
   markdown: string,
   documentPath: string | null,
-  title: string,
-): Promise<string> => {
+): Promise<{ content: HTMLElement; cleanup: () => void }> => {
   // 创建隐藏渲染容器，放在屏幕外避免影响当前编辑界面。
   const host = document.createElement("div");
   host.style.cssText =
@@ -139,7 +138,32 @@ export const buildExportHtml = async (
     host.querySelectorAll("[data-xmd-image] span").forEach((node) => node.remove());
     materializeHtmlBlocks(host);
     const content = host.querySelector(".tiptap");
-    const contentHtml = content ? content.innerHTML : host.innerHTML;
+    return {
+      content: (content ?? host) as HTMLElement,
+      cleanup: () => {
+        exportEditor.destroy();
+        host.remove();
+      },
+    };
+  } catch (error) {
+    // 无论成功失败都销毁临时编辑器和容器，避免影响页面。
+    exportEditor.destroy();
+    host.remove();
+    throw error;
+  }
+};
+
+// 把 Markdown 渲染成自包含的完整 HTML 文档。
+// 渲染复用了和主编辑器完全相同的扩展配置，因此 Mermaid、KaTeX、代码高亮、
+// Callout 等扩展的显示效果与编辑器一致；图片会以 data URL 形式内联。
+export const buildExportHtml = async (
+  markdown: string,
+  documentPath: string | null,
+  title: string,
+): Promise<string> => {
+  const { content, cleanup } = await renderExportContent(markdown, documentPath);
+  try {
+    const contentHtml = content.innerHTML;
 
     const escapedTitle = title.replace(/[<>&"]/g, (char) => {
       const entities: Record<string, string> = {
@@ -169,9 +193,7 @@ export const buildExportHtml = async (
       "</html>",
     ].join("\n");
   } finally {
-    // 无论成功失败都销毁临时编辑器和容器，避免影响页面。
-    exportEditor.destroy();
-    host.remove();
+    cleanup();
   }
 };
 
@@ -281,4 +303,26 @@ export const buildExportZip = async (
 
   zip.file(markdownFileName, portableMarkdown);
   return zip.generateAsync({ type: "arraybuffer" });
+};
+
+// —— 纯文本导出 ——
+
+// Markdown 原文本身就是 UTF-8 纯文本，直接原样输出为 .txt 内容。
+export const buildExportText = (markdown: string): string => markdown;
+
+// —— DOCX 导出 ——
+
+// 复用与 HTML 导出相同的隐藏渲染编辑器得到内容 DOM，
+// 再由 OOXML 转换器组装成 docx 二进制，交给主进程保存。
+export const buildExportDocx = async (
+  markdown: string,
+  documentPath: string | null,
+  title: string,
+): Promise<ArrayBuffer> => {
+  const { content, cleanup } = await renderExportContent(markdown, documentPath);
+  try {
+    return await buildDocx(content, title);
+  } finally {
+    cleanup();
+  }
 };

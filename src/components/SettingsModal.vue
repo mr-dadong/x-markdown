@@ -106,16 +106,16 @@
 
           <template v-else-if="activeSection === 'shortcuts'">
             <!-- 下方列表已有完整边框，关闭标题分隔线，避免顶部出现重叠的细横线。 -->
-            <SectionTitle title="快捷键" description="点击按键组合后直接输入新的快捷键。" :show-divider="false" />
+            <SectionTitle title="快捷键" description="点击右侧按键组合，再直接按下新的组合键；退格或删除可清除。" :show-divider="false" />
             <div class="flex flex-col overflow-hidden rounded-lg border border-line">
               <div v-for="shortcut in shortcutItems" :key="shortcut.id"
-                class="flex min-h-14 items-center justify-between border-b border-line px-4 last:border-b-0">
-                <div class="flex flex-col gap-0.5">
+                class="flex min-h-14 items-center justify-between gap-5 border-b border-line px-4 py-3 last:border-b-0">
+                <div class="flex min-w-0 flex-col gap-0.5">
                   <span class="text-[14px] font-medium text-ink">{{ shortcut.label }}</span>
                   <span class="text-[12px] leading-5 text-muted">{{ shortcut.description }}</span>
                 </div>
-                <input v-model="settings.shortcuts[shortcut.id]" type="text" :title="`${shortcut.label}快捷键`"
-                  class="h-8 w-28 rounded-md border border-line bg-panel px-2 text-center font-mono text-[12px] text-secondary outline-none focus:border-accent focus:text-ink" />
+                <ShortcutRecorder v-model="settings.shortcuts[shortcut.id]"
+                  :conflict-label="conflictLabel(shortcut.id)" :validate="(value) => validateShortcut(shortcut.id, value)" />
               </div>
             </div>
             <button type="button"
@@ -201,15 +201,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { useSettings, type SettingsSection } from '../composables/useSettings'
 import { useUpdater } from '../composables/useUpdater'
+import { SHORTCUT_DEFINITIONS, type ShortcutId } from '../constants/shortcuts'
 import type { UpdateLog } from '../types/update'
 import ChoiceControl from './settings/ChoiceControl.vue'
 import CodeBlockStylePicker from './settings/CodeBlockStylePicker.vue'
 import SectionTitle from './settings/SectionTitle.vue'
 import SettingGroup from './settings/SettingGroup.vue'
+import ShortcutRecorder from './settings/ShortcutRecorder.vue'
 import ToggleSwitch from './settings/ToggleSwitch.vue'
 import appIcon from '../../build/icons/256x256.png'
 import packageInfo from '../../package.json'
@@ -308,12 +310,51 @@ const themeOptions = [
   { value: 'light' as const, label: '浅色', preview: 'bg-[#ffffff] text-[#222222]' },
   { value: 'dark' as const, label: '深色', preview: 'bg-[#26272b] text-[#e4e6eb]' },
 ]
-const shortcutItems = [
-  { id: 'newFile', label: '新建文档', description: '创建一个空白 Markdown 文档' },
-  { id: 'openFile', label: '打开文档', description: '从本地选择并打开文档' },
-  { id: 'saveFile', label: '保存文档', description: '保存当前文档的修改' },
-  { id: 'toggleSidebar', label: '显示 / 隐藏侧边栏', description: '切换项目文件与大纲面板' },
-  { id: 'toggleSource', label: '切换编辑模式', description: '在 MD 预览和源码展示间切换' },
-  { id: 'openSettings', label: '打开设置', description: '打开应用设置中心' },
+const shortcutItems = SHORTCUT_DEFINITIONS
+
+// 保留给系统功能（查找、导出、窗口等）的组合，不允许用户占用。
+const RESERVED_SHORTCUTS = [
+  'F3', 'Escape', 'Esc',
+  'Ctrl+F', 'Cmd+F',
+  'Ctrl+Shift+E', 'Cmd+Shift+E',
+  'Ctrl+Shift+Z', 'Cmd+Shift+Z',
+  'Ctrl+Z', 'Cmd+Z', 'Ctrl+X', 'Cmd+X', 'Ctrl+C', 'Cmd+C',
+  'Ctrl+V', 'Cmd+V', 'Ctrl+A', 'Cmd+A',
+  'Ctrl+R', 'Cmd+R', 'Ctrl+0', 'Cmd+0', 'F11',
+  'Ctrl+M', 'Cmd+M', 'Ctrl+W', 'Cmd+W', 'Ctrl+Q', 'Cmd+Q',
 ]
+
+// 当前值若与其它动作重复，返回对方名称用于行内提示。
+const conflictLabel = (id: ShortcutId): string => {
+  const value = settings.shortcuts[id]
+  if (!value) return ''
+  const other = SHORTCUT_DEFINITIONS.find(
+    (item) => item.id !== id && settings.shortcuts[item.id] === value,
+  )
+  return other ? other.label : ''
+}
+
+// 录制到新组合后提交前校验：重复或占用系统功能时拒绝。
+const validateShortcut = (id: ShortcutId, value: string): string | null => {
+  if (!value) return null
+  const other = SHORTCUT_DEFINITIONS.find(
+    (item) => item.id !== id && settings.shortcuts[item.id] === value,
+  )
+  if (other) return `该组合已分配给「${other.label}」`
+  if (RESERVED_SHORTCUTS.includes(value)) return '该组合被系统功能占用，请换一个'
+  return null
+}
+
+// Esc 关闭设置页；快捷键录制中由录制器先行消费，不会走到这里。
+const handleWindowKeydown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape') emit('close')
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleWindowKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleWindowKeydown)
+})
 </script>

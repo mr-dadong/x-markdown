@@ -42,7 +42,7 @@
         @click="handleSave">
         <Icon icon="lucide:save" :size="14" class="shrink-0" />
         <span class="flex-1">保存</span>
-        <span class="text-[10px] text-muted">Ctrl+S</span>
+        <span class="text-[10px] text-muted">{{ saveShortcutLabel }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected"
@@ -50,6 +50,13 @@
         <Icon icon="lucide:copy-plus" :size="14" class="shrink-0" />
         <span class="flex-1">另存为</span>
         <span class="text-[10px] text-muted">Ctrl+Shift+S</span>
+      </button>
+      <div class="my-1 flex border-t border-line" />
+      <button type="button"
+        class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected disabled:text-muted disabled:hover:bg-paper"
+        :disabled="!hasFilePath" @click="handleShowInExplorer">
+        <Icon icon="lucide:folder-open" :size="14" class="shrink-0" />
+        <span class="flex-1">在资源管理器中显示</span>
       </button>
       <div class="my-1 flex border-t border-line" />
       <button type="button"
@@ -97,6 +104,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { OpenDocument } from '../types'
+import { useSettings } from '../composables/useSettings'
+
+const { settings } = useSettings()
+const saveShortcutLabel = computed(() => settings.shortcuts.saveFile || '—')
 
 const props = defineProps<{
   documents: OpenDocument[]
@@ -116,6 +127,7 @@ const emit = defineEmits<{
   closeAll: []
   save: []
   saveAs: []
+  showInExplorer: [documentId: number]
 }>()
 
 const draggedDocumentId = ref<number | null>(null)
@@ -132,6 +144,11 @@ const hasRightDocuments = computed(() => (
   contextDocumentIndex.value >= 0 && contextDocumentIndex.value < props.documents.length - 1
 ))
 const hasSavedDocuments = computed(() => props.documents.some((document) => !document.isModified))
+// 未保存的新文档没有磁盘路径，无法在资源管理器中定位。
+const contextDocument = computed(() => props.documents.find(
+  (document) => document.id === contextMenu.value?.documentId,
+) ?? null)
+const hasFilePath = computed(() => contextDocument.value?.filePath != null)
 
 watch(
   () => [props.activeDocumentId, props.documents.length] as const,
@@ -274,6 +291,12 @@ const handleSave = (): void => {
 
 const handleSaveAs = (): void => {
   emit('saveAs')
+  closeContextMenu()
+}
+
+const handleShowInExplorer = (): void => {
+  if (!contextMenu.value || !hasFilePath.value) return
+  emit('showInExplorer', contextMenu.value.documentId)
   closeContextMenu()
 }
 

@@ -33,7 +33,7 @@
       <button type="button"
         class="flex h-7 w-8 items-center justify-center rounded bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
         :class="isDarkTheme ? 'text-icon hover:bg-control-hover hover:text-ink' : 'text-[#666666] hover:bg-[#e8e8e6] hover:text-[#292929]'"
-        title="设置 (Ctrl+,)" @click="emit('open-settings')">
+        :title="`设置 (${settings.shortcuts.openSettings || '未设置'})`" @click="emit('open-settings')">
         <Icon icon="lucide:settings" :size="19" />
       </button>
       <WindowControl :is-dark-theme="isDarkTheme" />
@@ -46,6 +46,9 @@ import { ref } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import WindowControl from './WindowControl.vue'
 import { windowService } from '../services/windowService'
+import { useSettings } from '../composables/useSettings'
+
+const { settings } = useSettings()
 
 defineProps<{
   isDarkTheme: boolean
@@ -58,7 +61,8 @@ const emit = defineEmits<{
   'open-update': []
 }>()
 
-const menus = ['文件', '编辑', '视图', '窗口']
+// 顺序必须与主进程 applicationMenu 模板保持一致，popup 时按索引取子菜单。
+const menus = ['文件', '导出', '编辑', '视图', '窗口']
 const activeMenuIndex = ref<number | null>(null)
 
 // 将按钮位置交给 Electron，让原生菜单紧贴对应文字按钮展开。

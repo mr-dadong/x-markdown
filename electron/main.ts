@@ -25,12 +25,14 @@ import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
 import { getRecentFiles } from "./services/recentFiles";
-import { createApplicationMenu } from "./app/applicationMenu";
+import { createApplicationMenu, setConfiguredShortcuts } from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
 import type {
   AttachmentCopyProgress,
+  ExportDocxData,
   ExportHtmlData,
+  ExportTextData,
   ExportZipData,
 } from "../src/types/electron";
 
@@ -378,6 +380,11 @@ registerWindowIpc({
   },
 });
 
+// 设置页自定义快捷键后重建系统菜单，让菜单加速键跟随用户配置。
+ipcMain.on(IPC_CHANNELS.updateShortcuts, (_event, shortcuts: Record<string, string>) => {
+  setConfiguredShortcuts(shortcuts);
+});
+
 // 更新清单由主进程读取，避免网页跨域策略影响检测结果。
 ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
   const manifest = await fetchUpdateManifest();
@@ -712,6 +719,36 @@ ipcMain.handle(
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     await fs.promises.writeFile(result.filePath, Buffer.from(zipData));
+    return { canceled: false, filePath: result.filePath };
+  },
+);
+
+// 导出为纯文本：文档原文本身就是 UTF-8 文本，直接选路径写 .txt 文件。
+ipcMain.handle(
+  IPC_CHANNELS.exportText,
+  async (_event, { text, suggestedName }: ExportTextData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.txt`,
+      filters: [{ name: "纯文本", extensions: ["txt"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, text, "utf-8");
+    return { canceled: false, filePath: result.filePath };
+  },
+);
+
+// 导出为 Word 文档：渲染进程已组装好 docx 二进制，主进程只负责落盘。
+ipcMain.handle(
+  IPC_CHANNELS.exportDocx,
+  async (_event, { docxData, suggestedName }: ExportDocxData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.docx`,
+      filters: [{ name: "Word 文档", extensions: ["docx"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, Buffer.from(docxData));
     return { canceled: false, filePath: result.filePath };
   },
 );

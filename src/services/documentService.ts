@@ -34,6 +34,10 @@ export const documentService = {
     window.electronAPI.onMenuExportPdf(callback),
   onExportZip: (callback: () => void) =>
     window.electronAPI.onMenuExportZip(callback),
+  onExportText: (callback: () => void) =>
+    window.electronAPI.onMenuExportText(callback),
+  onExportDocx: (callback: () => void) =>
+    window.electronAPI.onMenuExportDocx(callback),
   onOpenRecentFile: (callback: (filePath: string) => void) =>
     window.electronAPI.onMenuOpenRecentFile(callback),
   onClearRecentFiles: (callback: () => void) =>

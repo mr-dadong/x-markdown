@@ -10,18 +10,16 @@
             <main class="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-paper">
                 <DocumentBar v-if="isDocumentOpen" :documents="documents" :active-document-id="activeDocumentId"
                     :get-document-title="getDocumentTitle" @activate="activateDocument" @close="closeDocument"
-                    @new-file="handleNewFile" @reorder="reorderDocument"
-                    @close-others="closeOtherDocuments" @close-left="closeLeftDocuments"
-                    @close-right="closeRightDocuments" @close-all="closeAllDocuments"
-                    @close-saved="closeSavedDocuments"
-                    @save="saveFile()" @save-as="saveFile(true)" />
+                    @new-file="handleNewFile" @reorder="reorderDocument" @close-others="closeOtherDocuments"
+                    @close-left="closeLeftDocuments" @close-right="closeRightDocuments" @close-all="closeAllDocuments"
+                    @close-saved="closeSavedDocuments" @save="saveFile()" @save-as="saveFile(true)"
+                    @show-in-explorer="showDocumentInExplorer" />
                 <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
-                    :current-file-path="currentFilePath" :active="!isSourceMode"
-                    v-show="!isSourceMode" @update:content="handleContentUpdate" />
-                <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
-                    :content="currentContent"
+                    :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
                     @update:content="handleContentUpdate" />
+                <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
+                    :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
                     class="editor-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8 text-center select-none"
                     @dragover.prevent="handleWelcomeDragOver" @drop.prevent="handleWelcomeDrop">
@@ -48,7 +46,8 @@
                     <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。 -->
                     <div v-if="recentFiles.length" class="mt-8 w-full max-w-[460px] text-left">
                         <div class="flex items-center justify-between px-1 pb-1.5">
-                            <span class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
+                            <span
+                                class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
                                 <Icon icon="lucide:history" :size="13" />
                                 <span>最近打开</span>
                             </span>
@@ -62,7 +61,9 @@
                                 @click="handleOpenRecentFile(filePath)">
                                 <Icon icon="lucide:file-text" :size="15" class="shrink-0 text-muted" />
                                 <span class="min-w-0 flex-1">
-                                    <span class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{ getFileName(filePath) }}</span>
+                                    <span
+                                        class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{
+                                        getFileName(filePath) }}</span>
                                     <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
                                 </span>
                                 <span role="button" tabindex="-1" title="从最近列表移除"
@@ -79,8 +80,8 @@
 
         <AppStatusBar :line-count="documentStats.lineCount" :word-count="documentStats.wordCount"
             :character-count="documentStats.characterCount" :is-modified="isModified"
-            :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode"
-            :document-open="isDocumentOpen" @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
+            :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode" :document-open="isDocumentOpen"
+            @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
         <SettingsModal v-if="isSettingsOpen" @close="isSettingsOpen = false" />
         <UpdateModal v-if="isUpdateModalOpen" />
         <ConfirmDialog />
@@ -102,7 +103,7 @@ import Sidebar from '../components/Sidebar.vue'
 import SettingsModal from '../components/SettingsModal.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
-import { buildExportHtml, buildExportZip } from '../composables/useExport'
+import { buildExportDocx, buildExportHtml, buildExportText, buildExportZip } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
@@ -111,7 +112,9 @@ import { useUpdater } from '../composables/useUpdater'
 import { IPC_CHANNELS } from '../constants/ipcChannels'
 import { documentService } from '../services/documentService'
 import { exportService } from '../services/exportService'
+import { fileSystemService } from '../services/fileSystemService'
 import { getFileName } from '../utils/file'
+import { matchesShortcut } from '../utils/shortcuts'
 import type { EditorHandle, SourceEditorHandle } from '../types/editor'
 
 const editorRef = ref<EditorHandle | null>(null)
@@ -125,9 +128,13 @@ const { isDarkTheme, toggleTheme } = useTheme()
 const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUpdater()
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
+// getSourceHandle 返回源码编辑器完整的 handle 引用，包括搜索装饰等方法。
+const getSourceHandle = (): SourceEditorHandle | null => {
+    return sourceEditorRef.value as SourceEditorHandle | null
+}
 const findReplaceController = useFindReplace(
     () => editorRef.value?.getEditor() ?? null,
-    () => sourceEditorRef.value?.getTextarea() ?? null,
+    getSourceHandle,
     isSourceMode,
 )
 
@@ -165,6 +172,18 @@ const handleRemoveRecentFile = (filePath: string): void => {
 
 const handleClearRecentFiles = (): void => {
     void clearRecentFiles()
+}
+
+// 在资源管理器中定位标签页对应的文件，未保存的新文档没有路径可定位。
+const showDocumentInExplorer = async (documentId: number): Promise<void> => {
+    const document = documents.value.find((item) => item.id === documentId)
+    if (!document?.filePath) return
+    try {
+        await fileSystemService.showEntry(document.filePath)
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        await window.electronAPI.showErrorMessage('打开文件所在位置失败', message)
+    }
 }
 
 const handleWelcomeDragOver = (event: DragEvent): void => {
@@ -208,12 +227,12 @@ watch(activeDocumentId, (documentId) => {
 })
 
 // 在窗口范围内监听快捷键，编辑器获得焦点时也可以收缩或展开侧边栏。
+// 可自定义的动作（新建 / 打开 / 保存 / 侧边栏 / 编辑模式 / 设置）都读取设置页的配置。
 const handleWindowKeydown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape' && isSettingsOpen.value) {
-        event.preventDefault()
-        isSettingsOpen.value = false
-        return
-    }
+    // 对话框（设置、更新、确认）内的按键由组件自身处理，避免误触发全局快捷键。
+    if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
+    // 设置页是全屏遮罩，打开期间全局快捷键不响应，Esc 由设置页自己消费。
+    if (isSettingsOpen.value) return
 
     // 查找面板打开时 Esc 优先关闭查找，回到正常的编辑状态。
     if (event.key === 'Escape' && findReplaceController.isOpen.value) {
@@ -222,19 +241,37 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
         return
     }
 
-    if (
-        event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        !event.shiftKey &&
-        event.key === ','
-    ) {
+    if (matchesShortcut(event, settings.shortcuts.openSettings) && !event.repeat) {
         event.preventDefault()
         isSettingsOpen.value = true
         return
     }
 
-    // Ctrl/Cmd+F 打开查找面板并聚焦输入框；已打开时再次按下用于重新聚焦。
+    if (matchesShortcut(event, settings.shortcuts.newFile) && !event.repeat) {
+        event.preventDefault()
+        handleNewFile()
+        return
+    }
+
+    if (matchesShortcut(event, settings.shortcuts.openFile) && !event.repeat) {
+        event.preventDefault()
+        void handleOpenFile()
+        return
+    }
+
+    if (matchesShortcut(event, settings.shortcuts.toggleSidebar) && !event.repeat) {
+        event.preventDefault()
+        toggleSidebar()
+        return
+    }
+
+    if (matchesShortcut(event, settings.shortcuts.toggleSource) && !event.repeat) {
+        event.preventDefault()
+        void toggleSourceMode()
+        return
+    }
+
+    // 查找面板快捷键保持固定，不参与设置页自定义。
     if (
         (event.ctrlKey || event.metaKey) &&
         !event.altKey &&
@@ -257,19 +294,6 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
         } else {
             findReplaceController.goToNext()
         }
-        return
-    }
-
-    if (
-        event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        !event.shiftKey &&
-        !event.repeat &&
-        event.key.toLowerCase() === 'b'
-    ) {
-        event.preventDefault()
-        toggleSidebar()
     }
 }
 
@@ -277,10 +301,12 @@ onMounted(() => {
     window.addEventListener('keydown', handleWindowKeydown, true)
     // 编辑菜单的“查找”入口与 Ctrl+F 快捷键最终都会走到这里。
     documentService.onFindReplace(() => findReplaceController.open())
-    // 文件菜单的三个导出入口统一进入 handleExport，按类型分发。
+    // 导出菜单的五个导出入口统一进入 handleExport，按类型分发。
     documentService.onExportHtml(() => void handleExport('html'))
     documentService.onExportPdf(() => void handleExport('pdf'))
     documentService.onExportZip(() => void handleExport('zip'))
+    documentService.onExportText(() => void handleExport('text'))
+    documentService.onExportDocx(() => void handleExport('docx'))
     // 每次软件启动只自动检测一次；没有新版本时不打断用户。
     void checkForUpdates(false)
     void loadRecentFiles()
@@ -292,6 +318,8 @@ onUnmounted(() => {
     documentService.removeListeners(IPC_CHANNELS.menuExportHtml)
     documentService.removeListeners(IPC_CHANNELS.menuExportPdf)
     documentService.removeListeners(IPC_CHANNELS.menuExportZip)
+    documentService.removeListeners(IPC_CHANNELS.menuExportText)
+    documentService.removeListeners(IPC_CHANNELS.menuExportDocx)
 })
 
 const handleScrollToHeading = (headingIndex: number): void => {
@@ -307,8 +335,8 @@ const getSuggestedName = (): string => {
     return fileName.replace(/\.[^.]+$/, '') || '未命名'
 }
 
-// 统一导出入口：HTML/PDF 先渲染自包含 HTML，ZIP 直接打包 Markdown 与本地图片。
-const handleExport = async (type: 'html' | 'pdf' | 'zip'): Promise<void> => {
+// 统一导出入口：HTML/PDF/DOCX 先渲染内容，TXT 直接输出原文，ZIP 打包 Markdown 与本地图片。
+const handleExport = async (type: 'html' | 'pdf' | 'zip' | 'text' | 'docx'): Promise<void> => {
     if (!isDocumentOpen.value) return
     const suggestedName = getSuggestedName()
     try {
@@ -318,6 +346,15 @@ const handleExport = async (type: 'html' | 'pdf' | 'zip'): Promise<void> => {
             const fileName = filePath ? filePath.split(/[\\/]/).pop()! : 'untitled.md'
             const zipData = await buildExportZip(currentContent.value, filePath, fileName)
             await exportService.exportZip(zipData, suggestedName)
+            return
+        }
+        if (type === 'text') {
+            await exportService.exportText(buildExportText(currentContent.value), suggestedName)
+            return
+        }
+        if (type === 'docx') {
+            const docxData = await buildExportDocx(currentContent.value, currentFilePath.value, suggestedName)
+            await exportService.exportDocx(docxData, suggestedName)
             return
         }
         const html = await buildExportHtml(currentContent.value, currentFilePath.value, suggestedName)

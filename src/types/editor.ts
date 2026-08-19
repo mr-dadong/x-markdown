@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core";
+import type { EditorView } from "@codemirror/view";
 
 // 页面只依赖编辑器明确公开的能力，避免使用 any 掩盖接口变化。
 export interface EditorHandle {
@@ -12,6 +13,13 @@ export interface EditorHandle {
 export interface SourceEditorHandle {
   getScrollProgress: () => number;
   setScrollProgress: (progress: number) => void;
-  // 源码模式查找替换直接操作 textarea 原生选区与内容。
-  getTextarea: () => HTMLTextAreaElement | null;
+  // 源码模式查找替换通过 CodeMirror 视图操作文档与选区。
+  getView: () => EditorView | null;
+  // 查找面板调用：把匹配列表同步为 CodeMirror 行内高亮装饰。
+  updateSearch: (
+    matches: { from: number; to: number }[],
+    currentIndex: number,
+  ) => void;
+  // 关闭查找面板时清空源码模式的搜索装饰。
+  clearSearch: () => void;
 }

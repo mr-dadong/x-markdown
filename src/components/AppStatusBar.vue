@@ -1,28 +1,21 @@
 <template>
-  <footer
-    class="flex h-[30px] shrink-0 items-center justify-between border-t border-line bg-toolbar px-1 select-none"
-  >
+  <footer class="flex h-[30px] shrink-0 items-center justify-between border-t border-line bg-toolbar px-1 select-none">
     <div class="flex items-center">
-      <!-- 侧边栏入口放在窗口左下角，激活底色用于提示当前展开状态。 -->
-      <button
-        type="button"
-        class="flex h-7 w-8 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
-        :class="sidebarVisible ? 'bg-control-active text-ink' : 'bg-transparent text-icon'"
-        :title="sidebarVisible ? '收缩侧边栏 (Ctrl+B)' : '展开侧边栏 (Ctrl+B)'"
-        @click="emit('toggle-sidebar')"
-      >
-        <Icon icon="lucide:panel-left" :size="17" />
+      <!-- 侧边栏入口放在窗口左下角，激活底色用于提示当前展开状态。按钮高 24px，在 30px 状态栏内上下各留 3px 呼吸空间。 -->
+      <button type="button"
+        class="flex h-6 w-7 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
+        :class="sidebarVisible ? 'bg-control-active text-ink border border-line' : 'bg-transparent text-icon border border-transparent'"
+        :title="`${sidebarVisible ? '收缩侧边栏' : '展开侧边栏'} (${settings.shortcuts.toggleSidebar || '未设置'})`"
+        @click="emit('toggle-sidebar')">
+        <Icon icon="lucide:panel-left" :size="15" />
       </button>
       <!-- 与侧边栏按钮相邻，便于随时切换 Markdown 的源码和渲染编辑方式。 -->
-      <button
-        type="button"
-        class="flex h-7 w-8 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent disabled:cursor-default disabled:text-muted disabled:hover:bg-transparent"
-        :class="sourceMode ? 'bg-control-active text-ink' : 'bg-transparent text-icon'"
-        :disabled="!documentOpen"
-        :title="sourceMode ? '切换到 Markdown 渲染视图' : '切换到 Markdown 源码视图'"
-        @click="emit('toggle-source-mode')"
-      >
-        <Icon :icon="sourceMode ? 'lucide:pen-line' : 'lucide:braces'" :size="17" />
+      <button type="button"
+        class="flex h-6 w-7 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent disabled:cursor-default disabled:text-muted disabled:hover:bg-transparent"
+        :class="sourceMode ? 'bg-control-active text-ink border border-line' : 'bg-transparent text-icon border border-transparent'"
+        :disabled="!documentOpen" :title="sourceMode ? '切换到 Markdown 渲染视图' : '切换到 Markdown 源码视图'"
+        @click="emit('toggle-source-mode')">
+        <Icon :icon="sourceMode ? 'lucide:pen-line' : 'lucide:braces'" :size="15" />
       </button>
     </div>
     <div v-if="documentOpen" class="flex h-full items-center pr-2 text-[12px] text-secondary">
@@ -40,6 +33,9 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue/offline'
+import { useSettings } from '../composables/useSettings'
+
+const { settings } = useSettings()
 
 defineProps<{
   lineCount: number

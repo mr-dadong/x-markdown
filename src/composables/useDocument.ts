@@ -18,6 +18,7 @@ import { documentService } from "../services/documentService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
 import { useSettings } from "./useSettings";
 import { useRecentFiles } from "./useRecentFiles";
+import { matchesShortcut, parseShortcut } from "../utils/shortcuts";
 
 export const useDocument = () => {
   const { requestConfirmation } = useConfirmDialog();
@@ -593,14 +594,21 @@ export const useDocument = () => {
 
   // 编辑器获得焦点时也直接响应保存快捷键，避免快捷键被富文本编辑器拦截。
   const handleSaveShortcut = (event: KeyboardEvent): void => {
-    const isSaveKey = event.key.toLowerCase() === "s";
-    const hasPrimaryModifier = event.ctrlKey || event.metaKey;
-    if (!isSaveKey || !hasPrimaryModifier || event.altKey || event.repeat)
-      return;
+    // 设置页录制快捷键时，焦点位于对话框内部，这里直接跳过避免误触发保存。
+    if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return;
+    if (event.repeat) return;
+
+    const saveShortcut = settings.shortcuts.saveFile;
+    if (!saveShortcut) return;
+    const parsed = parseShortcut(saveShortcut);
+    if (!parsed) return;
+    // 默认组合不含 Shift 时，额外按下 Shift 表示“另存为”，与菜单行为保持一致。
+    const ignoreShift = !parsed.shift;
+    if (!matchesShortcut(event, saveShortcut, { ignoreShift })) return;
 
     event.preventDefault();
     event.stopPropagation();
-    void saveFile(event.shiftKey);
+    void saveFile(ignoreShift && event.shiftKey);
   };
 
   onMounted(async () => {

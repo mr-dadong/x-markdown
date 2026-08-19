@@ -74,6 +74,20 @@
       @submit="submitLinkInsert"
     />
 
+    <!-- Emoji 选择器：grid 由 /emoji 打开，list 由冒号输入触发，二者共用同一组件。 -->
+    <EmojiPicker
+      v-if="emojiMenuMode"
+      :mode="emojiMenuMode"
+      :query="emojiQuery"
+      :selected-index="emojiSelectedIndex"
+      :items="emojiMenuMode === 'grid' ? emojiGridItems : filteredEmojis"
+      :position="emojiMenuStyle"
+      @update:query="emojiQuery = $event"
+      @select="insertEmoji"
+      @select-index="emojiSelectedIndex = $event"
+      @cancel="cancelEmojiMenu"
+    />
+
     <!-- 链接操作层贴近正文出现，阅读时保持安静，指向链接后可直接打开、编辑或复制。 -->
     <div v-if="activeLink" data-link-menu class="fixed z-40 flex flex-col rounded-lg border border-line bg-paper p-1"
       :style="linkMenuStyle" contenteditable="false" @mouseenter="cancelLinkMenuClose"
@@ -186,6 +200,7 @@ import { useMarkdownEditor } from '../composables/useEditor'
 import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
 import InsertLinkPanel from './editor/InsertLinkPanel.vue'
+import EmojiPicker from './editor/EmojiPicker.vue'
 import type { EditorHandle } from '../types/editor'
 import { mediaService } from '../services/mediaService'
 import { windowService } from '../services/windowService'
@@ -194,12 +209,13 @@ const { settings } = useSettings()
 
 // 排版设置通过 CSS 变量作用于编辑区，避免为每种组合生成额外类名。
 // 变量声明在 typography-pane 容器上，导出文档不包含该容器类，保持独立排版。
+// 字体栈末尾追加 Emoji 字体，保证 Windows 等平台上的彩色表情正常渲染。
 const BODY_FONT_STACKS: Record<EditorBodyFont, string> = {
   system:
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif",
-  serif: "Georgia, 'Times New Roman', 'Songti SC', 'SimSun', 'Noto Serif SC', serif",
-  sans: "'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif",
-  mono: "'SF Mono', 'Fira Code', Consolas, 'Menlo', monospace",
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
+  serif: "Georgia, 'Times New Roman', 'Songti SC', 'SimSun', 'Noto Serif SC', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
+  sans: "'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
+  mono: "'SF Mono', 'Fira Code', Consolas, 'Menlo', monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
 }
 
 // 行宽表示正文列的最大宽度；box-border 下盒子总宽 = 列宽 + 两侧留白。
@@ -251,6 +267,14 @@ const {
   linkInsertLabel,
   linkInsertError,
   selectedCommandIndex,
+  emojiMenuMode,
+  emojiQuery,
+  emojiSelectedIndex,
+  filteredEmojis,
+  emojiGridItems,
+  emojiMenuStyle,
+  insertEmoji,
+  cancelEmojiMenu,
   activeBlock,
   blockControlVisible,
   blockMenuVisible,
@@ -588,7 +612,8 @@ defineExpose<EditorHandle>({
 .tiptap {
   outline: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei',
-    'PingFang SC', 'Hiragino Sans GB', sans-serif;
+    'PingFang SC', 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   font-size: 15px;
   line-height: 1.75;
   color: var(--color-ink);
@@ -610,7 +635,8 @@ defineExpose<EditorHandle>({
 
 .typography-pane .tiptap {
   font-family: var(--editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif);
+    'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
   font-size: var(--editor-font-size, 15px);
   zoom: var(--editor-zoom, 1);
 }
@@ -952,14 +978,16 @@ defineExpose<EditorHandle>({
 }
 
 /* ===== 查找替换高亮 ===== */
-/* 匹配项与当前项使用不同强度，避免与文字选区高亮混淆。 */
+/* 匹配项使用背景色，当前项额外增加 outline 环，即使被浏览器选区覆盖也能辨识。 */
 .xmd-find-match {
   background-color: rgba(255, 205, 40, 0.35);
   border-radius: 2px;
 }
 
 .xmd-find-current {
-  background-color: rgba(255, 130, 40, 0.45);
+  background-color: rgba(255, 130, 40, 0.55);
   border-radius: 2px;
+  outline: 1.5px solid rgba(255, 130, 40, 0.85);
+  outline-offset: 0px;
 }
 </style>

@@ -68,6 +68,7 @@ import alertTriangleIcon from '@iconify-icons/lucide/alert-triangle'
 import fileWarningIcon from '@iconify-icons/lucide/file-warning'
 import saveIcon from '@iconify-icons/lucide/save'
 import replaceIcon from '@iconify-icons/lucide/replace'
+import smilePlusIcon from '@iconify-icons/lucide/smile-plus'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -145,6 +146,7 @@ addIcon('lucide:alert-triangle', alertTriangleIcon)
 addIcon('lucide:file-warning', fileWarningIcon)
 addIcon('lucide:save', saveIcon)
 addIcon('lucide:replace', replaceIcon)
+addIcon('lucide:smile-plus', smilePlusIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

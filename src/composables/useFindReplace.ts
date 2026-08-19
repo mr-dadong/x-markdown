@@ -1,5 +1,7 @@
 import { computed, onUnmounted, ref, type Ref } from "vue";
 import type { Editor } from "@tiptap/core";
+import type { EditorView } from "@codemirror/view";
+import type { SourceEditorHandle } from "../types/editor";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
@@ -17,18 +19,25 @@ const findReplacePlugin = new Plugin({
   state: {
     init: () => DecorationSet.empty,
     apply: (tr, value) => {
-      const meta = tr.getMeta(findReplaceKey) as { decorations?: DecorationSet } | undefined;
+      const meta = tr.getMeta(findReplaceKey) as
+        | { decorations?: DecorationSet }
+        | undefined;
       if (meta?.decorations) return meta.decorations.map(tr.mapping, tr.doc);
       return value.map(tr.mapping, tr.doc);
     },
   },
   props: {
-    decorations: (state) => findReplaceKey.getState(state) ?? DecorationSet.empty,
+    decorations: (state) =>
+      findReplaceKey.getState(state) ?? DecorationSet.empty,
   },
 });
 
 // 在单个文本片段内收集全部匹配；跨节点文本（例如加粗与普通文字交界处）不参与匹配。
-const collectTextMatches = (text: string, query: string, caseSensitive: boolean): FindMatch[] => {
+const collectTextMatches = (
+  text: string,
+  query: string,
+  caseSensitive: boolean,
+): FindMatch[] => {
   const matches: FindMatch[] = [];
   if (!query) return matches;
   const source = caseSensitive ? text : text.toLowerCase();
@@ -82,7 +91,7 @@ export interface FindReplaceController {
 
 export const useFindReplace = (
   getEditor: () => Editor | null,
-  getSourceTextarea: () => HTMLTextAreaElement | null,
+  getSourceHandle: () => SourceEditorHandle | null,
   isSourceMode: Ref<boolean>,
 ): FindReplaceController => {
   const isOpen = ref(false);
@@ -96,7 +105,10 @@ export const useFindReplace = (
   const matchCount = computed(() => matches.value.length);
 
   // 刷新合成器：替换后以替换起点为锚，跳到锚之后的第一个匹配；越界时回到开头。
-  const resolveCurrentIndex = (collected: FindMatch[], anchor?: number): number => {
+  const resolveCurrentIndex = (
+    collected: FindMatch[],
+    anchor?: number,
+  ): number => {
     if (collected.length === 0) return 0;
     if (anchor !== undefined) {
       const next = collected.findIndex((match) => match.from >= anchor);
@@ -114,7 +126,11 @@ export const useFindReplace = (
   };
 
   // 把匹配集合渲染成行内高亮，当前项使用更醒目的颜色区分。
-  const setEditorDecorations = (editor: Editor, collected: FindMatch[], current: number): void => {
+  const setEditorDecorations = (
+    editor: Editor,
+    collected: FindMatch[],
+    current: number,
+  ): void => {
     const decorations = collected.map((match, index) =>
       Decoration.inline(match.from, match.to, {
         class: index === current ? "xmd-find-current" : "xmd-find-match",
@@ -135,22 +151,33 @@ export const useFindReplace = (
       return;
     }
     ensurePlugin(editor);
-    const collected = collectEditorMatches(editor, query.value, caseSensitive.value);
+    const collected = collectEditorMatches(
+      editor,
+      query.value,
+      caseSensitive.value,
+    );
     matches.value = collected;
     currentIndex.value = resolveCurrentIndex(collected, anchor);
     setEditorDecorations(editor, collected, currentIndex.value);
   };
 
   const refreshSource = (anchor?: number): void => {
-    const textarea = getSourceTextarea();
-    if (!textarea) {
+    const handle = getSourceHandle();
+    const sourceView = handle?.getView() ?? null;
+    if (!sourceView) {
       matches.value = [];
       currentIndex.value = 0;
       return;
     }
-    const collected = collectTextMatches(textarea.value, query.value, caseSensitive.value);
+    const collected = collectTextMatches(
+      sourceView.state.doc.toString(),
+      query.value,
+      caseSensitive.value,
+    );
     matches.value = collected;
     currentIndex.value = resolveCurrentIndex(collected, anchor);
+    // 把匹配结果同步为 CodeMirror 行内装饰，让所有匹配项和当前项都有可视化高亮
+    handle!.updateSearch(collected, currentIndex.value);
   };
 
   // 立即刷新，替换等需要拿到最新匹配列表的操作必须走这里。
@@ -168,35 +195,39 @@ export const useFindReplace = (
     refreshTimer = setTimeout(() => {
       refreshTimer = null;
       refreshNow();
+      // 输入关键词后自动滚动到第一个匹配，避免内容在视口外时用户看不到跳转
+      jumpToCurrent();
     }, 120);
   };
 
-  // 跳转到当前匹配：富文本模式选中并滚动，源码模式定位选区并估算滚动位置。
+  // 跳转到当前匹配：富文本模式选中并滚动，源码模式交给 CodeMirror 处理选区与滚动。
   const goToEditorMatch = (editor: Editor, match: FindMatch): void => {
     editor.view.dispatch(
       editor.state.tr
-        .setSelection(TextSelection.create(editor.state.doc, match.from, match.to))
+        .setSelection(
+          TextSelection.create(editor.state.doc, match.from, match.to),
+        )
         .scrollIntoView(),
     );
   };
 
-  const scrollSourceToMatch = (textarea: HTMLTextAreaElement, match: FindMatch): void => {
-    textarea.setSelectionRange(match.from, match.to);
-    // 通过目标行号估算滚动位置，让匹配行尽量出现在可视区域中间。
-    const textBefore = textarea.value.slice(0, match.from);
-    const targetLine = textBefore.split("\n").length;
-    const lineHeight = Number.parseFloat(getComputedStyle(textarea).lineHeight);
-    const paddingTop = Number.parseFloat(getComputedStyle(textarea).paddingTop);
-    const targetTop = (targetLine - 1) * lineHeight + paddingTop - textarea.clientHeight / 2;
-    textarea.scrollTop = Math.max(0, Math.min(targetTop, textarea.scrollHeight - textarea.clientHeight));
+  const scrollSourceToMatch = (
+    sourceView: EditorView,
+    match: FindMatch,
+  ): void => {
+    // CodeMirror 会按选区自动滚动，无需像 textarea 那样手工估算行号位置。
+    sourceView.dispatch({
+      selection: { anchor: match.from, head: match.to },
+      scrollIntoView: true,
+    });
   };
 
   const jumpToCurrent = (): void => {
     const match = matches.value[currentIndex.value];
     if (!match) return;
     if (isSourceMode.value) {
-      const textarea = getSourceTextarea();
-      if (textarea) scrollSourceToMatch(textarea, match);
+      const sourceView = getSourceHandle()?.getView() ?? null;
+      if (sourceView) scrollSourceToMatch(sourceView, match);
       return;
     }
     const editor = getEditor();
@@ -212,7 +243,8 @@ export const useFindReplace = (
 
   const goToPrev = (): void => {
     if (matches.value.length === 0) return;
-    currentIndex.value = (currentIndex.value - 1 + matches.value.length) % matches.value.length;
+    currentIndex.value =
+      (currentIndex.value - 1 + matches.value.length) % matches.value.length;
     refreshNow();
     jumpToCurrent();
   };
@@ -229,17 +261,23 @@ export const useFindReplace = (
     if (!match) return;
     const anchorFrom = match.from;
     const editor = getEditor();
-    const textarea = getSourceTextarea();
 
     if (isSourceMode.value) {
-      if (!textarea) return;
+      const handle = getSourceHandle();
+      const sourceView = handle?.getView() ?? null;
+      if (!sourceView) return;
       // 替换当前匹配，光标停留在替换文本之后，方便继续查看上下文。
-      textarea.setRangeText(replacement.value, match.from, match.to, "end");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      sourceView.dispatch({
+        changes: { from: match.from, to: match.to, insert: replacement.value },
+        selection: { anchor: match.from + replacement.value.length },
+        scrollIntoView: true,
+      });
     } else {
       if (!editor) return;
       // 一次事务完成替换，撤销时能一步回到替换前的内容。
-      editor.view.dispatch(editor.state.tr.insertText(replacement.value, match.from, match.to));
+      editor.view.dispatch(
+        editor.state.tr.insertText(replacement.value, match.from, match.to),
+      );
     }
 
     // 文档内容已变化，重新收集匹配并跳到替换位置之后的第一个匹配。
@@ -250,26 +288,34 @@ export const useFindReplace = (
 
   const replaceAll = (): void => {
     const editor = getEditor();
-    const textarea = getSourceTextarea();
 
     if (isSourceMode.value) {
-      if (!textarea) return;
-      const collected = collectTextMatches(textarea.value, query.value, caseSensitive.value);
+      const handle = getSourceHandle();
+      const sourceView = handle?.getView() ?? null;
+      if (!sourceView) return;
+      const collected = collectTextMatches(
+        sourceView.state.doc.toString(),
+        query.value,
+        caseSensitive.value,
+      );
       if (collected.length === 0) return;
-      // 从后往前拼接，一次写回 textarea 并只触发一次内容更新。
-      let result = textarea.value;
-      for (let i = collected.length - 1; i >= 0; i--) {
-        const match = collected[i];
-        result = result.slice(0, match.from) + replacement.value + result.slice(match.to);
-      }
-      textarea.value = result;
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      // 所有替换位置都基于同一份原始文档，可以在一个事务里从后往前合并。
+      const changes = collected.map((item) => ({
+        from: item.from,
+        to: item.to,
+        insert: replacement.value,
+      }));
+      sourceView.dispatch({ changes });
       refreshSource();
       return;
     }
 
     if (!editor) return;
-    const collected = collectEditorMatches(editor, query.value, caseSensitive.value);
+    const collected = collectEditorMatches(
+      editor,
+      query.value,
+      caseSensitive.value,
+    );
     if (collected.length === 0) return;
     // 从后往前合并进同一个事务，前面的位置不受后面替换的影响。
     let tr = editor.state.tr;
@@ -295,9 +341,14 @@ export const useFindReplace = (
     const editor = getEditor();
     if (editor) {
       editor.view.dispatch(
-        editor.state.tr.setMeta(findReplaceKey, { decorations: DecorationSet.empty }),
+        editor.state.tr.setMeta(findReplaceKey, {
+          decorations: DecorationSet.empty,
+        }),
       );
     }
+    // 清空源码模式的搜索装饰
+    const handle = getSourceHandle();
+    handle?.clearSearch();
   };
 
   onUnmounted(() => {

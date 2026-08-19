@@ -1,5 +1,7 @@
 import { reactive, watch } from 'vue'
 import type { CodeBlockStyleId } from '../modules/codeBlockStyles'
+import { defaultShortcuts } from '../constants/shortcuts'
+import { isValidShortcut } from '../utils/shortcuts'
 
 export type SettingsSection = 'general' | 'typography' | 'theme' | 'shortcuts' | 'changelog' | 'about'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -44,14 +46,19 @@ const defaultSettings: AppSettings = {
   bodyFont: 'system',
   lineWidth: 'full',
   previewZoom: 'standard',
-  shortcuts: {
-    newFile: 'Ctrl+N',
-    openFile: 'Ctrl+O',
-    saveFile: 'Ctrl+S',
-    toggleSidebar: 'Ctrl+B',
-    toggleSource: 'Ctrl+/',
-    openSettings: 'Ctrl+,',
-  },
+  shortcuts: defaultShortcuts(),
+}
+
+// 只保留格式合法的快捷键，避免历史脏数据或手工输入破坏后续匹配。
+const sanitizeShortcuts = (
+  shortcuts: Record<string, string> | undefined,
+): Record<string, string> => {
+  const result: Record<string, string> = {}
+  if (!shortcuts) return result
+  for (const [id, value] of Object.entries(shortcuts)) {
+    if (typeof value === 'string' && isValidShortcut(value)) result[id] = value
+  }
+  return result
 }
 
 const getInitialSettings = (): AppSettings => {
@@ -63,7 +70,7 @@ const getInitialSettings = (): AppSettings => {
     return {
       ...structuredClone(defaultSettings),
       ...parsedSettings,
-      shortcuts: { ...defaultSettings.shortcuts, ...parsedSettings.shortcuts },
+      shortcuts: { ...defaultSettings.shortcuts, ...sanitizeShortcuts(parsedSettings.shortcuts) },
     }
   } catch {
     // 本地数据格式无效时直接恢复明确的默认设置。
@@ -79,9 +86,16 @@ watch(
   { deep: true },
 )
 
+// 快捷键改动实时同步到主进程，让系统菜单加速键（CmdOrCtrl+N 等）跟随设置。
+watch(
+  () => settings.shortcuts,
+  (shortcuts) => window.electronAPI.updateShortcuts({ ...shortcuts }),
+  { deep: true, immediate: true },
+)
+
 export const useSettings = () => {
   const resetShortcuts = (): void => {
-    settings.shortcuts = { ...defaultSettings.shortcuts }
+    settings.shortcuts = { ...defaultShortcuts() }
   }
 
   return {

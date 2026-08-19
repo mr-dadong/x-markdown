@@ -17,6 +17,7 @@ export interface SlashCommand {
   iconClass: string;
   keywords: string[];
   opensLinkForm?: boolean;
+  opensEmojiPicker?: boolean;
   run?: (
     editor: Editor,
     range: SlashRange,
@@ -102,6 +103,16 @@ export const slashCommands: SlashCommand[] = [
     keywords: ["三级标题", "标题3", "h3", "heading3", "sanjibiaoti", "sjbt"],
     run: (editor, range) =>
       editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run(),
+  },
+  {
+    id: "emoji",
+    group: "基础",
+    label: "插入 Emoji",
+    description: "打开表情选择器",
+    icon: "lucide:smile-plus",
+    iconClass: "bg-selected text-accent",
+    keywords: ["表情", "emoji", "符号", "笑脸", "biaoqing", "bq"],
+    opensEmojiPicker: true,
   },
   {
     id: "bullet-list",

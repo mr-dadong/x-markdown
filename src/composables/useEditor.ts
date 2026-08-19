@@ -17,6 +17,7 @@ import {
   type SlashCommand,
   type SlashRange,
 } from "../modules/slashCommands";
+import { emojis, filterEmojis, type EmojiItem } from "../modules/emojis";
 import { useSettings } from "./useSettings";
 
 
@@ -61,6 +62,12 @@ export const useMarkdownEditor = (
   const linkInsertLabel = ref("");
   const linkInsertError = ref("");
   const linkInsertRange = ref<SlashRange | null>(null);
+  // Emoji 选择器：grid 由斜杠命令打开，list 由冒号自动补全触发。
+  const emojiMenuMode = ref<"grid" | "list" | null>(null);
+  const emojiQuery = ref("");
+  const emojiRange = ref<SlashRange | null>(null);
+  const emojiSelectedIndex = ref(0);
+  const emojiMenuPosition = ref({ left: 0, top: 0 });
 
   const imageExtensions = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]);
   const videoExtensions = new Set(["mp4", "webm", "ogg", "mov", "m4v"]);
@@ -230,6 +237,18 @@ export const useMarkdownEditor = (
     top: `${slashMenuPosition.value.top}px`,
   }));
 
+  // 冒号补全展示紧凑列表，斜杠命令的网格选择器在搜索时也使用同一过滤结果。
+  const filteredEmojis = computed(() => filterEmojis(emojiQuery.value, 40));
+  // 网格模式下未搜索时展示全部分类，由选择器组件按分类标签过滤。
+  const emojiGridItems = computed(() =>
+    emojiQuery.value ? filterEmojis(emojiQuery.value, 120) : emojis,
+  );
+
+  const emojiMenuStyle = computed(() => ({
+    left: `${emojiMenuPosition.value.left}px`,
+    top: `${emojiMenuPosition.value.top}px`,
+  }));
+
   const blockControlStyle = computed(() => ({
     left: `${blockControlPosition.value.left}px`,
     top: `${blockControlPosition.value.top}px`,
@@ -345,12 +364,172 @@ export const useMarkdownEditor = (
       linkInsertVisible.value = true;
       return;
     }
+    if (command.opensEmojiPicker) {
+      openEmojiPicker(range);
+      return;
+    }
     if (!command.run) return;
     void command.run(
       editor.value,
       range,
       getCurrentDocumentPath?.() ?? null,
     );
+  };
+
+  const closeEmojiMenu = (): void => {
+    emojiMenuMode.value = null;
+    emojiQuery.value = "";
+    emojiRange.value = null;
+    emojiSelectedIndex.value = 0;
+  };
+
+  // 选择器面板关闭后把焦点还给编辑器，保证键盘继续用于写作。
+  const cancelEmojiMenu = (): void => {
+    closeEmojiMenu();
+    editor.value?.commands.focus();
+  };
+
+  const positionEmojiMenu = (currentEditor: Editor, anchorPosition: number): void => {
+    void nextTick(() => {
+      const cursor = currentEditor.view.coordsAtPos(anchorPosition);
+      const menuElement = document.querySelector<HTMLElement>("[data-emoji-picker]");
+      const menuWidth = menuElement?.getBoundingClientRect().width ?? 320;
+      const menuHeight = menuElement?.getBoundingClientRect().height ?? 320;
+      const edgeGap = 12;
+      const menuGap = 8;
+      const spaceBelowCursor = window.innerHeight - cursor.bottom - edgeGap;
+      const top =
+        spaceBelowCursor >= menuHeight + menuGap
+          ? cursor.bottom + menuGap
+          : cursor.top - menuHeight - menuGap;
+
+      emojiMenuPosition.value = {
+        left: Math.max(
+          edgeGap,
+          Math.min(cursor.left, window.innerWidth - menuWidth - edgeGap),
+        ),
+        top: Math.max(
+          edgeGap,
+          Math.min(top, window.innerHeight - menuHeight - edgeGap),
+        ),
+      };
+    });
+  };
+
+  const openEmojiPicker = (range: SlashRange): void => {
+    if (!editor.value) return;
+    emojiRange.value = range;
+    emojiQuery.value = "";
+    emojiSelectedIndex.value = 0;
+    emojiMenuMode.value = "grid";
+    positionEmojiMenu(editor.value, range.from);
+  };
+
+  const insertEmoji = (item: EmojiItem): void => {
+    if (!editor.value || !emojiRange.value) return;
+    const range = { ...emojiRange.value };
+    closeEmojiMenu();
+    // 删除冒号短代码或斜杠命令文本后插入纯文本 Emoji，序列化无需额外处理。
+    editor.value.chain().focus().deleteRange(range).insertContent(item.emoji).run();
+  };
+
+  const scrollEmojiSelectedIntoView = (): void => {
+    void nextTick(() => {
+      document
+        .querySelector("[data-emoji-picker] [data-emoji-selected]")
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  // 冒号补全：文本节点内的 :abc 触发紧凑建议列表，代码块与行内代码不参与。
+  const refreshEmojiMenu = (currentEditor: Editor): void => {
+    if (emojiMenuMode.value === "grid") return;
+    const { selection } = currentEditor.state;
+    if (!selection.empty || slashMenuVisible.value) {
+      closeEmojiMenu();
+      return;
+    }
+
+    const { $from } = selection;
+    if (
+      $from.parent.type.name === "codeBlock" ||
+      $from.marks().some((mark) => mark.type.name === "code")
+    ) {
+      closeEmojiMenu();
+      return;
+    }
+
+    const textBeforeCursor = $from.parent.textBetween(
+      0,
+      $from.parentOffset,
+      undefined,
+      "\ufffc",
+    );
+    const match = textBeforeCursor.match(/(?:^|\s):([^\s:]*)$/);
+    if (!match) {
+      closeEmojiMenu();
+      return;
+    }
+
+    const query = match[1];
+    const colonOffset = textBeforeCursor.length - query.length - 1;
+    emojiRange.value = {
+      from: $from.start() + colonOffset,
+      to: selection.from,
+    };
+    emojiQuery.value = query;
+    // 无匹配时不保留空列表，避免浮动面板挡住正文。
+    if (filteredEmojis.value.length === 0) {
+      closeEmojiMenu();
+      return;
+    }
+    emojiSelectedIndex.value = Math.min(
+      emojiSelectedIndex.value,
+      Math.max(filteredEmojis.value.length - 1, 0),
+    );
+    emojiMenuMode.value = "list";
+    positionEmojiMenu(currentEditor, selection.from);
+  };
+
+  // 冒号补全状态下接管方向键与回车，避免焦点离开编辑器。
+  const handleEmojiMenuKeydown = (event: KeyboardEvent): boolean => {
+    if (emojiMenuMode.value !== "list" || event.isComposing) return false;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (filteredEmojis.value.length) {
+        emojiSelectedIndex.value =
+          (emojiSelectedIndex.value + 1) % filteredEmojis.value.length;
+        scrollEmojiSelectedIntoView();
+      }
+      return true;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (filteredEmojis.value.length) {
+        emojiSelectedIndex.value =
+          (emojiSelectedIndex.value - 1 + filteredEmojis.value.length) %
+          filteredEmojis.value.length;
+        scrollEmojiSelectedIntoView();
+      }
+      return true;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const item = filteredEmojis.value[emojiSelectedIndex.value];
+      if (item) insertEmoji(item);
+      return true;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeEmojiMenu();
+      return true;
+    }
+
+    return false;
   };
 
   const cancelLinkInsert = (): void => {
@@ -782,6 +961,7 @@ export const useMarkdownEditor = (
     event: KeyboardEvent,
   ): boolean => {
     if (handleSlashMenuKeydown(event)) return true;
+    if (handleEmojiMenuKeydown(event)) return true;
     if (event.isComposing) return false;
     if (handleCodeBlockSelectAll(view, event)) return true;
     if (handleCodeBlockTab(view, event)) return true;
@@ -968,7 +1148,9 @@ export const useMarkdownEditor = (
           // 焦点移到菜单内部时不要关闭，否则点击滚动条或菜单项会丢失菜单。
           const related = event.relatedTarget as Node | null;
           if (related && slashMenu.value?.contains(related)) return false;
+          if (related && related instanceof HTMLElement && related.closest("[data-emoji-picker]")) return false;
           closeSlashMenu();
+          closeEmojiMenu();
           return false;
         },
       },
@@ -981,9 +1163,11 @@ export const useMarkdownEditor = (
         emit("update:content", markdown);
       }
       refreshSlashMenu(editor);
+      refreshEmojiMenu(editor);
     },
     onSelectionUpdate: ({ editor }) => {
       refreshSlashMenu(editor);
+      refreshEmojiMenu(editor);
       // 全选包含不可编辑的媒体节点，给编辑器根节点添加状态，统一显示整块选区。
       editor.view.dom.classList.toggle(
         "is-all-selected",
@@ -1060,6 +1244,14 @@ export const useMarkdownEditor = (
     slashRange,
     selectedCommandIndex,
     slashMenuPosition,
+    emojiMenuMode,
+    emojiQuery,
+    emojiSelectedIndex,
+    filteredEmojis,
+    emojiGridItems,
+    emojiMenuStyle,
+    insertEmoji,
+    cancelEmojiMenu,
     activeBlock,
     blockControlVisible,
     blockMenuVisible,

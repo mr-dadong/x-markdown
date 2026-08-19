@@ -1,6 +1,7 @@
 <template>
   <!-- 查找替换面板：固定在编辑区右上角，两种编辑模式共用。 -->
-  <div v-show="isOpen" class="absolute right-3 top-2 z-50 flex w-[400px] flex-col gap-1 rounded-lg border border-line bg-toolbar p-1.5"
+  <div v-show="isOpen"
+    class="absolute right-3 top-12 z-50 flex w-[400px] flex-col gap-1 rounded-lg border border-line bg-toolbar p-1.5"
     @mousedown.stop>
     <!-- 查找行：输入、计数、大小写与上下跳转。 -->
     <div class="flex items-center gap-1">

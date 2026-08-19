@@ -95,6 +95,18 @@ export interface ExportHtmlData {
   suggestedName: string;
 }
 
+// 导出为纯文本：渲染进程直接把文档原文交给主进程写 .txt 文件。
+export interface ExportTextData {
+  text: string;
+  suggestedName: string;
+}
+
+// 导出为 DOCX：渲染进程已组装好的 docx 二进制数据，主进程负责落盘。
+export interface ExportDocxData {
+  docxData: ArrayBuffer;
+  suggestedName: string;
+}
+
 // 导出为 ZIP 包：渲染进程打包好的 zip 二进制数据。
 export interface ExportZipData {
   zipData: ArrayBuffer;
@@ -107,6 +119,8 @@ export interface ElectronAPI {
   openDroppedFiles: (filePaths: string[]) => Promise<OpenFileData[]>;
   getUpdateLogs: () => Promise<UpdateLogsResult>;
   saveFile: (data: SaveFileData) => Promise<SaveFileResult>;
+  /** 把设置页的快捷键同步到主进程，用于更新系统菜单加速键。 */
+  updateShortcuts: (shortcuts: Record<string, string>) => void;
   showErrorMessage: (title: string, message: string) => Promise<void>;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
@@ -124,6 +138,8 @@ export interface ElectronAPI {
   onMenuExportHtml: (callback: () => void) => void;
   onMenuExportPdf: (callback: () => void) => void;
   onMenuExportZip: (callback: () => void) => void;
+  onMenuExportText: (callback: () => void) => void;
+  onMenuExportDocx: (callback: () => void) => void;
   onMenuOpenRecentFile: (callback: (filePath: string) => void) => void;
   onMenuClearRecentFiles: (callback: () => void) => void;
   getRecentFiles: () => Promise<string[]>;
@@ -134,6 +150,8 @@ export interface ElectronAPI {
   exportHtml: (data: ExportHtmlData) => Promise<ExportResult>;
   exportPdf: (data: ExportHtmlData) => Promise<ExportResult>;
   exportZip: (data: ExportZipData) => Promise<ExportResult>;
+  exportText: (data: ExportTextData) => Promise<ExportResult>;
+  exportDocx: (data: ExportDocxData) => Promise<ExportResult>;
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>;
   createFileTreeEntry: (parentPath: string, name: string, isDirectory: boolean) => Promise<void>;
   renameFileTreeEntry: (entryPath: string, newName: string) => Promise<void>;
