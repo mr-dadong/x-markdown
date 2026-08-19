@@ -100,6 +100,24 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.menuExportZip, () => callback())
   },
 
+  onMenuOpenRecentFile: (callback: (filePath: string) => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuOpenRecentFile, (_event, filePath: string) => callback(filePath))
+  },
+
+  onMenuClearRecentFiles: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuClearRecentFiles, () => callback())
+  },
+
+  getRecentFiles: (): Promise<string[]> => ipcRenderer.invoke(IPC_CHANNELS.recentFilesList),
+
+  addRecentFiles: (filePaths: string[]): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.recentFilesAdd, filePaths),
+
+  removeRecentFile: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.recentFilesRemove, filePath),
+
+  clearRecentFiles: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.recentFilesClear),
+
   removeAllListeners: (channel: IpcChannel) => {
     ipcRenderer.removeAllListeners(channel)
   },

@@ -3,7 +3,8 @@
     <textarea
       ref="sourceEditor"
       :value="content"
-      class="editor-scroll min-h-0 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-paper px-20 pb-[200px] pt-4 font-mono text-[14px] leading-6 text-ink outline-none placeholder:text-placeholder"
+      :style="sourceEditorStyle"
+      class="editor-scroll min-h-0 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-paper pb-[200px] pt-4 font-mono text-[14px] leading-6 text-ink outline-none placeholder:text-placeholder"
       placeholder="开始输入 Markdown 源码..."
       spellcheck="false"
       @input="handleInput"
@@ -13,7 +14,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useSettings, type EditorLineWidth } from '../composables/useSettings'
 import type { SourceEditorHandle } from '../types/editor'
 
 defineProps<{
@@ -24,7 +26,27 @@ const emit = defineEmits<{
   'update:content': [content: string]
 }>()
 
+const { settings } = useSettings()
 const sourceEditor = ref<HTMLTextAreaElement | null>(null)
+
+// 行宽以正文列宽为准，通过水平内边距把源码列居中；窗口较窄时至少保留 80px 边距。
+const SOURCE_LINE_WIDTHS: Record<EditorLineWidth, number | null> = {
+  narrow: 640,
+  medium: 800,
+  wide: 960,
+  full: null,
+}
+
+const sourceEditorStyle = computed(() => {
+  const width = SOURCE_LINE_WIDTHS[settings.lineWidth]
+  if (width === null) {
+    return { paddingLeft: '80px', paddingRight: '80px' }
+  }
+  return {
+    paddingLeft: `max(80px, calc((100% - ${width}px) / 2))`,
+    paddingRight: `max(80px, calc((100% - ${width}px) / 2))`,
+  }
+})
 
 // 两种显示模式的内容高度不同，因此使用 0 到 1 的阅读进度同步位置。
 const getScrollProgress = (): number => {

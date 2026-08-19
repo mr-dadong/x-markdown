@@ -121,14 +121,44 @@
     "mac": {
       "target": "dmg",
       "icon": "build/icons/icon.icns",
-      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
+      "fileAssociations": [
+        {
+          "ext": ["md", "markdown"],
+          "name": "Markdown",
+          "description": "Markdown 文档",
+          "role": "Editor",
+          "rank": "Owner"
+        },
+        {
+          "ext": "txt",
+          "name": "Plain Text",
+          "description": "纯文本文档",
+          "role": "Editor",
+          "rank": "Default"
+        }
+      ]
     },
     "linux": {
       "target": "AppImage",
       "icon": "build/icons",
       "category": "Utility",
       "syncDesktopName": true,
-      "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-Linux-${arch}.${ext}",
+      "fileAssociations": [
+        {
+          "ext": ["md", "markdown"],
+          "name": "Markdown",
+          "description": "Markdown 文档",
+          "mimeType": "text/markdown"
+        },
+        {
+          "ext": "txt",
+          "name": "Plain Text",
+          "description": "纯文本文档",
+          "mimeType": "text/plain"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

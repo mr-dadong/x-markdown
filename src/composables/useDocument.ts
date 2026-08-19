@@ -16,15 +16,21 @@ import { useConfirmDialog } from "./useConfirmDialog";
 import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
+import { useSettings } from "./useSettings";
+import { useRecentFiles } from "./useRecentFiles";
 
 export const useDocument = () => {
   const { requestConfirmation } = useConfirmDialog();
+  const { settings } = useSettings();
+  const { addRecentFiles, removeRecentFile, clearRecentFiles } = useRecentFiles();
   const documents = ref<OpenDocument[]>([]);
   const activeDocumentId = ref<number | null>(null);
   const documentSaveQueues = new Map<number, Promise<void>>();
   let nextDocumentId = 1;
   let draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let draftSaveQueue: Promise<void> = Promise.resolve();
+  // 自动保存按文档维护定时器：内容持续变化时顺延，停止输入满间隔后才写入磁盘。
+  const autoSaveTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
   // 草稿必须严格按照触发顺序写入，避免较慢的旧快照覆盖较新的编辑内容。
   const enqueueDraftSave = (drafts: RecoveryDraftData[]): Promise<void> => {
@@ -155,6 +161,8 @@ export const useDocument = () => {
     };
     documents.value.push(document);
     activateDocument(document.id);
+    // 用户打开过的文件记入最近列表，欢迎页和文件菜单可快速返回。
+    void addRecentFiles([file.filePath]);
   };
 
   // 批量打开时先创建全部标签，最后只渲染一次编辑器内容。
@@ -185,6 +193,8 @@ export const useDocument = () => {
     });
 
     if (lastDocumentId !== null) activateDocument(lastDocumentId);
+    // 批量打开与单个打开统一记录最近列表，重复路径由主进程按序去重置顶。
+    void addRecentFiles(files.map((file) => file.filePath));
   };
 
   const handleContentUpdate = (content: string): void => {
@@ -367,6 +377,34 @@ export const useDocument = () => {
     applyOpenedFile(fileData);
   };
 
+  // 从欢迎页或文件菜单打开最近文件；文件已被移动或删除时自动移出列表。
+  const handleOpenRecentFile = async (filePath: string): Promise<void> => {
+    const openedDocument = documents.value.find(
+      (document) => document.filePath === filePath,
+    );
+    if (openedDocument) {
+      activateDocument(openedDocument.id);
+      return;
+    }
+
+    const result = await documentService.readFile(filePath);
+    if (!result.success || result.content === undefined) {
+      console.error("打开最近文件失败:", result.error);
+      await removeRecentFile(filePath);
+      await documentService.showErrorMessage(
+        "无法打开文档",
+        result.error ?? "文件读取失败，请检查文件是否存在以及当前账号是否有读取权限。",
+      );
+      return;
+    }
+    const fileData: OpenFileData = {
+      filePath,
+      content: result.content,
+      modifiedTime: result.modifiedTime ?? 0,
+    };
+    applyOpenedFile(fileData);
+  };
+
   const performDocumentSave = async (
     document: OpenDocument,
     saveAs: boolean,
@@ -466,11 +504,12 @@ export const useDocument = () => {
     }
   };
 
-  const saveFile = async (saveAs = false): Promise<boolean> => {
-    const document = currentDocument.value;
-    if (!document) return false;
-
-    // 同一文档的保存严格按触发顺序执行，避免多个写入互相覆盖或产生虚假冲突。
+  // 同一文档的保存严格按触发顺序执行，避免多个写入互相覆盖或产生虚假冲突。
+  // 手动保存与自动保存共用该入口，冲突检测和原子写入对两种方式同样生效。
+  const saveDocument = async (
+    document: OpenDocument,
+    saveAs = false,
+  ): Promise<boolean> => {
     const previousSave = documentSaveQueues.get(document.id) ?? Promise.resolve();
     let saved = false;
     const queuedSave = previousSave
@@ -489,6 +528,42 @@ export const useDocument = () => {
     }
     return saved;
   };
+
+  const saveFile = (saveAs = false): Promise<boolean> => {
+    const document = currentDocument.value;
+    if (!document) return Promise.resolve(false);
+    return saveDocument(document, saveAs);
+  };
+
+  // 自动保存只针对已经有保存路径的文档，未命名文档仍需用户手动选择保存位置。
+  // 定时器在文档内容变化时顺延，避免输入过程中反复写入磁盘。
+  watch(
+    documents,
+    () => {
+      if (!settings.autoSave) return;
+      for (const document of documents.value) {
+        if (!document.isModified || !document.filePath) continue;
+        const existingTimer = autoSaveTimers.get(document.id);
+        if (existingTimer) clearTimeout(existingTimer);
+        const timer = setTimeout(() => {
+          autoSaveTimers.delete(document.id);
+          void saveDocument(document);
+        }, settings.autoSaveInterval * 1000);
+        autoSaveTimers.set(document.id, timer);
+      }
+    },
+    { deep: true },
+  );
+
+  // 关闭自动保存时取消所有待执行的保存，避免开关刚关闭仍继续写盘。
+  watch(
+    () => settings.autoSave,
+    (autoSaveEnabled) => {
+      if (autoSaveEnabled) return;
+      for (const timer of autoSaveTimers.values()) clearTimeout(timer);
+      autoSaveTimers.clear();
+    },
+  );
 
   const handleWindowCloseRequest = async (): Promise<void> => {
     const modifiedDocuments = documents.value.filter((document) => document.isModified);
@@ -547,6 +622,12 @@ export const useDocument = () => {
     });
     documentService.onSaveFile(() => saveFile());
     documentService.onSaveAsFile(() => saveFile(true));
+    documentService.onOpenRecentFile((filePath) => {
+      void handleOpenRecentFile(filePath);
+    });
+    documentService.onClearRecentFiles(() => {
+      void clearRecentFiles();
+    });
     documentService.onWindowCloseRequest(handleWindowCloseRequest);
     window.addEventListener("keydown", handleSaveShortcut, true);
 
@@ -582,10 +663,14 @@ export const useDocument = () => {
   onUnmounted(() => {
     if (documentStatsTimer) clearTimeout(documentStatsTimer);
     if (draftSaveTimer) clearTimeout(draftSaveTimer);
+    for (const timer of autoSaveTimers.values()) clearTimeout(timer);
+    autoSaveTimers.clear();
     documentService.removeListeners(IPC_CHANNELS.menuNewFile);
     documentService.removeListeners(IPC_CHANNELS.menuOpenFile);
     documentService.removeListeners(IPC_CHANNELS.menuSaveFile);
     documentService.removeListeners(IPC_CHANNELS.menuSaveAsFile);
+    documentService.removeListeners(IPC_CHANNELS.menuOpenRecentFile);
+    documentService.removeListeners(IPC_CHANNELS.menuClearRecentFiles);
     documentService.removeListeners(IPC_CHANNELS.requestWindowClose);
     window.removeEventListener("keydown", handleSaveShortcut, true);
   });
@@ -613,6 +698,7 @@ export const useDocument = () => {
     handleOpenFile,
     handleDroppedFiles,
     handleOpenFileFromSidebar,
+    handleOpenRecentFile,
     saveFile,
     applyOpenedFile,
     applyOpenedFiles,

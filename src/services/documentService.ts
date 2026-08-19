@@ -34,6 +34,10 @@ export const documentService = {
     window.electronAPI.onMenuExportPdf(callback),
   onExportZip: (callback: () => void) =>
     window.electronAPI.onMenuExportZip(callback),
+  onOpenRecentFile: (callback: (filePath: string) => void) =>
+    window.electronAPI.onMenuOpenRecentFile(callback),
+  onClearRecentFiles: (callback: () => void) =>
+    window.electronAPI.onMenuClearRecentFiles(callback),
   onWindowCloseRequest: (callback: () => void) =>
     window.electronAPI.onRequestWindowClose(callback),
   removeListeners: (channel: (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]) =>

@@ -44,6 +44,7 @@ import checkIcon from '@iconify-icons/lucide/check'
 import infoIcon from '@iconify-icons/lucide/info'
 import keyboardIcon from '@iconify-icons/lucide/keyboard'
 import paletteIcon from '@iconify-icons/lucide/palette'
+import typeIcon from '@iconify-icons/lucide/type'
 import refreshCwIcon from '@iconify-icons/lucide/refresh-cw'
 import slidersHorizontalIcon from '@iconify-icons/lucide/sliders-horizontal'
 import historyIcon from '@iconify-icons/lucide/history'
@@ -120,6 +121,7 @@ addIcon('lucide:check', checkIcon)
 addIcon('lucide:info', infoIcon)
 addIcon('lucide:keyboard', keyboardIcon)
 addIcon('lucide:palette', paletteIcon)
+addIcon('lucide:type', typeIcon)
 addIcon('lucide:refresh-cw', refreshCwIcon)
 addIcon('lucide:sliders-horizontal', slidersHorizontalIcon)
 addIcon('lucide:history', historyIcon)

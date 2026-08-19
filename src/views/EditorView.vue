@@ -23,7 +23,7 @@
                     :content="currentContent"
                     @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
-                    class="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center select-none"
+                    class="editor-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8 text-center select-none"
                     @dragover.prevent="handleWelcomeDragOver" @drop.prevent="handleWelcomeDrop">
                     <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
                     <img :src="appIcon" alt="XMD" class="h-20 w-20 rounded-[22px]" />
@@ -44,6 +44,35 @@
                         </button>
                     </div>
                     <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md 与 .markdown 文件</p>
+
+                    <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。 -->
+                    <div v-if="recentFiles.length" class="mt-8 w-full max-w-[460px] text-left">
+                        <div class="flex items-center justify-between px-1 pb-1.5">
+                            <span class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
+                                <Icon icon="lucide:history" :size="13" />
+                                <span>最近打开</span>
+                            </span>
+                            <button type="button"
+                                class="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-control-hover hover:text-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+                                @click="handleClearRecentFiles">清空</button>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <button v-for="filePath in recentFiles" :key="filePath" type="button"
+                                class="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+                                @click="handleOpenRecentFile(filePath)">
+                                <Icon icon="lucide:file-text" :size="15" class="shrink-0 text-muted" />
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{ getFileName(filePath) }}</span>
+                                    <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
+                                </span>
+                                <span role="button" tabindex="-1" title="从最近列表移除"
+                                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-control hover:text-ink"
+                                    @click.stop="handleRemoveRecentFile(filePath)">
+                                    <Icon icon="lucide:x" :size="13" />
+                                </span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -75,12 +104,14 @@ import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
 import { buildExportHtml, buildExportZip } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
+import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
 import { useUpdater } from '../composables/useUpdater'
 import { IPC_CHANNELS } from '../constants/ipcChannels'
 import { documentService } from '../services/documentService'
 import { exportService } from '../services/exportService'
+import { getFileName } from '../utils/file'
 import type { EditorHandle, SourceEditorHandle } from '../types/editor'
 
 const editorRef = ref<EditorHandle | null>(null)
@@ -122,8 +153,19 @@ const {
     handleOpenFile,
     handleDroppedFiles,
     handleOpenFileFromSidebar,
+    handleOpenRecentFile,
     saveFile,
 } = useDocument()
+
+const { recentFiles, loadRecentFiles, removeRecentFile, clearRecentFiles } = useRecentFiles()
+
+const handleRemoveRecentFile = (filePath: string): void => {
+    void removeRecentFile(filePath)
+}
+
+const handleClearRecentFiles = (): void => {
+    void clearRecentFiles()
+}
 
 const handleWelcomeDragOver = (event: DragEvent): void => {
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
@@ -241,6 +283,7 @@ onMounted(() => {
     documentService.onExportZip(() => void handleExport('zip'))
     // 每次软件启动只自动检测一次；没有新版本时不打断用户。
     void checkForUpdates(false)
+    void loadRecentFiles()
 })
 
 onUnmounted(() => {

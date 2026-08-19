@@ -124,6 +124,12 @@ export interface ElectronAPI {
   onMenuExportHtml: (callback: () => void) => void;
   onMenuExportPdf: (callback: () => void) => void;
   onMenuExportZip: (callback: () => void) => void;
+  onMenuOpenRecentFile: (callback: (filePath: string) => void) => void;
+  onMenuClearRecentFiles: (callback: () => void) => void;
+  getRecentFiles: () => Promise<string[]>;
+  addRecentFiles: (filePaths: string[]) => Promise<void>;
+  removeRecentFile: (filePath: string) => Promise<void>;
+  clearRecentFiles: () => Promise<void>;
   removeAllListeners: (channel: IpcChannel) => void;
   exportHtml: (data: ExportHtmlData) => Promise<ExportResult>;
   exportPdf: (data: ExportHtmlData) => Promise<ExportResult>;

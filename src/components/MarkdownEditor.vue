@@ -3,9 +3,9 @@
   <div ref="editorShell" class="relative flex h-full min-w-0 flex-1 overflow-hidden bg-paper" @mousemove="handleEditorMouseMove"
     @mouseover="handleLinkMouseOver" @click="handleEditorContentClick" @keydown="handleAttachmentKeydown" @mouseleave="handleEditorAreaLeave"
     @dragover.capture="handleBlockDragOver" @drop.capture="handleBlockDrop">
-    <!-- 编辑器内容区域 -->
-    <editor-content :editor="editor" class="editor-scroll h-full min-w-0 flex-1 overflow-y-auto"
-      @scroll="refreshBlockControlPosition" />
+    <!-- 编辑器内容区域：typography-pane 承载排版与预览缩放样式，通过 CSS 变量生效。 -->
+    <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
+      :style="typographyStyle" @scroll="refreshBlockControlPosition" />
 
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
     <bubble-menu v-if="editor" :editor="editor" :should-show="shouldShowTableMenu"
@@ -184,12 +184,49 @@ import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
 import { useSettings } from '../composables/useSettings'
+import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
 import InsertLinkPanel from './editor/InsertLinkPanel.vue'
 import type { EditorHandle } from '../types/editor'
 import { mediaService } from '../services/mediaService'
 import { windowService } from '../services/windowService'
 
 const { settings } = useSettings()
+
+// 排版设置通过 CSS 变量作用于编辑区，避免为每种组合生成额外类名。
+// 变量声明在 typography-pane 容器上，导出文档不包含该容器类，保持独立排版。
+const BODY_FONT_STACKS: Record<EditorBodyFont, string> = {
+  system:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif",
+  serif: "Georgia, 'Times New Roman', 'Songti SC', 'SimSun', 'Noto Serif SC', serif",
+  sans: "'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+  mono: "'SF Mono', 'Fira Code', Consolas, 'Menlo', monospace",
+}
+
+// 行宽表示正文列的最大宽度；box-border 下盒子总宽 = 列宽 + 两侧留白。
+const LINE_WIDTH_STYLES: Record<EditorLineWidth, { width: string; gutter: string }> = {
+  narrow: { width: '720px', gutter: '40px' },
+  medium: { width: '880px', gutter: '40px' },
+  wide: { width: '1040px', gutter: '40px' },
+  full: { width: '100%', gutter: '80px' },
+}
+
+const ZOOM_LEVELS: Record<PreviewZoomLevel, string> = {
+  small: '0.8',
+  standard: '1',
+  large: '1.2',
+  xlarge: '1.4',
+}
+
+const typographyStyle = computed(() => {
+  const lineWidth = LINE_WIDTH_STYLES[settings.lineWidth]
+  return {
+    '--editor-font-family': BODY_FONT_STACKS[settings.bodyFont],
+    '--editor-font-size': `${settings.bodyFontSize}px`,
+    '--editor-line-width': lineWidth.width,
+    '--editor-line-gutter': lineWidth.gutter,
+    '--editor-zoom': ZOOM_LEVELS[settings.previewZoom],
+  }
+})
 
 // Props
 const props = defineProps<{
@@ -556,6 +593,26 @@ defineExpose<EditorHandle>({
   line-height: 1.75;
   color: var(--color-ink);
   word-break: break-word;
+}
+
+/*
+ * 排版设置（字号 / 字体 / 行宽 / 预览缩放）全部由 typography-pane 容器上的
+ * CSS 变量驱动，只作用于编辑区；导出文档不带该容器类，排版保持独立。
+ * 缩放使用 Chromium 的 zoom 布局缩放，滚动高度与光标坐标会自动跟随。
+ */
+.typography-pane .prose-editor {
+  max-width: var(--editor-line-width, 100%);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--editor-line-gutter, 80px);
+  padding-right: var(--editor-line-gutter, 80px);
+}
+
+.typography-pane .tiptap {
+  font-family: var(--editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif);
+  font-size: var(--editor-font-size, 15px);
+  zoom: var(--editor-zoom, 1);
 }
 
 /* ===== 段落 ===== */

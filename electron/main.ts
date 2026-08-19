@@ -23,6 +23,8 @@ import {
 } from "./services/pathAccess";
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
+import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
+import { getRecentFiles } from "./services/recentFiles";
 import { createApplicationMenu } from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
@@ -163,9 +165,7 @@ async function fetchUpdateManifest(): Promise<UpdateManifest> {
   const requestUrl = new URL(updateManifestUrl);
   // 主分支清单地址固定不变，附加时间戳可绕过客户端与 CDN 的历史缓存，确保跨版本更新时拿到真正的最新版本。
   requestUrl.searchParams.set("timestamp", Date.now().toString());
-  const response = await net.fetch(requestUrl.toString(), {
-    cache: "no-store",
-  });
+  const response = await net.fetch(requestUrl.toString());
   if (!response.ok) throw new Error(`获取版本信息失败（${response.status}）`);
 
   const manifest: unknown = await response.json();
@@ -358,6 +358,7 @@ function createMenu(): void {
         return { filePath, content, modifiedTime: stats.mtimeMs };
       }),
     ),
+    getRecentFiles,
   });
 }
 
@@ -818,6 +819,7 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
 });
 
 registerWorkspaceIpc({ getMainWindow: () => mainWindow });
+registerRecentFilesIpc();
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
   try {

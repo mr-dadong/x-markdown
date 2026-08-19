@@ -42,6 +42,12 @@
             <SettingGroup title="默认编辑模式" description="打开文档时使用的默认视图。">
               <ChoiceControl v-model="settings.editorMode" :options="editorModeOptions" />
             </SettingGroup>
+            <SettingGroup title="自动保存" description="停止输入一段时间后自动写入磁盘；未命名的新文档仍需手动选择保存位置。">
+              <ToggleSwitch v-model="settings.autoSave" />
+            </SettingGroup>
+            <SettingGroup v-if="settings.autoSave" title="自动保存间隔" description="从停止输入到自动保存之间的等待时间。">
+              <ChoiceControl v-model="autoSaveIntervalModel" :options="autoSaveIntervalOptions" />
+            </SettingGroup>
             <SettingGroup title="显示功能菜单说明" description="在斜杠功能菜单中显示每个命令的辅助说明。">
               <ToggleSwitch v-model="settings.showSlashCommandDescriptions" />
             </SettingGroup>
@@ -53,6 +59,22 @@
             </SettingGroup>
             <SettingGroup title="显示代码块内的行号" description="在每行代码左侧显示连续编号。">
               <ToggleSwitch v-model="settings.codeLineNumbers" />
+            </SettingGroup>
+          </template>
+
+          <template v-else-if="activeSection === 'typography'">
+            <SectionTitle title="排版" description="调整编辑器的阅读体验：正文字号、字体、行宽与预览缩放。" />
+            <SettingGroup title="正文字号" description="预览模式正文的基准字号，标题、列表等元素会按比例跟随缩放。">
+              <ChoiceControl v-model="settings.bodyFontSize" :options="bodyFontSizeOptions" />
+            </SettingGroup>
+            <SettingGroup title="正文字体" description="预览模式正文使用的字体族，源码模式始终使用等宽字体。">
+              <ChoiceControl v-model="settings.bodyFont" :options="bodyFontOptions" />
+            </SettingGroup>
+            <SettingGroup title="行宽" description="编辑区正文列的最大宽度；全宽时保留现有的左右边距。">
+              <ChoiceControl v-model="settings.lineWidth" :options="lineWidthOptions" />
+            </SettingGroup>
+            <SettingGroup title="预览模式缩放" description="整体放大或缩小 Markdown 预览视图，源码模式不受影响。">
+              <ChoiceControl v-model="settings.previewZoom" :options="previewZoomOptions" />
             </SettingGroup>
           </template>
 
@@ -179,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { useSettings, type SettingsSection } from '../composables/useSettings'
 import { useUpdater } from '../composables/useUpdater'
@@ -207,6 +229,7 @@ const updateLogsError = ref('')
 
 const navigationItems = [
   { id: 'general' as const, label: '通用', icon: 'lucide:sliders-horizontal' },
+  { id: 'typography' as const, label: '排版', icon: 'lucide:type' },
   { id: 'theme' as const, label: '主题', icon: 'lucide:palette' },
   { id: 'shortcuts' as const, label: '快捷键', icon: 'lucide:keyboard' },
   { id: 'changelog' as const, label: '更新日志', icon: 'lucide:history' },
@@ -241,6 +264,45 @@ const attachmentHandlingOptions = [
   { value: 'reference', label: '引用原文件' },
   { value: 'copy-to-assets', label: '复制到 assets' },
 ]
+const autoSaveIntervalOptions = [
+  { value: '1', label: '1 秒' },
+  { value: '3', label: '3 秒' },
+  { value: '5', label: '5 秒' },
+  { value: '10', label: '10 秒' },
+  { value: '30', label: '30 秒' },
+]
+const bodyFontSizeOptions = [
+  { value: '14', label: '14 px' },
+  { value: '15', label: '15 px' },
+  { value: '16', label: '16 px' },
+  { value: '17', label: '17 px' },
+  { value: '18', label: '18 px' },
+]
+const bodyFontOptions = [
+  { value: 'system', label: '系统默认' },
+  { value: 'serif', label: '衬线' },
+  { value: 'sans', label: '无衬线' },
+  { value: 'mono', label: '等宽' },
+]
+const lineWidthOptions = [
+  { value: 'narrow', label: '窄' },
+  { value: 'medium', label: '中' },
+  { value: 'wide', label: '宽' },
+  { value: 'full', label: '全宽' },
+]
+const previewZoomOptions = [
+  { value: 'small', label: '小' },
+  { value: 'standard', label: '标准' },
+  { value: 'large', label: '大' },
+  { value: 'xlarge', label: '特大' },
+]
+// ChoiceControl 只接受字符串值，设置内部仍以数字保存间隔，便于直接换算成毫秒。
+const autoSaveIntervalModel = computed({
+  get: () => String(settings.autoSaveInterval),
+  set: (value: string) => {
+    settings.autoSaveInterval = Number(value)
+  },
+})
 const themeOptions = [
   { value: 'system' as const, label: '跟随系统', preview: 'bg-[#e9e9e9] text-[#333333]' },
   { value: 'light' as const, label: '浅色', preview: 'bg-[#ffffff] text-[#222222]' },

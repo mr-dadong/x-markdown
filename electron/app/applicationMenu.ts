@@ -1,4 +1,5 @@
 import { app, dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
+import path from "path";
 import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
 
 interface OpenDocumentData {
@@ -10,16 +11,50 @@ interface OpenDocumentData {
 interface ApplicationMenuDependencies {
   getMainWindow: () => BrowserWindow | null;
   readDocuments: (filePaths: string[]) => Promise<OpenDocumentData[]>;
+  getRecentFiles: () => string[];
 }
 
+let menuDependencies: ApplicationMenuDependencies | null = null;
+
 // 菜单模块只负责系统菜单定义，文件读取仍通过文档领域提供的统一入口完成。
-export function createApplicationMenu({
-  getMainWindow,
-  readDocuments,
-}: ApplicationMenuDependencies): void {
+export function createApplicationMenu(
+  dependencies: ApplicationMenuDependencies,
+): void {
+  menuDependencies = dependencies;
+  buildApplicationMenu();
+}
+
+// 最近打开列表变化后重建菜单，让标题栏菜单与系统菜单始终展示最新条目。
+export function rebuildApplicationMenu(): void {
+  if (menuDependencies) buildApplicationMenu();
+}
+
+function buildApplicationMenu(): void {
+  if (!menuDependencies) return;
+  const { getMainWindow, readDocuments, getRecentFiles } = menuDependencies;
   const send = (channel: string): void => {
     getMainWindow()?.webContents.send(channel);
   };
+  const recentFiles = getRecentFiles();
+  const recentFilesSubmenu: MenuItemConstructorOptions[] =
+    recentFiles.length === 0
+      ? [{ label: "暂无最近打开的文档", enabled: false }]
+      : [
+          ...recentFiles.map((filePath) => ({
+            label: path.basename(filePath),
+            toolTip: filePath,
+            click: () =>
+              getMainWindow()?.webContents.send(
+                IPC_CHANNELS.menuOpenRecentFile,
+                filePath,
+              ),
+          })),
+          { type: "separator" },
+          {
+            label: "清空最近打开",
+            click: () => send(IPC_CHANNELS.menuClearRecentFiles),
+          },
+        ];
   const template: MenuItemConstructorOptions[] = [
     {
       label: "文件",
@@ -43,6 +78,7 @@ export function createApplicationMenu({
             files.forEach((file) => getMainWindow()?.webContents.send(IPC_CHANNELS.menuOpenFile, file));
           },
         },
+        { label: "最近打开", submenu: recentFilesSubmenu },
         { label: "保存", accelerator: "CmdOrCtrl+S", click: () => send(IPC_CHANNELS.menuSaveFile) },
         { label: "另存为", accelerator: "CmdOrCtrl+Shift+S", click: () => send(IPC_CHANNELS.menuSaveAsFile) },
         { type: "separator" },
