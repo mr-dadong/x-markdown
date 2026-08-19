@@ -1,6 +1,79 @@
 {
-  "latest": "1.0.8",
+  "latest": "1.0.9",
   "releases": [
+    {
+      "version": "1.0.9",
+      "date": "2026-08-17",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "修复更新检查可能命中历史版本清单缓存的问题，支持从旧版本直接下载并更新至最新版本。",
+        "添加自动保存功能",
+        "添加最近打开文件列表功能",
+        "添加 macOS/Linux 文件关联功能",
+        "新增「排版」设置页,包含正文字号、正文字体、行宽、预览模式缩放功能"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.9-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.9/XMD-1.0.9-Windows-x64.exe",
+              "sha256": "38c37f11898bc93f4ac39bb4675757758df7a10399e34147d34493171ce0bc6f"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.9-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.9/XMD-1.0.9-macOS-arm64.dmg",
+              "sha256": "ba08ac0feadcec3390844c5cd3200c35e0e273bdbcc6117ea7bbe3e06d6d6438"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.0.9-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.9/XMD-1.0.9-macOS-x64.dmg",
+              "sha256": "4bc65b674a38920567e041a200c04509f3b2ec60d6e9909c4217189f2fe384e6"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.9-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.9/XMD-1.0.9-Linux-x86_64.AppImage",
+              "sha256": "ee4945d3e383ee1a982e0404dea35acb3d37f2048fff37dffa3ac0400147ece5"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.0.9-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.0.9/XMD-1.0.9-Linux-arm64.AppImage",
+              "sha256": "3389144b3fea7bd597bcbb7f41d1b12ecfde545cbd7dfe0ec5f2bd36c843d83f"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.0.8",
       "date": "2026-08-07",
