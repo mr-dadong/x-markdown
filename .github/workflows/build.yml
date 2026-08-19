@@ -164,6 +164,11 @@ jobs:
     steps:
       - name: 下载仓库代码
         uses: actions/checkout@v4
+        with:
+          # 最后一步需要把"更新校验值"的提交 rebase 到最新 main 上；
+          # 浅克隆会截断共同历史，git 找不到合并基点，会把两边都当成
+          # "新增文件"而产生 add/add 冲突，因此这里必须拉取完整历史。
+          fetch-depth: 0
 
       - name: 下载所有平台安装包
         uses: actions/download-artifact@v4
