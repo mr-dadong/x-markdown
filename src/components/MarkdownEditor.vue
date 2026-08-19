@@ -1,8 +1,9 @@
 <template>
   <!-- 填满主区域，不再按文档内容的固有宽度占位。 -->
-  <div ref="editorShell" class="relative flex h-full min-w-0 flex-1 overflow-hidden bg-paper" @mousemove="handleEditorMouseMove"
-    @mouseover="handleLinkMouseOver" @click="handleEditorContentClick" @keydown="handleAttachmentKeydown" @mouseleave="handleEditorAreaLeave"
-    @dragover.capture="handleBlockDragOver" @drop.capture="handleBlockDrop">
+  <div ref="editorShell" class="relative flex h-full min-w-0 flex-1 overflow-hidden bg-paper"
+    @mousemove="handleEditorMouseMove" @mouseover="handleLinkMouseOver" @click="handleEditorContentClick"
+    @keydown="handleAttachmentKeydown" @mouseleave="handleEditorAreaLeave" @dragover.capture="handleBlockDragOver"
+    @drop.capture="handleBlockDrop">
     <!-- 编辑器内容区域：typography-pane 承载排版与预览缩放样式，通过 CSS 变量生效。 -->
     <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
       :style="typographyStyle" @scroll="refreshBlockControlPosition" />
@@ -16,8 +17,8 @@
           <span v-if="tableActionSeparators.includes(index)" class="mx-1 h-5 w-px bg-current opacity-30" />
           <button type="button" :title="action.title"
             class="flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-1 focus-visible:outline-inverse disabled:cursor-not-allowed disabled:opacity-30"
-            :class="action.danger ? 'text-danger hover:bg-danger hover:text-white' : 'hover:bg-white/10 hover:text-white'" :disabled="!action.canRun()"
-            @mousedown.prevent="action.run()">
+            :class="action.danger ? 'text-danger hover:bg-danger hover:text-white' : 'hover:bg-white/10 hover:text-white'"
+            :disabled="!action.canRun()" @mousedown.prevent="action.run()">
             <span class="flex h-5 items-center justify-center gap-0.5">
               <Icon :icon="typeof action.icon === 'function' ? action.icon() : action.icon" :size="17" />
             </span>
@@ -27,8 +28,9 @@
     </bubble-menu>
 
     <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
-    <div v-if="blockControlVisible && activeBlock" data-block-control class="fixed z-20 flex h-7 items-center text-muted/45"
-      :style="blockControlStyle" contenteditable="false" @mousemove.stop @mouseleave="handleBlockControlLeave">
+    <div v-if="blockControlVisible && activeBlock" data-block-control
+      class="fixed z-20 flex h-7 items-center text-muted/45" :style="blockControlStyle" contenteditable="false"
+      @mousemove.stop @mouseleave="handleBlockControlLeave">
       <button type="button" draggable="true" title="拖动内容块"
         class="flex h-7 w-6 cursor-grab items-center justify-center rounded hover:bg-control-hover hover:text-secondary active:cursor-grabbing focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @click.stop="toggleBlockMenu" @dragstart="handleBlockDragStart" @dragend="finishBlockDrag">
@@ -42,21 +44,18 @@
       </button>
     </div>
 
-    <!-- 飞书式块菜单：拖拽柄既可移动，单击也能完成常用的块级管理。 -->
+    <!-- 块菜单沿用表格工具栏的深色风格，图标旁直接显示文字标签，不用悬停也能看懂功能。 -->
     <div v-if="blockMenuVisible && activeBlock" ref="blockMenu" data-block-menu
-      class="fixed z-40 flex w-32 flex-col rounded-lg border border-line bg-toolbar p-1 text-[11px] text-secondary"
-      :style="safeBlockMenuStyle" contenteditable="false" @mousedown.stop>
-      <template v-for="action in blockActions" :key="action.label">
-        <span v-if="action.divideBefore" class="mx-1 my-0.5 h-px shrink-0 bg-line" />
-        <button type="button"
-          class="flex h-7 items-center gap-1.5 rounded-md px-2 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-default disabled:text-muted/40 disabled:hover:bg-transparent"
-          :class="action.danger
-            ? 'text-danger hover:bg-danger/10 hover:text-danger'
-            : 'hover:bg-control hover:text-ink'"
-          :disabled="action.disabled?.()"
-          @mousedown.prevent="action.run()">
-          <Icon :icon="action.icon" :size="13" class="shrink-0 text-muted" :class="action.danger ? 'text-danger' : ''" />
-          <span class="flex-1">{{ action.label }}</span>
+      class="fixed z-40 flex items-center gap-0.5 rounded-md bg-ink p-1 text-inverse" :style="safeBlockMenuStyle"
+      contenteditable="false" @mousedown.stop>
+      <template v-for="(action, index) in blockActions" :key="action.title">
+        <span v-if="blockActionSeparators.includes(index)" class="mx-1 h-5 w-px bg-current opacity-30" />
+        <button type="button" :title="action.title"
+          class="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-inverse disabled:cursor-not-allowed disabled:opacity-30"
+          :class="action.danger ? 'text-danger hover:bg-danger hover:text-white' : 'hover:bg-white/10 hover:text-white'"
+          :disabled="action.disabled?.()" @mousedown.prevent="action.run()">
+          <Icon :icon="action.icon" :size="14" class="shrink-0" />
+          <span>{{ action.label }}</span>
         </button>
       </template>
     </div>
@@ -64,29 +63,14 @@
     <div v-if="dropIndicator" class="pointer-events-none fixed z-30 h-0.5 bg-accent" :style="dropIndicatorStyle" />
 
     <!-- 斜杠命令的链接表单保留原选区，不再依赖会打断编辑器焦点的系统弹窗。 -->
-    <InsertLinkPanel
-      v-if="linkInsertVisible"
-      v-model:url="linkInsertUrl"
-      v-model:label="linkInsertLabel"
-      :error="linkInsertError"
-      :position="linkInsertStyle"
-      @cancel="cancelLinkInsert"
-      @submit="submitLinkInsert"
-    />
+    <InsertLinkPanel v-if="linkInsertVisible" v-model:url="linkInsertUrl" v-model:label="linkInsertLabel"
+      :error="linkInsertError" :position="linkInsertStyle" @cancel="cancelLinkInsert" @submit="submitLinkInsert" />
 
     <!-- Emoji 选择器：grid 由 /emoji 打开，list 由冒号输入触发，二者共用同一组件。 -->
-    <EmojiPicker
-      v-if="emojiMenuMode"
-      :mode="emojiMenuMode"
-      :query="emojiQuery"
-      :selected-index="emojiSelectedIndex"
-      :items="emojiMenuMode === 'grid' ? emojiGridItems : filteredEmojis"
-      :position="emojiMenuStyle"
-      @update:query="emojiQuery = $event"
-      @select="insertEmoji"
-      @select-index="emojiSelectedIndex = $event"
-      @cancel="cancelEmojiMenu"
-    />
+    <EmojiPicker v-if="emojiMenuMode" :mode="emojiMenuMode" :query="emojiQuery" :selected-index="emojiSelectedIndex"
+      :items="emojiMenuMode === 'grid' ? emojiGridItems : filteredEmojis" :position="emojiMenuStyle"
+      @update:query="emojiQuery = $event" @select="insertEmoji" @select-index="emojiSelectedIndex = $event"
+      @cancel="cancelEmojiMenu" />
 
     <!-- 链接操作层贴近正文出现，阅读时保持安静，指向链接后可直接打开、编辑或复制。 -->
     <div v-if="activeLink" data-link-menu class="fixed z-40 flex flex-col rounded-lg border border-line bg-paper p-1"
@@ -129,54 +113,42 @@
       </div>
     </div>
 
-    <!-- 斜杠命令面板：跟随光标浮动。 -->
+    <!-- 斜杠命令面板：浅色面板配 accent 选中态，深色只留给块菜单等小工具条。 -->
     <div v-if="slashMenuVisible" ref="slashMenu"
-      class="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-line/60 bg-paper shadow-[0_8px_30px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)]"
+      class="fixed z-50 flex flex-col overflow-hidden rounded-md border border-line bg-paper"
       :class="settings.showSlashCommandDescriptions ? 'w-[260px]' : 'w-[220px]'" :style="slashMenuStyle"
       @mousedown.stop>
-      <!-- 顶部：仅保留搜索状态，极简。 -->
-      <div class="flex h-9 shrink-0 items-center gap-2 border-b border-line/40 px-3">
-        <span
-          class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded bg-ink/10 font-mono text-[11px] font-bold text-ink">
-          /
-        </span>
-        <span class="min-w-0 flex-1 truncate text-[12px] text-muted">
-          {{ slashQuery || '输入以搜索…' }}
-        </span>
-        <span class="shrink-0 font-mono text-[10px] text-muted/60">ESC</span>
-      </div>
+      <!-- 不设顶部导航条：搜索词已在正文光标处可见，面板直接展示命令列表，更轻。 -->
 
-      <!-- 命令列表：无边框、轻分组。 -->
-      <div v-if="filteredCommands.length"
-        class="flex max-h-[230px] min-h-0 flex-col py-2">
+      <!-- 命令列表：灰底选中态与文档标签页一致，黑色图标和指示条强化选中。 -->
+      <div v-if="filteredCommands.length" class="flex max-h-[230px] min-h-0 flex-col py-2">
         <!-- 留白放在滚动层外，滚动到任意位置时首尾可见项都不会贴住边界。 -->
-        <div class="editor-scroll flex min-h-0 flex-col gap-1 overflow-y-auto">
+        <div class="slash-menu-scroll flex min-h-0 flex-col gap-1 overflow-y-auto">
           <template v-for="group in commandGroups" :key="group.name">
             <div v-if="group.commands.length" class="flex flex-col">
               <div class="flex h-6 shrink-0 items-center px-3 pt-1">
                 <span class="text-[10px] font-medium tracking-wide text-muted/80">{{ group.name }}</span>
               </div>
               <button v-for="command in group.commands" :key="command.item.id" type="button"
-                class="group/item mx-1 flex h-8 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left transition-colors duration-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+                class="mx-1 flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
                 :data-slash-selected="command.index === selectedCommandIndex || undefined"
                 :class="command.index === selectedCommandIndex ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
-                @mouseenter="selectedCommandIndex = command.index" @mousedown.prevent="executeSlashCommand(command.item)">
-                <!-- 图标：选中时微加深色底，悬停时柔化。 -->
-                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-75"
-                  :class="command.index === selectedCommandIndex ? 'bg-ink/10 text-ink' : 'bg-control/60 text-icon group-hover/item:bg-control group-hover/item:text-ink'">
-                  <Icon :icon="command.item.icon" :size="15" />
-                </span>
+                @mouseenter="selectedCommandIndex = command.index"
+                @mousedown.prevent="executeSlashCommand(command.item)">
+                <!-- 图标：选中时用 accent 色强化，未选中保持安静的图标色。 -->
+                <Icon :icon="command.item.icon" :size="15" class="shrink-0"
+                  :class="command.index === selectedCommandIndex ? 'text-accent' : 'text-icon'" />
                 <!-- 名称 + 描述。 -->
                 <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
                   <!-- 命令名称使用更深的颜色和半粗字重，与辅助说明形成明确层级。 -->
                   <span class="shrink-0 text-[12px] font-semibold text-ink">{{ command.item.label }}</span>
                   <span v-if="settings.showSlashCommandDescriptions"
-                    class="min-w-0 flex-1 truncate text-[11px] text-muted/50">
+                    class="min-w-0 flex-1 truncate text-[11px] text-muted">
                     {{ command.item.description }}
                   </span>
                 </span>
                 <!-- 选中态指示条 -->
-                <span v-if="command.index === selectedCommandIndex" class="h-3 w-0.5 shrink-0 rounded-full bg-ink/40" />
+                <span v-if="command.index === selectedCommandIndex" class="h-3 w-0.5 shrink-0 rounded-full bg-accent" />
               </button>
             </div>
           </template>
@@ -261,7 +233,6 @@ const {
   editor,
   slashMenuVisible,
   slashMenu,
-  slashQuery,
   linkInsertVisible,
   linkInsertUrl,
   linkInsertLabel,
@@ -316,15 +287,27 @@ const {
   () => props.active,
 )
 
-// 菜单动作保持短动词，排列遵循“移动、复制、删除”的使用频率和风险层级。
-const blockActions = [
-  { icon: 'lucide:file-plus-2', label: '下方新增', run: addBlockAfter },
-  { icon: 'lucide:arrow-up', label: '上移', run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
-  { icon: 'lucide:arrow-down', label: '下移', run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
-  { icon: 'lucide:copy', label: '复制文本', run: copyActiveBlockText, divideBefore: true },
-  { icon: 'lucide:copy-plus', label: '生成副本', run: duplicateActiveBlock },
-  { icon: 'lucide:trash-2', label: '删除', run: deleteActiveBlock, danger: true, divideBefore: true },
+// 块菜单与表格浮动工具栏同为深色风格，图标旁直接展示短标签，完整含义放悬停提示。
+interface BlockAction {
+  icon: string
+  label: string
+  title: string
+  run: () => void
+  danger?: boolean
+  disabled?: () => boolean
+}
+
+const blockActions: BlockAction[] = [
+  { icon: 'lucide:arrow-up', label: '上移', title: '上移内容块', run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
+  { icon: 'lucide:arrow-down', label: '下移', title: '下移内容块', run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
+  { icon: 'lucide:file-plus-2', label: '新增', title: '在下方新增空段落', run: addBlockAfter },
+  { icon: 'lucide:copy', label: '复制', title: '复制内容块文本到剪贴板', run: copyActiveBlockText },
+  { icon: 'lucide:copy-plus', label: '副本', title: '在下方生成内容块副本', run: duplicateActiveBlock },
+  { icon: 'lucide:trash-2', label: '删除', title: '删除内容块', run: deleteActiveBlock, danger: true },
 ]
+
+// 分隔“移动、新增、复制、删除”四组操作，风险从左到右递增，与表格工具栏的分组方式一致。
+const blockActionSeparators = [2, 3, 5]
 
 const editorShell = ref<HTMLElement | null>(null)
 const blockMenu = ref<HTMLElement | null>(null)
@@ -608,6 +591,27 @@ defineExpose<EditorHandle>({
   使用 <style> 非 scoped（通过选择器限定范围），保留原有样式设计。
 -->
 <style>
+/* ===== 斜杠命令面板滚动条 =====
+ * 小面板不适合 .editor-scroll 的 12px 宽滚动条，这里用 4px 细条保持轻盈。
+ * 颜色沿用主题变量，深浅主题自动适配。
+ */
+.slash-menu-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.slash-menu-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slash-menu-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: var(--color-scrollbar);
+}
+
+.slash-menu-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
 /* ===== 编辑器主体 ===== */
 .tiptap {
   outline: none;
@@ -635,8 +639,8 @@ defineExpose<EditorHandle>({
 
 .typography-pane .tiptap {
   font-family: var(--editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
+      'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif, 'Apple Color Emoji',
+      'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji');
   font-size: var(--editor-font-size, 15px);
   zoom: var(--editor-zoom, 1);
 }
@@ -712,8 +716,8 @@ defineExpose<EditorHandle>({
 }
 
 /* 嵌套列表收紧上下留白，使层级清楚但不显得松散。 */
-.tiptap li > ul,
-.tiptap li > ol {
+.tiptap li>ul,
+.tiptap li>ol {
   margin: 0.15em 0 0.2em;
 }
 
@@ -727,7 +731,7 @@ defineExpose<EditorHandle>({
   list-style: none;
 }
 
-.tiptap ul[data-type='taskList'] > li {
+.tiptap ul[data-type='taskList']>li {
   display: flex;
   flex-wrap: nowrap;
   align-items: flex-start;
@@ -736,14 +740,14 @@ defineExpose<EditorHandle>({
   padding: 0;
 }
 
-.tiptap ul[data-type='taskList'] > li > label {
+.tiptap ul[data-type='taskList']>li>label {
   display: flex;
   flex: none;
   align-items: center;
   height: 1.7em;
 }
 
-.tiptap ul[data-type='taskList'] > li > label input[type='checkbox'] {
+.tiptap ul[data-type='taskList']>li>label input[type='checkbox'] {
   width: 16px;
   height: 16px;
   margin: 0;
@@ -756,7 +760,7 @@ defineExpose<EditorHandle>({
 }
 
 /* 使用主题色绘制勾选态，避免系统复选框出现突兀的蓝色。 */
-.tiptap ul[data-type='taskList'] > li > label input[type='checkbox']:checked {
+.tiptap ul[data-type='taskList']>li>label input[type='checkbox']:checked {
   border-color: var(--color-accent);
   background-color: var(--color-accent);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='white' d='M6.55 11.2 3.4 8.05l1.1-1.1 2.05 2.05 4.95-4.95 1.1 1.1z'/%3E%3C/svg%3E");
@@ -765,17 +769,17 @@ defineExpose<EditorHandle>({
   background-size: 14px 14px;
 }
 
-.tiptap ul[data-type='taskList'] > li > div {
+.tiptap ul[data-type='taskList']>li>div {
   display: block;
   min-width: 0;
   flex: 1;
 }
 
-.tiptap ul[data-type='taskList'] > li > div > p {
+.tiptap ul[data-type='taskList']>li>div>p {
   margin: 0;
 }
 
-.tiptap ul[data-type='taskList'] > li[data-checked='true'] > div {
+.tiptap ul[data-type='taskList']>li[data-checked='true']>div {
   color: var(--color-muted);
   text-decoration: line-through;
   text-decoration-color: var(--color-muted);
