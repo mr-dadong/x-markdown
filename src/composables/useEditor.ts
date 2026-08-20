@@ -351,6 +351,26 @@ export const useMarkdownEditor = (
     });
   };
 
+  // 滚动时让斜杠面板贴住光标：光标仍在可视区就重新贴位，滚出可视区就关闭面板，
+  // 避免菜单悬空漂在正文上方。用 rAF 合并高频滚动事件，减少布局读取。
+  let slashMenuScrollFrame = 0;
+  const handleSlashMenuScroll = (): void => {
+    if (!slashMenuVisible.value || !editor.value) return;
+    if (slashMenuScrollFrame !== 0) return;
+    slashMenuScrollFrame = requestAnimationFrame(() => {
+      slashMenuScrollFrame = 0;
+      if (!slashMenuVisible.value || !editor.value) return;
+      const viewport = editor.value.view.dom.closest(".editor-scroll");
+      const caret = editor.value.view.coordsAtPos(editor.value.state.selection.from);
+      const rect = viewport?.getBoundingClientRect();
+      if (!rect || caret.top < rect.top || caret.bottom > rect.bottom) {
+        closeSlashMenu();
+        return;
+      }
+      refreshSlashMenu(editor.value);
+    });
+  };
+
   const executeSlashCommand = (command: SlashCommand): void => {
     if (!editor.value || !slashRange.value) return;
 
@@ -1270,6 +1290,7 @@ export const useMarkdownEditor = (
     activeBlockIsLast,
     closeSlashMenu,
     refreshSlashMenu,
+    handleSlashMenuScroll,
     executeSlashCommand,
     cancelLinkInsert,
     submitLinkInsert,

@@ -21,57 +21,64 @@
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
-                    class="editor-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8 text-center select-none"
+                    class="editor-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-8 select-none"
                     @dragover.prevent="handleWelcomeDragOver" @drop.prevent="handleWelcomeDrop">
-                    <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
-                    <img :src="appIcon" alt="XMD" class="h-20 w-20 rounded-[22px]" />
-                    <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">开始编辑</p>
-                    <p class="mt-1.5 text-[13px] leading-5 text-muted">新建一份 Markdown 文稿，或继续编辑本地文档</p>
-                    <div class="mt-6 flex items-center gap-3">
-                        <button type="button"
-                            class="flex h-9 items-center justify-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                            @click="handleNewFile">
-                            <Icon icon="lucide:file-plus-2" :size="16" />
-                            <span>新建文档</span>
-                        </button>
-                        <button type="button"
-                            class="flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-paper px-4 text-[13px] font-medium text-secondary hover:border-accent hover:bg-selected hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                            @click="handleOpenFile">
-                            <Icon icon="lucide:folder-open" :size="16" />
-                            <span>打开文档</span>
-                        </button>
-                    </div>
-                    <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md 与 .markdown 文件</p>
-
-                    <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。 -->
-                    <div v-if="recentFiles.length" class="mt-8 w-full max-w-[460px] text-left">
-                        <div class="flex items-center justify-between px-1 pb-1.5">
-                            <span
-                                class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
-                                <Icon icon="lucide:history" :size="13" />
-                                <span>最近打开</span>
-                            </span>
+                    <!-- m-auto：内容不足一屏时整体垂直居中；内容超高时自动回退为顶部对齐，
+                         配合外层 overflow-y-auto 可完整滚动，避免居中溢出把顶部品牌区裁掉。 -->
+                    <div class="m-auto flex w-full max-w-[460px] flex-col items-center text-center">
+                        <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
+                        <img :src="appIcon" alt="XMD" class="h-20 w-20 rounded-[22px]" />
+                        <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">开始编辑</p>
+                        <p class="mt-1.5 text-[13px] leading-5 text-muted">新建一份 Markdown 文稿，或继续编辑本地文档</p>
+                        <div class="mt-6 flex items-center gap-3">
                             <button type="button"
-                                class="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-control-hover hover:text-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-                                @click="handleClearRecentFiles">清空</button>
-                        </div>
-                        <div class="flex flex-col gap-0.5">
-                            <button v-for="filePath in recentFiles" :key="filePath" type="button"
-                                class="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-                                @click="handleOpenRecentFile(filePath)">
-                                <Icon icon="lucide:file-text" :size="15" class="shrink-0 text-muted" />
-                                <span class="min-w-0 flex-1">
-                                    <span
-                                        class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{
-                                        getFileName(filePath) }}</span>
-                                    <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
-                                </span>
-                                <span role="button" tabindex="-1" title="从最近列表移除"
-                                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-control hover:text-ink"
-                                    @click.stop="handleRemoveRecentFile(filePath)">
-                                    <Icon icon="lucide:x" :size="13" />
-                                </span>
+                                class="flex h-9 items-center justify-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                @click="handleNewFile">
+                                <Icon icon="lucide:file-plus-2" :size="16" />
+                                <span>新建文档</span>
                             </button>
+                            <button type="button"
+                                class="flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-paper px-4 text-[13px] font-medium text-secondary hover:border-accent hover:bg-selected hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                @click="handleOpenFile">
+                                <Icon icon="lucide:folder-open" :size="16" />
+                                <span>打开文档</span>
+                            </button>
+                        </div>
+                        <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md 与 .markdown 文件</p>
+
+                        <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。
+                             首页默认只展示最近 5 条，避免挤占品牌区；完整记录仍可在
+                             文件菜单的“最近打开”中查看。 -->
+                        <div v-if="visibleRecentFiles.length" class="mt-8 w-full text-left">
+                            <div class="flex items-center justify-between px-1 pb-1.5">
+                                <span
+                                    class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
+                                    <Icon icon="lucide:history" :size="13" />
+                                    <span>最近打开</span>
+                                </span>
+                                <button type="button"
+                                    class="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-control-hover hover:text-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+                                    @click="handleClearRecentFiles">清空</button>
+                            </div>
+                            <div
+                                class="editor-scroll flex max-h-[min(45vh,340px)] flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1">
+                                <button v-for="filePath in visibleRecentFiles" :key="filePath" type="button"
+                                    class="group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+                                    @click="handleOpenRecentFile(filePath)">
+                                    <Icon icon="lucide:file-text" :size="15" class="shrink-0 text-muted" />
+                                    <span class="min-w-0 flex-1">
+                                        <span
+                                            class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{
+                                            getFileName(filePath) }}</span>
+                                        <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
+                                    </span>
+                                    <span role="button" tabindex="-1" title="从最近列表移除"
+                                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-control hover:text-ink"
+                                        @click.stop="handleRemoveRecentFile(filePath)">
+                                        <Icon icon="lucide:x" :size="13" />
+                                    </span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -89,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import appIcon from '../../build/icons/256x256.png'
 import AppHeader from '../components/AppHeader.vue'
@@ -129,14 +136,11 @@ const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUp
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
 // getSourceHandle 返回源码编辑器完整的 handle 引用，包括搜索装饰等方法。
+// 文档状态（打开列表、当前标签、切换标签）也交给控制器，实现跨标签页查找：
+// 关键词不在当前文档时，点击“下一个”会自动切换到包含匹配的标签页并定位。
 const getSourceHandle = (): SourceEditorHandle | null => {
     return sourceEditorRef.value as SourceEditorHandle | null
 }
-const findReplaceController = useFindReplace(
-    () => editorRef.value?.getEditor() ?? null,
-    getSourceHandle,
-    isSourceMode,
-)
 
 const {
     currentContent,
@@ -164,7 +168,20 @@ const {
     saveFile,
 } = useDocument()
 
+const findReplaceController = useFindReplace(
+    () => editorRef.value?.getEditor() ?? null,
+    getSourceHandle,
+    isSourceMode,
+    () => documents.value,
+    () => activeDocumentId.value,
+    activateDocument,
+)
+
 const { recentFiles, loadRecentFiles, removeRecentFile, clearRecentFiles } = useRecentFiles()
+
+// 首页最近打开默认只展示 5 条，避免挤占品牌区；完整记录仍保留在主进程数据与文件菜单中。
+const MAX_RECENT_FILES_ON_HOME = 5
+const visibleRecentFiles = computed(() => recentFiles.value.slice(0, MAX_RECENT_FILES_ON_HOME))
 
 const handleRemoveRecentFile = (filePath: string): void => {
     void removeRecentFile(filePath)

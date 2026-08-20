@@ -6,7 +6,7 @@
     @drop.capture="handleBlockDrop">
     <!-- 编辑器内容区域：typography-pane 承载排版与预览缩放样式，通过 CSS 变量生效。 -->
     <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
-      :style="typographyStyle" @scroll="refreshBlockControlPosition" />
+      :style="typographyStyle" @scroll="handleEditorScroll" />
 
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
     <bubble-menu v-if="editor" :editor="editor" :should-show="shouldShowTableMenu"
@@ -113,52 +113,78 @@
       </div>
     </div>
 
-    <!-- 斜杠命令面板：浅色面板配 accent 选中态，深色只留给块菜单等小工具条。 -->
+    <!-- 斜杠命令面板：浅色面板 + 每个命令专属色块，像一排打开的书写工具。
+     选中态只保留一处信号（浅灰底 + 色块描边），不再叠加图标变色和右侧指示条。 -->
     <div v-if="slashMenuVisible" ref="slashMenu"
-      class="fixed z-50 flex flex-col overflow-hidden rounded-md border border-line bg-paper"
-      :class="settings.showSlashCommandDescriptions ? 'w-[260px]' : 'w-[220px]'" :style="slashMenuStyle"
+      class="slash-menu-enter fixed z-50 flex flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-lg shadow-black/10 dark:shadow-black/50"
+      :class="settings.showSlashCommandDescriptions ? 'w-[272px]' : 'w-[236px]'" :style="slashMenuStyle"
       @mousedown.stop>
-      <!-- 不设顶部导航条：搜索词已在正文光标处可见，面板直接展示命令列表，更轻。 -->
+      <!-- 不设顶部搜索条：查询词已在正文光标处可见，面板只负责展示与选择。 -->
 
-      <!-- 命令列表：灰底选中态与文档标签页一致，黑色图标和指示条强化选中。 -->
-      <div v-if="filteredCommands.length" class="flex max-h-[230px] min-h-0 flex-col py-2">
+      <!-- 命令列表：组眉题 + 发丝线分隔四组，行高 36px 留出呼吸空间。 -->
+      <div v-if="filteredCommands.length" class="flex max-h-[230px] min-h-0 flex-col py-1.5">
         <!-- 留白放在滚动层外，滚动到任意位置时首尾可见项都不会贴住边界。 -->
-        <div class="slash-menu-scroll flex min-h-0 flex-col gap-1 overflow-y-auto">
+        <div class="slash-menu-scroll flex min-h-0 flex-col overflow-y-auto">
           <template v-for="group in commandGroups" :key="group.name">
             <div v-if="group.commands.length" class="flex flex-col">
-              <div class="flex h-6 shrink-0 items-center px-3 pt-1">
-                <span class="text-[10px] font-medium tracking-wide text-muted/80">{{ group.name }}</span>
+              <div class="flex h-6 shrink-0 items-center gap-2 px-3">
+                <span class="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/70">
+                  {{ group.name }}
+                </span>
+                <span class="h-px min-w-0 flex-1 bg-line/60" />
               </div>
               <button v-for="command in group.commands" :key="command.item.id" type="button"
-                class="mx-1 flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+                class="mx-1.5 flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
                 :data-slash-selected="command.index === selectedCommandIndex || undefined"
                 :class="command.index === selectedCommandIndex ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
                 @mouseenter="selectedCommandIndex = command.index"
                 @mousedown.prevent="executeSlashCommand(command.item)">
-                <!-- 图标：选中时用 accent 色强化，未选中保持安静的图标色。 -->
-                <Icon :icon="command.item.icon" :size="15" class="shrink-0"
-                  :class="command.index === selectedCommandIndex ? 'text-accent' : 'text-icon'" />
+                <!-- 图标色块：使用命令自带的 iconClass 色调，选中信号只由行背景承担。 -->
+                <span class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg"
+                  :class="command.item.iconClass">
+                  <Icon :icon="command.item.icon" :size="14" class="shrink-0" />
+                </span>
                 <!-- 名称 + 描述。 -->
                 <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
-                  <!-- 命令名称使用更深的颜色和半粗字重，与辅助说明形成明确层级。 -->
-                  <span class="shrink-0 text-[12px] font-semibold text-ink">{{ command.item.label }}</span>
+                  <span class="shrink-0 text-[12px] font-medium leading-5 text-ink">{{ command.item.label }}</span>
                   <span v-if="settings.showSlashCommandDescriptions"
-                    class="min-w-0 flex-1 truncate text-[11px] text-muted">
+                    class="min-w-0 flex-1 truncate text-[11px] leading-5 text-muted">
                     {{ command.item.description }}
                   </span>
                 </span>
-                <!-- 选中态指示条 -->
-                <span v-if="command.index === selectedCommandIndex" class="h-3 w-0.5 shrink-0 rounded-full bg-accent" />
               </button>
             </div>
           </template>
         </div>
       </div>
 
-      <!-- 空状态 -->
-      <div v-else class="flex flex-col items-center justify-center gap-1.5 py-8 text-muted">
-        <Icon icon="lucide:search-x" :size="20" class="text-muted/50" />
-        <span class="text-[11px]">没有匹配的命令</span>
+      <!-- 空状态：给出可执行的下一步，而不是一句干巴巴的提示。 -->
+      <div v-else class="flex flex-col items-center gap-2 py-8 text-muted">
+        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-control text-muted/70">
+          <Icon icon="lucide:search-x" :size="18" />
+        </span>
+        <div class="flex flex-col items-center gap-0.5">
+          <span class="text-[12px] font-medium text-secondary">没有匹配的命令</span>
+          <span class="text-[11px] text-muted">换个关键词，或按 Esc 关闭</span>
+        </div>
+      </div>
+
+      <!-- 键盘提示页脚：面板靠键盘驱动，首次使用也需要明确的路标。 -->
+      <div v-if="filteredCommands.length"
+        class="flex shrink-0 items-center gap-3 border-t border-line px-3.5 py-2 text-[10px] text-muted">
+        <span class="flex items-center gap-1.5">
+          <kbd class="slash-menu-key">↑</kbd>
+          <kbd class="slash-menu-key">↓</kbd>
+          <span>选择</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          <kbd class="slash-menu-key">↵</kbd>
+          <span>插入</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          <kbd class="slash-menu-key">Esc</kbd>
+          <span>关闭</span>
+        </span>
       </div>
     </div>
   </div>
@@ -261,6 +287,7 @@ const {
   activeBlockIsLast,
   closeSlashMenu,
   executeSlashCommand,
+  handleSlashMenuScroll,
   cancelLinkInsert,
   submitLinkInsert,
   refreshBlockControlPosition,
@@ -311,6 +338,12 @@ const blockActionSeparators = [2, 3, 5]
 
 const editorShell = ref<HTMLElement | null>(null)
 const blockMenu = ref<HTMLElement | null>(null)
+
+// 编辑区滚动时同时刷新块控件与斜杠面板：面板跟随光标，光标滚出可视区则关闭。
+const handleEditorScroll = (): void => {
+  refreshBlockControlPosition()
+  handleSlashMenuScroll()
+}
 
 // 菜单使用 fixed 定位，需要按编辑区而非整个窗口限制上下边界，避免覆盖底部状态栏。
 const safeBlockMenuStyle = computed(() => {
@@ -610,6 +643,51 @@ defineExpose<EditorHandle>({
 
 .slash-menu-scroll::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-scrollbar-hover);
+}
+
+/* 键盘移动选中项时，避免行贴住组头与面板边界，保留 4px 呼吸空间。 */
+.slash-menu-scroll {
+  scroll-padding-block: 4px;
+}
+
+/* 面板入场：轻微上移 + 缩放淡入，让人注意到"工具盘"已经打开。
+ * 遵循系统的减弱动效设置，动画只做一次、时长极短。 */
+@keyframes slash-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.slash-menu-enter {
+  animation: slash-menu-in 140ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slash-menu-enter {
+    animation: none;
+  }
+}
+
+/* 页脚键帽：迷你键位造型，提示可用的键盘操作。 */
+.slash-menu-key {
+  display: inline-flex;
+  height: 16px;
+  min-width: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  background-color: var(--color-toolbar);
+  padding: 0 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-secondary);
 }
 
 /* ===== 编辑器主体 ===== */
