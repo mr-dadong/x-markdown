@@ -44,6 +44,81 @@ import {
   TrailingParagraph,
 } from "./documentStructureExtensions";
 import { mediaService } from "../services/mediaService";
+import {
+  createTableDelimiter,
+  escapeTablePipes,
+  parseTableAlignment,
+  type TableAlignment,
+} from "./markdownSerialization";
+
+const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
+  extension.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        alignment: {
+          default: null,
+          parseHTML: (element) => parseTableAlignment(element.style.textAlign),
+          renderHTML: (attributes) =>
+            attributes.alignment
+              ? { style: `text-align: ${attributes.alignment}` }
+              : {},
+        },
+      };
+    },
+  });
+
+const AlignedTableCell = createAlignedTableCell(TableCell);
+const AlignedTableHeader = createAlignedTableCell(TableHeader);
+
+type TableSerializerState = MarkdownSerializerState & {
+  inTable: boolean;
+  out: string;
+};
+
+const SerializableTable = Table.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
+          const tableState = state as TableSerializerState;
+          tableState.inTable = true;
+          node.forEach((row, _rowOffset, rowIndex) => {
+            state.write("| ");
+            row.forEach((cell, _cellOffset, cellIndex) => {
+              if (cellIndex) state.write(" | ");
+              const cellContent = cell.firstChild;
+              if (!cellContent || cellContent.content.size === 0) return;
+
+              // 先使用现有行内规则生成内容，再只处理当前单元格中新产生的裸竖线。
+              const contentStart = tableState.out.length;
+              state.renderInline(cellContent);
+              tableState.out =
+                tableState.out.slice(0, contentStart) +
+                escapeTablePipes(tableState.out.slice(contentStart));
+            });
+            state.write(" |");
+            state.ensureNewLine();
+
+            if (rowIndex === 0) {
+              const delimiters: string[] = [];
+              row.forEach((cell) => {
+                delimiters.push(
+                  createTableDelimiter(cell.attrs.alignment as TableAlignment),
+                );
+              });
+              state.write(`| ${delimiters.join(" | ")} |`);
+              state.ensureNewLine();
+            }
+          });
+          state.closeBlock(node);
+          tableState.inTable = false;
+        },
+        parse: {},
+      },
+    };
+  },
+});
 
 // Markdown 中保存可迁移的相对路径，节点视图单独读取本地文件用于显示。
 // 这样预览所需的 data URL 不会污染实际文档内容。
@@ -63,12 +138,12 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
     addNodeView() {
       return ({ node, editor, getPos }) => {
         let currentNode = node;
-        const wrapper = document.createElement("div");
+        const wrapper = document.createElement("span");
         const image = document.createElement("img");
         const resizeHandle = document.createElement("span");
 
-        // 图片作为独立内容块参与排版，避免图片后的文字光标继承整张图片的高度。
-        wrapper.className = "relative flex w-fit max-w-full rounded-sm";
+        // 行内容器保留图片与前后文字的关系，图片本身仍可单独选中和调整宽度。
+        wrapper.className = "relative inline-flex max-w-full align-middle rounded-sm";
         wrapper.dataset.xmdImage = "";
         resizeHandle.className =
           "absolute bottom-0 right-0 hidden h-4 w-4 translate-x-1/2 translate-y-1/2 cursor-nwse-resize rounded-sm border-2 border-white bg-accent";
@@ -214,15 +289,15 @@ export const createEditorExtensions = (options: {
       defaultLanguage: DEFAULT_CODE_BLOCK_LANGUAGE,
     }),
     createLocalImage(getCurrentDocumentPath).configure({
-      inline: false,
+      inline: true,
       allowBase64: false,
     }),
-    Table.configure({
+    SerializableTable.configure({
       resizable: true,
     }),
     TableRow,
-    TableCell,
-    TableHeader,
+    AlignedTableCell,
+    AlignedTableHeader,
     TrailingParagraph,
     ReadableGapCursor,
     ClickableBlockGap,

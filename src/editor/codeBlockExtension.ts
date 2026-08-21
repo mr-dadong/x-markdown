@@ -30,6 +30,9 @@ import vbnet from "highlight.js/lib/languages/vbnet";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import CodeBlockView from "../components/CodeBlockView.vue";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { MarkdownSerializerState } from "prosemirror-markdown";
+import { serializeFencedCodeBlock } from "./markdownSerialization";
 
 // 只注册编辑器实际支持的语言，避免把整套语言包打入安装文件。
 export const editorLowlight = createLowlight({
@@ -68,6 +71,31 @@ editorLowlight.registerAlias("bash", ["shell"]);
 
 // 代码块的解析能力与 Vue 节点界面在此统一装配。
 export const InteractiveCodeBlock = CodeBlockLowlight.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
+          const content = node.textContent;
+          const language = String(node.attrs.language ?? "");
+
+          state.write(serializeFencedCodeBlock(content, language));
+          state.closeBlock(node);
+        },
+        parse: {
+          setup(
+            this: { options: { languageClassPrefix?: string } },
+            markdown: { set: (options: { langPrefix: string }) => void },
+          ) {
+            markdown.set({
+              langPrefix: this.options.languageClassPrefix ?? "language-",
+            });
+          },
+          // 不删除 Markdown 代码内容末尾的换行，否则无法区分尾随空行数量。
+          updateDOM() {},
+        },
+      },
+    };
+  },
   addNodeView() {
     return VueNodeViewRenderer(CodeBlockView);
   },
