@@ -1,6 +1,83 @@
 {
-  "latest": "1.1.0",
+  "latest": "1.1.1",
   "releases": [
+    {
+      "version": "1.1.1",
+      "date": "2026-08-21",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "斜杠命令面板全新改版：每个命令的图标配以专属色调色块，列表一眼可扫；选中态收敛为单一高亮，删除多余的图标描边与右侧指示条。",
+        "斜杠面板底部新增键盘操作提示（↑↓ 选择、回车插入、Esc 关闭），空状态补充下一步引导，面板弹出时带轻量入场动画。",
+        "修复斜杠菜单随滚动漂移的问题：菜单现在始终贴住输入光标，滚动正文时跟随光标移动，光标滚出可视区后自动关闭。",
+        "修复欢迎页最近打开列表过长时把顶部品牌区挤出视口的问题：布局改为安全居中，列表超出可视高度时在内部滚动。",
+        "首页默认只展示最近 5 条文件，完整记录仍可在文件菜单的“最近打开”中查看。",
+        "修复查找替换点击「下一个 / 上一个」不跳转的问题：改用 DOM 滚动定位，任何焦点状态下都能跳到目标匹配。",
+        "查找输入框持有焦点时 ProseMirror 不会滚动（滚动依赖浏览器选区位于编辑器内），现已通过 DOM 滚动绕过该限制。",
+        "查找支持跨标签页：关键词不在当前文档时自动切换到包含匹配的标签页并定位。",
+        "匹配计数改为统计全部打开的文档，源码模式同步修复滚动定位。"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.1.1-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.1/XMD-1.1.1-Windows-x64.exe",
+              "sha256": "1d4eddb4f34d0960a86ea6e06d61a8374e2b17c6f6ea2e237d0eb8b7319dbb29"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.1-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.1/XMD-1.1.1-macOS-arm64.dmg",
+              "sha256": "8bd34ddb0a160849f3ae7685712dec7bcb28a6bc8a3a71bbf6c4e1a3ab2b4e74"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.1-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.1/XMD-1.1.1-macOS-x64.dmg",
+              "sha256": "0d0f1309fa029537d8d301b3e002a09ff99ca5061b657aa49ffd8048ea7c4faa"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.1-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.1/XMD-1.1.1-Linux-x86_64.AppImage",
+              "sha256": "b304e2e5fd9dd6cea642d20fb7f5cb9e47f6829c2d658a0c8cf11effafe8b905"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.1-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.1/XMD-1.1.1-Linux-arm64.AppImage",
+              "sha256": "1450cc67ffc17064603186c145bbae026dc03fd6d8d781a2bec76723768d2da3"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-08-19",
