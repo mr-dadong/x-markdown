@@ -1,6 +1,84 @@
 {
-  "latest": "1.1.1",
+  "latest": "1.1.2",
   "releases": [
+    {
+      "version": "1.1.2",
+      "date": "2026-08-22",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "修复代码块尾随空行的解析与保存问题",
+        "支持表格单元格左、中、右对齐",
+        "修复表格序列化时的内容错位和重复问题",
+        "兼容 Typora 表格行内代码中的竖线",
+        "保留表格竖线和反引号的原始语义",
+        "支持反向补写反引号生成行内代码",
+        "修复输入行内代码时可能误删反引号前普通字符的问题",
+        "修复加载文档时可能误触发自动保存的问题",
+        "优化状态栏相邻按钮的间距",
+        "修复表格内竖线和反引号在打开、保存后内容异常的问题"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.1.2-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.2/XMD-1.1.2-Windows-x64.exe",
+              "sha256": "2057eae9ce5a572eff5c17084f522ef29c040e12f4d0e0de4d1a7b9ae0aba201"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.2-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.2/XMD-1.1.2-macOS-arm64.dmg",
+              "sha256": "2f93ba6b9e1517b6f456a461edddda75b76f417eb3bcb1312facf541c3a839d3"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.1.2-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.2/XMD-1.1.2-macOS-x64.dmg",
+              "sha256": "2dbc4dda0cda382abcf147f35385222476be21f5838d9f8f61d129dcb79d0d46"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.2-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.2/XMD-1.1.2-Linux-x86_64.AppImage",
+              "sha256": "c6578ff8071504558f0b40aeb83c24fe2a1554036bc169db4794a034566eeaa8"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.1.2-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.1.2/XMD-1.1.2-Linux-arm64.AppImage",
+              "sha256": "6863ef04bafc9d0e48470e771c3c1c1734f4d7cc6cf649662d202a34d43891eb"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.1.1",
       "date": "2026-08-21",
