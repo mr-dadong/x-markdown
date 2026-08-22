@@ -10,6 +10,7 @@ import {
 } from "../modules/codeBlockKeyboard";
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
 import { createEditorExtensions } from "../editor/editorExtensions";
+import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
 import { mediaService } from "../services/mediaService";
 import {
   filterSlashCommands,
@@ -1175,7 +1176,13 @@ export const useMarkdownEditor = (
         },
       },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
+      /*
+       * 表格列宽、尾随段落等插件可能在文件刚打开且编辑器未获得焦点时调整内部文档。
+       * 这些事务不代表用户编辑，不能向文档层发送更新，否则会触发自动保存覆盖原文件。
+       */
+      if (!shouldEmitMarkdownUpdate(transaction, editor.isFocused)) return;
+
       // 获取 Markdown 内容
       const markdown = editor.storage.markdown.getMarkdown();
       lastEmittedMarkdown = markdown;

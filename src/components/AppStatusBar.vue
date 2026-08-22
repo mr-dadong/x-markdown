@@ -1,6 +1,6 @@
 <template>
   <footer class="flex h-[30px] shrink-0 items-center justify-between border-t border-line bg-toolbar px-1 select-none">
-    <div class="flex items-center">
+    <div class="flex items-center gap-1">
       <!-- 侧边栏入口放在窗口左下角，激活底色用于提示当前展开状态。按钮高 24px，在 30px 状态栏内上下各留 3px 呼吸空间。 -->
       <button type="button"
         class="flex h-6 w-7 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"

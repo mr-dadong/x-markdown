@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "desktopName": "com.xmd.markdown-editor.desktop",
   "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
   "main": "out/main/index.js",
@@ -37,6 +37,7 @@
     "@iconify-icons/lucide": "1.2.135",
     "@iconify-icons/mdi": "1.2.48",
     "@iconify/vue": "^4.1.1",
+    "@tiptap/extension-code": "2.27.2",
     "@tiptap/extension-code-block-lowlight": "^2.1.12",
     "@tiptap/extension-color": "^2.1.12",
     "@tiptap/extension-highlight": "^2.1.12",
@@ -67,6 +68,7 @@
     "electron-vite": "^1.0.29",
     "eslint": "^9.32.0",
     "eslint-plugin-vue": "^10.3.0",
+    "happy-dom": "^18.0.1",
     "highlight.js": "^11.11.1",
     "jszip": "3.10.1",
     "katex": "0.18.1",

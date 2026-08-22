@@ -11,6 +11,30 @@ const temporaryParagraphPluginKey = new PluginKey<number[]>(
   "temporaryGapParagraph",
 );
 
+/** 判断一组来源事务是否明确要求禁止触发编辑器更新事件。 */
+interface MetaReadableTransaction {
+  getMeta: (key: string) => unknown;
+}
+
+/**
+ * 只有真实编辑才允许把重新序列化的 Markdown 发送给文档层。
+ * preventUpdate 是 TipTap 加载外部内容时的明确标记，即使编辑器仍有焦点也必须优先拦截。
+ */
+export const shouldEmitMarkdownUpdate = (
+  transaction: MetaReadableTransaction,
+  editorIsFocused: boolean,
+): boolean => {
+  if (transaction.getMeta("preventUpdate") === true) return false;
+  return editorIsFocused || transaction.getMeta("uiEvent") !== undefined;
+};
+
+export const shouldPreventAppendedUpdate = (
+  transactions: readonly MetaReadableTransaction[],
+): boolean =>
+  transactions.some(
+    (transaction) => transaction.getMeta("preventUpdate") === true,
+  );
+
 // 文档以块内容结尾时补充可输入段落，确保用户能继续输入。
 export const TrailingParagraph = Extension.create({
   name: "trailingParagraph",
@@ -22,7 +46,21 @@ export const TrailingParagraph = Extension.create({
           if (newState.doc.lastChild?.type.name === "paragraph") return null;
 
           const paragraph = newState.schema.nodes.paragraph.create();
-          return newState.tr.insert(newState.doc.content.size, paragraph);
+          const transaction = newState.tr.insert(
+            newState.doc.content.size,
+            paragraph,
+          );
+
+          /*
+           * TipTap 的 setContent(..., false) 会通过 preventUpdate 标记说明这是加载文件，
+           * 不是用户编辑。这里生成的是追加事务；如果不继承该标记，TipTap 会把追加的
+           * 空段落误判成用户修改，随后文档层就可能启动自动保存并覆盖原始 Markdown。
+           */
+          if (shouldPreventAppendedUpdate(transactions)) {
+            transaction.setMeta("preventUpdate", true);
+          }
+
+          return transaction;
         },
       }),
     ];

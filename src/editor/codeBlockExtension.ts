@@ -90,8 +90,17 @@ export const InteractiveCodeBlock = CodeBlockLowlight.extend({
               langPrefix: this.options.languageClassPrefix ?? "language-",
             });
           },
-          // 不删除 Markdown 代码内容末尾的换行，否则无法区分尾随空行数量。
-          updateDOM() {},
+          updateDOM(element: HTMLElement) {
+            /*
+             * markdown-it 会在代码内容末尾附加一个用于连接关闭围栏的结构性换行。
+             * 这里只删除这一个换行，用户实际输入的尾随空行仍会保留。
+             */
+            element.querySelectorAll("pre > code").forEach((codeElement) => {
+              const lastChild = codeElement.lastChild;
+              if (lastChild?.nodeType !== Node.TEXT_NODE) return;
+              lastChild.textContent = lastChild.textContent?.replace(/\n$/u, "") ?? "";
+            });
+          },
         },
       },
     };

@@ -16,11 +16,22 @@ import JSZip from "jszip";
 
 // —— 基础工具 ——
 
-const INVALID_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g;
+// XML 1.0 不允许大部分 C0 控制字符。逐字符判断比控制字符正则更直观，
+// 也避免 ESLint 将合法的清理逻辑误判为可疑正则表达式。
+const removeInvalidXmlCharacters = (value: string): string =>
+  Array.from(value)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined
+        && (codePoint === 0x09
+          || codePoint === 0x0a
+          || codePoint === 0x0d
+          || codePoint >= 0x20);
+    })
+    .join("");
 
 const escapeXmlText = (text: string): string =>
-  text
-    .replace(INVALID_XML_CHARS, "")
+  removeInvalidXmlCharacters(text)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
@@ -33,7 +44,7 @@ const cleanText = (value: string | null | undefined): string =>
 
 // 代码中的换行统一压成空格，避免行内代码在 Word 中断行。
 const cleanCodeText = (value: string): string =>
-  value.replace(INVALID_XML_CHARS, "").replace(/\s*\n\s*/g, " ");
+  removeInvalidXmlCharacters(value).replace(/\s*\n\s*/g, " ");
 
 const parseColorFromStyle = (style: string | null): string | null => {
   if (!style) return null;

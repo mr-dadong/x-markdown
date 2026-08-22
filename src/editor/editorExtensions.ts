@@ -1,5 +1,6 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type MarkdownIt from "markdown-it";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import Image from "@tiptap/extension-image";
@@ -43,12 +44,15 @@ import {
   ReadableGapCursor,
   TrailingParagraph,
 } from "./documentStructureExtensions";
+import {
+  InlineCodeOpeningBacktick,
+  SafeInlineCode,
+} from "./inlineCodeInputExtension";
 import { mediaService } from "../services/mediaService";
 import {
-  createTableDelimiter,
-  escapeTablePipes,
+  configureTyporaTableParsing,
   parseTableAlignment,
-  type TableAlignment,
+  serializeMarkdownTableNode,
 } from "./markdownSerialization";
 
 const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
@@ -71,50 +75,40 @@ const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
 const AlignedTableCell = createAlignedTableCell(TableCell);
 const AlignedTableHeader = createAlignedTableCell(TableHeader);
 
-type TableSerializerState = MarkdownSerializerState & {
-  inTable: boolean;
-  out: string;
-};
+// markdown-it 会把“普通项目 + 任务项目”组成的整个列表识别为 taskList。
+// 默认扩展只允许 taskItem，会在普通项目的位置补出空任务；这里明确允许两种
+// 列表项共存，保证从 Typora 等编辑器打开混合列表后不会污染原文。
+const CompatibleTaskList = TaskList.extend({
+  content: "(taskItem|listItem)+",
+});
 
 const SerializableTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      codePipeStyles: {
+        default: [],
+        parseHTML: (element) => {
+          const value = element.getAttribute("data-xmd-code-pipe-styles");
+          return value === null ? [] : JSON.parse(decodeURIComponent(value));
+        },
+        // 仅作为 Markdown 往返风格标记，不输出到编辑器 DOM。
+        renderHTML: () => ({}),
+      },
+    };
+  },
+
   addStorage() {
     return {
       markdown: {
         serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          const tableState = state as TableSerializerState;
-          tableState.inTable = true;
-          node.forEach((row, _rowOffset, rowIndex) => {
-            state.write("| ");
-            row.forEach((cell, _cellOffset, cellIndex) => {
-              if (cellIndex) state.write(" | ");
-              const cellContent = cell.firstChild;
-              if (!cellContent || cellContent.content.size === 0) return;
-
-              // 先使用现有行内规则生成内容，再只处理当前单元格中新产生的裸竖线。
-              const contentStart = tableState.out.length;
-              state.renderInline(cellContent);
-              tableState.out =
-                tableState.out.slice(0, contentStart) +
-                escapeTablePipes(tableState.out.slice(contentStart));
-            });
-            state.write(" |");
-            state.ensureNewLine();
-
-            if (rowIndex === 0) {
-              const delimiters: string[] = [];
-              row.forEach((cell) => {
-                delimiters.push(
-                  createTableDelimiter(cell.attrs.alignment as TableAlignment),
-                );
-              });
-              state.write(`| ${delimiters.join(" | ")} |`);
-              state.ensureNewLine();
-            }
-          });
-          state.closeBlock(node);
-          tableState.inTable = false;
+          serializeMarkdownTableNode(state, node);
         },
-        parse: {},
+        parse: {
+          setup(markdown: MarkdownIt) {
+            configureTyporaTableParsing(markdown);
+          },
+        },
       },
     };
   },
@@ -264,7 +258,10 @@ export const createEditorExtensions = (options: {
   return [
     StarterKit.configure({
       codeBlock: false, // 使用 CodeBlockLowlight 替代
+      code: false, // 使用不会误删反引号前普通字符的行内代码扩展
     }),
+    SafeInlineCode,
+    InlineCodeOpeningBacktick,
     Markdown.configure({
       html: true,
       // 普通文本中的单个换行也应在编辑器中显示为换行，符合所见即所得的使用习惯。
@@ -317,7 +314,7 @@ export const createEditorExtensions = (options: {
     }),
     Color,
     TextStyle,
-    TaskList,
+    CompatibleTaskList,
     TaskItem.configure({
       nested: true,
     }),
