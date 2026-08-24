@@ -69,6 +69,9 @@ import fileWarningIcon from '@iconify-icons/lucide/file-warning'
 import saveIcon from '@iconify-icons/lucide/save'
 import replaceIcon from '@iconify-icons/lucide/replace'
 import smilePlusIcon from '@iconify-icons/lucide/smile-plus'
+import alignLeftIcon from '@iconify-icons/lucide/align-left'
+import alignCenterIcon from '@iconify-icons/lucide/align-center'
+import alignRightIcon from '@iconify-icons/lucide/align-right'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -147,6 +150,9 @@ addIcon('lucide:file-warning', fileWarningIcon)
 addIcon('lucide:save', saveIcon)
 addIcon('lucide:replace', replaceIcon)
 addIcon('lucide:smile-plus', smilePlusIcon)
+addIcon('lucide:align-left', alignLeftIcon)
+addIcon('lucide:align-center', alignCenterIcon)
+addIcon('lucide:align-right', alignRightIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

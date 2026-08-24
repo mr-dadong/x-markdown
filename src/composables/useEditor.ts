@@ -3,11 +3,16 @@ import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { Extension, type Editor } from "@tiptap/core";
 import { DOMSerializer } from "@tiptap/pm/model";
 import { AllSelection, NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state";
+import { CellSelection } from "@tiptap/pm/tables";
 import type { EditorView } from "@tiptap/pm/view";
 import {
   handleCodeBlockSelectAll,
   handleCodeBlockTab,
 } from "../modules/codeBlockKeyboard";
+import {
+  getCellContentEndPosition,
+  handleTableSelectAll,
+} from "../modules/tableInteraction";
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
@@ -986,6 +991,7 @@ export const useMarkdownEditor = (
     if (event.isComposing) return false;
     if (handleCodeBlockSelectAll(view, event)) return true;
     if (handleCodeBlockTab(view, event)) return true;
+    if (handleTableSelectAll(view, event)) return true;
 
     if (
       event.key === "Tab" &&
@@ -1096,6 +1102,29 @@ export const useMarkdownEditor = (
       handleKeyDown: (view, event) => handleEditorKeyDown(view, event),
       handlePaste: (view, event) => {
         const files = Array.from(event.clipboardData?.files ?? []);
+        const { selection } = view.state;
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        const cellSelection = selection instanceof CellSelection;
+        const tableSelection =
+          selection instanceof NodeSelection && selection.node.type.name === "table";
+        // 光标落在某个单元格时，粘贴默认会替换该格内容；这里改为追加到该格内容末尾。
+        const cellTextEnd = getCellContentEndPosition(selection);
+
+        if (files.length === 0 && text && cellTextEnd !== null) {
+          event.preventDefault();
+          editor.value?.chain().focus().insertContentAt(cellTextEnd, text).run();
+          return true;
+        }
+        // 表格中一旦出现跨单元格选中（例如整表被选中），粘贴文本时先收敛到起始单元格
+        // 再插入，避免默认行为把整行/整表的原内容整体替换掉。
+        if (files.length === 0 && text && (cellSelection || tableSelection)) {
+          event.preventDefault();
+          const startPosition = cellSelection
+            ? selection.$anchorCell.pos + 1
+            : selection.from + selection.node.nodeSize;
+          editor.value?.chain().focus().insertContentAt(startPosition, text).run();
+          return true;
+        }
         if (files.length === 0) return false;
 
         // Ctrl+V 可能来自资源管理器，也可能是截图，二者由统一入口分别读取路径或二进制。

@@ -192,6 +192,7 @@
 
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
+import { isTableSelection } from '../modules/tableInteraction'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
@@ -366,7 +367,7 @@ const linkInsertStyle = computed(() => ({
   top: slashMenuStyle.value.top,
 }))
 
-// 表格工具栏按“行、列、单元格、整表”排列，标签保持短小，完整含义放在悬停提示中。
+// 表格工具栏按“行、列、对齐、单元格、整表”排列，标签保持短小，完整含义放在悬停提示中。
 const tableActions = [
   { icon: 'mdi:table-row-plus-before', title: '在上方添加一行', canRun: () => editor.value?.can().addRowBefore() ?? false, run: () => editor.value?.chain().focus().addRowBefore().run(), danger: false },
   { icon: 'mdi:table-row-plus-after', title: '在下方添加一行', canRun: () => editor.value?.can().addRowAfter() ?? false, run: () => editor.value?.chain().focus().addRowAfter().run(), danger: false },
@@ -375,14 +376,21 @@ const tableActions = [
   { icon: 'mdi:table-column-plus-after', title: '在右侧添加一列', canRun: () => editor.value?.can().addColumnAfter() ?? false, run: () => editor.value?.chain().focus().addColumnAfter().run(), danger: false },
   { icon: 'mdi:table-column-remove', title: '删除当前列', canRun: () => editor.value?.can().deleteColumn() ?? false, run: () => editor.value?.chain().focus().deleteColumn().run(), danger: true },
   { icon: 'lucide:panel-top', title: '切换首行为表头', canRun: () => editor.value?.can().toggleHeaderRow() ?? false, run: () => editor.value?.chain().focus().toggleHeaderRow().run(), danger: false },
+  { icon: 'lucide:align-left', title: '当前列左对齐', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('left').run(), danger: false },
+  { icon: 'lucide:align-center', title: '当前列居中', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('center').run(), danger: false },
+  { icon: 'lucide:align-right', title: '当前列右对齐', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('right').run(), danger: false },
   { icon: () => editor.value?.can().mergeCells() ? 'lucide:combine' : 'lucide:split-square-horizontal', title: '合并或拆分单元格', canRun: () => editor.value?.can().mergeOrSplit() ?? false, run: () => editor.value?.chain().focus().mergeOrSplit().run(), danger: false },
   { icon: 'lucide:trash-2', title: '删除整个表格', canRun: () => editor.value?.can().deleteTable() ?? false, run: () => editor.value?.chain().focus().deleteTable().run(), danger: true },
 ]
 
-// 分隔“行、列、单元格、整表”四类操作，图标紧凑但功能层级仍然清晰。
-const tableActionSeparators = [3, 6, 8]
+// 分隔“行、列、对齐、单元格、整表”四类操作，图标紧凑但功能层级仍然清晰。
+const tableActionSeparators = [3, 6, 10]
 
-const shouldShowTableMenu = (): boolean => editor.value?.isActive('table') ?? false
+// 表格工具栏只在用户真正选中表格或单元格时出现，避免每次点击正文都弹出浮层遮挡内容。
+const shouldShowTableMenu = (): boolean => {
+  const selection = editor.value?.state.selection
+  return selection ? isTableSelection(selection) : false
+}
 
 interface ActiveLink {
   href: string

@@ -48,6 +48,7 @@ import {
   InlineCodeOpeningBacktick,
   SafeInlineCode,
 } from "./inlineCodeInputExtension";
+import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { mediaService } from "../services/mediaService";
 import {
   configureTyporaTableParsing,
@@ -295,6 +296,7 @@ export const createEditorExtensions = (options: {
     TableRow,
     AlignedTableCell,
     AlignedTableHeader,
+    TableColumnAlignment,
     TrailingParagraph,
     ReadableGapCursor,
     ClickableBlockGap,
