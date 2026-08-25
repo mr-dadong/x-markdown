@@ -19,6 +19,7 @@
     "electron/**/*.ts",
     "electron.vite.config.ts",
     "src/types/electron.ts",
+    "src/types/ai.ts",
     "src/types/update.ts",
     "src/constants/ipcChannels.ts"
   ]

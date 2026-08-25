@@ -125,6 +125,10 @@
             </button>
           </template>
 
+          <template v-else-if="activeSection === 'ai'">
+            <AiSettingsPanel />
+          </template>
+
           <template v-else-if="activeSection === 'changelog'">
             <SectionTitle title="更新日志" description="查看 XMD 各版本的功能更新与改进。" :show-divider="false" />
             <div v-if="updateLogsLoading" class="flex flex-1 items-center justify-center py-16 text-[13px] text-muted">
@@ -208,6 +212,7 @@ import { useUpdater } from '../composables/useUpdater'
 import { SHORTCUT_DEFINITIONS, type ShortcutId } from '../constants/shortcuts'
 import type { UpdateLog } from '../types/update'
 import ChoiceControl from './settings/ChoiceControl.vue'
+import AiSettingsPanel from './settings/AiSettingsPanel.vue'
 import CodeBlockStylePicker from './settings/CodeBlockStylePicker.vue'
 import SectionTitle from './settings/SectionTitle.vue'
 import SettingGroup from './settings/SettingGroup.vue'
@@ -218,12 +223,17 @@ import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
 
 const emit = defineEmits<{ close: [] }>()
+
+const props = defineProps<{
+  initialSection?: SettingsSection
+}>()
+
 // 版本号和作者统一读取 package.json，发布时只需维护一处即可。
 const appVersion = packageInfo.version
 const appAuthor = packageInfo.author
 const { settings, resetShortcuts } = useSettings()
 const { isChecking, checkMessage, checkForUpdates } = useUpdater()
-const activeSection = ref<SettingsSection>('general')
+const activeSection = ref<SettingsSection>(props.initialSection ?? 'general')
 
 const updateLogs = ref<UpdateLog[]>([])
 const updateLogsLoading = ref(false)
@@ -234,6 +244,7 @@ const navigationItems = [
   { id: 'typography' as const, label: '排版', icon: 'lucide:type' },
   { id: 'theme' as const, label: '主题', icon: 'lucide:palette' },
   { id: 'shortcuts' as const, label: '快捷键', icon: 'lucide:keyboard' },
+  { id: 'ai' as const, label: 'AI', icon: 'lucide:sparkles' },
   { id: 'changelog' as const, label: '更新日志', icon: 'lucide:history' },
   { id: 'about' as const, label: '关于', icon: 'lucide:info' },
 ]

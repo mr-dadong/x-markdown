@@ -69,4 +69,13 @@ export const IPC_CHANNELS = {
   downloadUpdate: "download-update",
   updateDownloadProgress: "update-download-progress",
   installUpdate: "install-update",
+  aiGetSettings: "ai-get-settings",
+  aiSaveSettings: "ai-save-settings",
+  aiGetStatus: "ai-get-status",
+  aiFetchModels: "ai-fetch-models",
+  aiInvoke: "ai-invoke",
+  aiCancel: "ai-cancel",
+  aiStreamDelta: "ai-stream-delta",
+  aiStreamDone: "ai-stream-done",
+  aiStreamError: "ai-stream-error",
 } as const;

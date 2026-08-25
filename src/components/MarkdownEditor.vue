@@ -9,7 +9,7 @@
       :style="typographyStyle" @scroll="handleEditorScroll" />
 
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
-    <bubble-menu v-if="editor" :editor="editor" :should-show="shouldShowTableMenu"
+    <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowTableMenu"
       :tippy-options="{ placement: 'top', maxWidth: 720 }">
       <div class="flex items-center gap-0.5 rounded-md bg-ink p-1 text-inverse" contenteditable="false">
         <template v-for="(action, index) in tableActions" :key="action.title">
@@ -25,6 +25,13 @@
           </button>
         </template>
       </div>
+    </bubble-menu>
+
+    <!-- 选中文本时出现 AI 动作条，表格内选区由上方表格工具栏接管，此处不重复弹出。 -->
+    <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowAiMenu"
+      :tippy-options="{ placement: 'top', maxWidth: 600 }">
+      <AiSelectionBar @run="(action) => emit('ai-action', action)" @open-panel="emit('open-ai-panel')"
+        @open-settings="emit('open-settings')" />
     </bubble-menu>
 
     <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
@@ -198,6 +205,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
 import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
+import type { AiEditAction } from '../types/ai'
+import AiSelectionBar from './ai/AiSelectionBar.vue'
 import InsertLinkPanel from './editor/InsertLinkPanel.vue'
 import EmojiPicker from './editor/EmojiPicker.vue'
 import type { EditorHandle } from '../types/editor'
@@ -248,11 +257,15 @@ const props = defineProps<{
   initialContent?: string
   currentFilePath: string | null
   active: boolean
+  modalOpen?: boolean
 }>()
 
 // Emits
 const emit = defineEmits<{
   'update:content': [content: string]
+  'ai-action': [action: AiEditAction]
+  'open-ai-panel': []
+  'open-settings': []
 }>()
 
 // 使用编辑器组合式函数
@@ -387,9 +400,20 @@ const tableActions = [
 const tableActionSeparators = [3, 6, 10]
 
 // 表格工具栏只在用户真正选中表格或单元格时出现，避免每次点击正文都弹出浮层遮挡内容。
+// 模态框（设置、更新等）打开时一律隐藏，避免浮层叠加。
 const shouldShowTableMenu = (): boolean => {
+  if (props.modalOpen) return false
   const selection = editor.value?.state.selection
   return selection ? isTableSelection(selection) : false
+}
+
+// AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
+const shouldShowAiMenu = (): boolean => {
+  if (props.modalOpen) return false
+  const { selection } = editor.value?.state ?? {}
+  if (!selection || selection.empty) return false
+  if (isTableSelection(selection)) return false
+  return true
 }
 
 interface ActiveLink {
@@ -618,12 +642,37 @@ const removeActiveLink = (): void => {
   activeLink.value = null
 }
 
+const getSelectionText = (): string => {
+  const tipTapEditor = editor.value
+  if (!tipTapEditor) return ''
+  const { from, to } = tipTapEditor.state.selection
+  if (from === to) return ''
+  return tipTapEditor.state.doc.textBetween(from, to, '\n')
+}
+
+const replaceSelection = (text: string): void => {
+  const tipTapEditor = editor.value
+  if (!tipTapEditor) return
+  const { from, to } = tipTapEditor.state.selection
+  tipTapEditor.chain().focus().deleteRange({ from, to }).insertContentAt(from, text).run()
+}
+
+const insertAtCursor = (text: string): void => {
+  const tipTapEditor = editor.value
+  if (!tipTapEditor) return
+  const { from } = tipTapEditor.state.selection
+  tipTapEditor.chain().focus().insertContentAt(from, text).run()
+}
+
 // 暴露方法给父组件
 defineExpose<EditorHandle>({
   scrollToHeading,
   getScrollProgress,
   setScrollProgress,
   getEditor: () => editor.value ?? null,
+  getSelectionText,
+  replaceSelection,
+  insertAtCursor,
 } as EditorHandle)
 </script>
 

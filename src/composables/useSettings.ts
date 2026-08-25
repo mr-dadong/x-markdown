@@ -3,7 +3,7 @@ import type { CodeBlockStyleId } from '../modules/codeBlockStyles'
 import { defaultShortcuts } from '../constants/shortcuts'
 import { isValidShortcut } from '../utils/shortcuts'
 
-export type SettingsSection = 'general' | 'typography' | 'theme' | 'shortcuts' | 'changelog' | 'about'
+export type SettingsSection = 'general' | 'typography' | 'theme' | 'shortcuts' | 'ai' | 'changelog' | 'about'
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type EditorMode = 'preview' | 'source'
 export type AttachmentHandling = 'reference' | 'copy-to-assets'

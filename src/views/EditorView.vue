@@ -1,7 +1,7 @@
 <template>
     <div class="flex h-screen flex-col overflow-hidden bg-paper text-ink">
         <AppHeader :is-dark-theme="isDarkTheme" :has-update="hasUpdate" @toggle-theme="toggleTheme"
-            @open-settings="isSettingsOpen = true" @open-update="openUpdateModal" />
+            @open-settings="isSettingsOpen = true" @open-update="openUpdateModal" @open-ai="isAiAssistantOpen = true" />
 
         <div class="flex flex-1 overflow-hidden">
             <Sidebar v-if="isSidebarVisible" :current-file-path="currentFilePath" :content="currentContent"
@@ -17,7 +17,9 @@
                 <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
-                    @update:content="handleContentUpdate" />
+                    :modal-open="isSettingsOpen || isUpdateModalOpen"
+                    @update:content="handleContentUpdate" @ai-action="handleAiAction"
+                    @open-ai-panel="isAiAssistantOpen = true" @open-settings="openAiSettings" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
@@ -89,9 +91,13 @@
             :character-count="documentStats.characterCount" :is-modified="isModified"
             :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode" :document-open="isDocumentOpen"
             @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
-        <SettingsModal v-if="isSettingsOpen" @close="isSettingsOpen = false" />
+        <SettingsModal v-if="isSettingsOpen" :initial-section="settingsInitialSection" @close="closeSettings" />
         <UpdateModal v-if="isUpdateModalOpen" />
         <ConfirmDialog />
+        <AiAssistantPanel v-if="isAiAssistantOpen && isDocumentOpen" :get-selection="getAiSelection"
+            :get-document-context="getAiDocumentContext" :apply-result="applyAiResult"
+            :initial-action="pendingAiAction" @close="isAiAssistantOpen = false"
+            @action-executed="pendingAiAction = null" @open-settings="openAiSettings" />
     </div>
 </template>
 
@@ -101,6 +107,7 @@ import { Icon } from '@iconify/vue/offline'
 import appIcon from '../../build/icons/256x256.png'
 import AppHeader from '../components/AppHeader.vue'
 import AppStatusBar from '../components/AppStatusBar.vue'
+import AiAssistantPanel from '../components/ai/AiAssistantPanel.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import DocumentBar from '../components/DocumentBar.vue'
 import FindReplacePanel from '../components/FindReplacePanel.vue'
@@ -112,8 +119,10 @@ import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
 import { buildExportDocx, buildExportHtml, buildExportText, buildExportZip } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
+import type { AiEditAction } from '../types/ai'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
+import type { SettingsSection } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
 import { useUpdater } from '../composables/useUpdater'
 import { IPC_CHANNELS } from '../constants/ipcChannels'
@@ -128,6 +137,9 @@ const editorRef = ref<EditorHandle | null>(null)
 const sourceEditorRef = ref<SourceEditorHandle | null>(null)
 const isSidebarVisible = ref(false)
 const isSettingsOpen = ref(false)
+const settingsInitialSection = ref<SettingsSection>('general')
+const isAiAssistantOpen = ref(false)
+const pendingAiAction = ref<AiEditAction | null>(null)
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
@@ -140,6 +152,42 @@ const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUp
 // 关键词不在当前文档时，点击“下一个”会自动切换到包含匹配的标签页并定位。
 const getSourceHandle = (): SourceEditorHandle | null => {
     return sourceEditorRef.value as SourceEditorHandle | null
+}
+
+const getAiSelection = (): string => {
+    if (isSourceMode.value) return sourceEditorRef.value?.getSelectionText() ?? ''
+    return editorRef.value?.getSelectionText() ?? ''
+}
+
+const getAiDocumentContext = (): string => currentContent.value
+
+const applyAiResult = (text: string, replaceSelection: boolean): void => {
+    if (isSourceMode.value) {
+        if (replaceSelection) sourceEditorRef.value?.replaceSelection(text)
+        else sourceEditorRef.value?.insertAtCursor(text)
+        return
+    }
+    if (replaceSelection) editorRef.value?.replaceSelection(text)
+    else editorRef.value?.insertAtCursor(text)
+}
+
+// 选中文本后点击 AI 动作：打开面板并自动执行对应动作。
+const handleAiAction = (action: AiEditAction): void => {
+    pendingAiAction.value = action
+    isAiAssistantOpen.value = true
+}
+
+// 从 AI 面板跳转到设置页的 AI 配置区。
+const openAiSettings = (): void => {
+    isAiAssistantOpen.value = false
+    settingsInitialSection.value = 'ai'
+    isSettingsOpen.value = true
+}
+
+// 关闭设置页时重置初始分区，下次打开默认回到通用。
+const closeSettings = (): void => {
+    isSettingsOpen.value = false
+    settingsInitialSection.value = 'general'
 }
 
 const {

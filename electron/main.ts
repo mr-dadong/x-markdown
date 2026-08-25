@@ -24,6 +24,8 @@ import {
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
+import { registerAiIpc } from "./ai/ipc/aiIpc";
+import { getAiAgentStatus } from "./ai/mastra";
 import { getRecentFiles } from "./services/recentFiles";
 import { createApplicationMenu, setConfiguredShortcuts } from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
@@ -944,6 +946,7 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
 
 registerWorkspaceIpc({ getMainWindow: () => mainWindow });
 registerRecentFilesIpc();
+registerAiIpc({ getMainWindow: () => mainWindow });
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
   try {
@@ -1557,6 +1560,9 @@ app.whenReady().then(async () => {
   queueFilesToOpen(await getFilePathsFromArguments(process.argv));
   createWindow();
   createMenu();
+  void getAiAgentStatus().catch((error) => {
+    console.error("Failed to initialize AI agent:", error);
+  });
 
   // macOS 应用激活事件
   app.on("activate", () => {

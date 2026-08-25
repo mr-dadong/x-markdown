@@ -288,6 +288,35 @@ const setScrollProgress = (progress: number): void => {
 
 const getView = (): EditorView | null => view.value
 
+const getSelectionText = (): string => {
+  const sourceView = view.value
+  if (!sourceView) return ''
+  const { from, to } = sourceView.state.selection.main
+  return sourceView.state.sliceDoc(from, to)
+}
+
+const replaceSelection = (text: string): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+  const { from, to } = sourceView.state.selection.main
+  sourceView.dispatch({
+    changes: { from, to, insert: text },
+    selection: { anchor: from + text.length },
+  })
+  sourceView.focus()
+}
+
+const insertAtCursor = (text: string): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+  const { from } = sourceView.state.selection.main
+  sourceView.dispatch({
+    changes: { from, insert: text },
+    selection: { anchor: from + text.length },
+  })
+  sourceView.focus()
+}
+
 defineExpose<SourceEditorHandle>({
   getScrollProgress,
   setScrollProgress,
@@ -298,6 +327,9 @@ defineExpose<SourceEditorHandle>({
   clearSearch: () => {
     if (view.value) clearSearch(view.value)
   },
+  getSelectionText,
+  replaceSelection,
+  insertAtCursor,
 })
 
 const sourceStyle = computed<Record<string, string>>(() => {

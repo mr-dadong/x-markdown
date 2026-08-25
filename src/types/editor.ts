@@ -8,6 +8,9 @@ export interface EditorHandle {
   setScrollProgress: (progress: number) => void;
   // 查找替换等编辑视图能力通过编辑器实例对外提供。
   getEditor: () => Editor | null;
+  getSelectionText: () => string;
+  replaceSelection: (text: string) => void;
+  insertAtCursor: (text: string) => void;
 }
 
 export interface SourceEditorHandle {
@@ -22,4 +25,7 @@ export interface SourceEditorHandle {
   ) => void;
   // 关闭查找面板时清空源码模式的搜索装饰。
   clearSearch: () => void;
+  getSelectionText: () => string;
+  replaceSelection: (text: string) => void;
+  insertAtCursor: (text: string) => void;
 }

@@ -58,6 +58,13 @@ import panelLeftOpenIcon from '@iconify-icons/lucide/panel-left-open'
 import panelRightOpenIcon from '@iconify-icons/lucide/panel-right-open'
 import combineIcon from '@iconify-icons/lucide/combine'
 import splitSquareHorizontalIcon from '@iconify-icons/lucide/split-square-horizontal'
+import sparklesIcon from '@iconify-icons/lucide/sparkles'
+import wand2Icon from '@iconify-icons/lucide/wand-2'
+import languagesIcon from '@iconify-icons/lucide/languages'
+import wrenchIcon from '@iconify-icons/lucide/wrench'
+import rotateCcwIcon from '@iconify-icons/lucide/rotate-ccw'
+import cornerDownLeftIcon from '@iconify-icons/lucide/corner-down-left'
+import workflowIcon from '@iconify-icons/lucide/workflow'
 import trash2Icon from '@iconify-icons/lucide/trash-2'
 import externalLinkIcon from '@iconify-icons/lucide/external-link'
 import unlinkIcon from '@iconify-icons/lucide/unlink'
@@ -139,6 +146,13 @@ addIcon('lucide:panel-left-open', panelLeftOpenIcon)
 addIcon('lucide:panel-right-open', panelRightOpenIcon)
 addIcon('lucide:combine', combineIcon)
 addIcon('lucide:split-square-horizontal', splitSquareHorizontalIcon)
+addIcon('lucide:sparkles', sparklesIcon)
+addIcon('lucide:wand-2', wand2Icon)
+addIcon('lucide:languages', languagesIcon)
+addIcon('lucide:wrench', wrenchIcon)
+addIcon('lucide:rotate-ccw', rotateCcwIcon)
+addIcon('lucide:corner-down-left', cornerDownLeftIcon)
+addIcon('lucide:workflow', workflowIcon)
 addIcon('lucide:trash-2', trash2Icon)
 addIcon('lucide:external-link', externalLinkIcon)
 addIcon('lucide:unlink', unlinkIcon)

@@ -4,6 +4,7 @@ import type {
   UpdateDownloadResult,
   UpdateLogsResult,
 } from "./update";
+import type { AiServiceApi } from "./ai";
 import type { IPC_CHANNELS } from "../constants/ipcChannels";
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -120,6 +121,7 @@ export interface ExportImageData {
 }
 
 export interface ElectronAPI {
+  aiService: AiServiceApi;
   getPathForFile: (file: File) => string;
   openFile: () => Promise<OpenFileData[] | null>;
   openDroppedFiles: (filePaths: string[]) => Promise<OpenFileData[]>;

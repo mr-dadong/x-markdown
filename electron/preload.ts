@@ -17,9 +17,53 @@ import type {
   SelectEditorFileOptions,
 } from '../src/types/electron'
 import type { UpdateDownloadProgress } from '../src/types/update'
+import type {
+  AiDeltaEvent,
+  AiDoneEvent,
+  AiErrorEvent,
+  AiFetchModelsResult,
+  AiInvokeRequest,
+  AiSettingsInput,
+} from '../src/types/ai'
 import { IPC_CHANNELS } from '../src/constants/ipcChannels'
 
 const electronAPI: ElectronAPI = {
+  aiService: {
+    getSettings: (): Promise<import('../src/types/ai').AiPublicSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiGetSettings),
+
+    saveSettings: (settings: AiSettingsInput) =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiSaveSettings, settings),
+
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.aiGetStatus),
+
+    fetchModels: (): Promise<AiFetchModelsResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiFetchModels),
+
+    invoke: (request: AiInvokeRequest) => ipcRenderer.invoke(IPC_CHANNELS.aiInvoke, request),
+
+    cancel: (requestId: string): void => {
+      ipcRenderer.send(IPC_CHANNELS.aiCancel, requestId)
+    },
+
+    onDelta: (callback: (event: AiDeltaEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiDeltaEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiStreamDelta, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamDelta, listener)
+    },
+
+    onDone: (callback: (event: AiDoneEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiDoneEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiStreamDone, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamDone, listener)
+    },
+
+    onError: (callback: (event: AiErrorEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiErrorEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiStreamError, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamError, listener)
+    },
+  },
   // Electron 32 起不再向 File 暴露 path，统一通过官方接口取得系统文件路径。
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
