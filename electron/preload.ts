@@ -5,6 +5,7 @@ import type {
   ElectronAPI,
   ExportDocxData,
   ExportHtmlData,
+  ExportImageData,
   ExportTextData,
   ExportZipData,
   ImportEditorFileOptions,
@@ -112,6 +113,10 @@ const electronAPI: ElectronAPI = {
 
   onMenuExportDocx: (callback: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.menuExportDocx, () => callback())
+  },
+
+  onMenuExportImage: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.menuExportImage, () => callback())
   },
 
   onMenuOpenRecentFile: (callback: (filePath: string) => void) => {
@@ -237,6 +242,8 @@ const electronAPI: ElectronAPI = {
   exportText: (data: ExportTextData) => ipcRenderer.invoke(IPC_CHANNELS.exportText, data),
 
   exportDocx: (data: ExportDocxData) => ipcRenderer.invoke(IPC_CHANNELS.exportDocx, data),
+
+  exportImage: (data: ExportImageData) => ipcRenderer.invoke(IPC_CHANNELS.exportImage, data),
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 

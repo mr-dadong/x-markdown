@@ -12,4 +12,6 @@ export const exportService = {
     window.electronAPI.exportText({ text, suggestedName }),
   exportDocx: (docxData: ArrayBuffer, suggestedName: string): Promise<ExportResult> =>
     window.electronAPI.exportDocx({ docxData, suggestedName }),
+  exportImage: (html: string, suggestedName: string): Promise<ExportResult> =>
+    window.electronAPI.exportImage({ html, suggestedName }),
 };

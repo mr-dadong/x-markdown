@@ -139,6 +139,7 @@ function buildApplicationMenu(): void {
         { label: "导出为 HTML…", accelerator: "CmdOrCtrl+Shift+E", click: () => send(IPC_CHANNELS.menuExportHtml) },
         { label: "导出为 PDF…", click: () => send(IPC_CHANNELS.menuExportPdf) },
         { label: "导出为 Word 文档…", click: () => send(IPC_CHANNELS.menuExportDocx) },
+        { label: "导出为图片…", click: () => send(IPC_CHANNELS.menuExportImage) },
         { label: "导出为纯文本…", click: () => send(IPC_CHANNELS.menuExportText) },
         { label: "导出为 ZIP 包…", click: () => send(IPC_CHANNELS.menuExportZip) },
       ],

@@ -36,7 +36,7 @@ const defaultSettings: AppSettings = {
   editorMode: 'preview',
   showSlashCommandDescriptions: false,
   attachmentHandling: 'reference',
-  autoSave: true,
+  autoSave: false,
   autoSaveInterval: 5,
   codeWrap: true,
   codeLineNumbers: false,

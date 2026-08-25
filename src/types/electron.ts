@@ -113,6 +113,12 @@ export interface ExportZipData {
   suggestedName: string;
 }
 
+// 导出为图片：渲染进程交给主进程的完整 HTML，由隐藏窗口栅格化为 PNG 后落盘。
+export interface ExportImageData {
+  html: string;
+  suggestedName: string;
+}
+
 export interface ElectronAPI {
   getPathForFile: (file: File) => string;
   openFile: () => Promise<OpenFileData[] | null>;
@@ -140,6 +146,7 @@ export interface ElectronAPI {
   onMenuExportZip: (callback: () => void) => void;
   onMenuExportText: (callback: () => void) => void;
   onMenuExportDocx: (callback: () => void) => void;
+  onMenuExportImage: (callback: () => void) => void;
   onMenuOpenRecentFile: (callback: (filePath: string) => void) => void;
   onMenuClearRecentFiles: (callback: () => void) => void;
   getRecentFiles: () => Promise<string[]>;
@@ -152,6 +159,7 @@ export interface ElectronAPI {
   exportZip: (data: ExportZipData) => Promise<ExportResult>;
   exportText: (data: ExportTextData) => Promise<ExportResult>;
   exportDocx: (data: ExportDocxData) => Promise<ExportResult>;
+  exportImage: (data: ExportImageData) => Promise<ExportResult>;
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>;
   createFileTreeEntry: (parentPath: string, name: string, isDirectory: boolean) => Promise<void>;
   renameFileTreeEntry: (entryPath: string, newName: string) => Promise<void>;

@@ -318,12 +318,13 @@ onMounted(() => {
     window.addEventListener('keydown', handleWindowKeydown, true)
     // 编辑菜单的“查找”入口与 Ctrl+F 快捷键最终都会走到这里。
     documentService.onFindReplace(() => findReplaceController.open())
-    // 导出菜单的五个导出入口统一进入 handleExport，按类型分发。
+    // 导出菜单的导出入口统一进入 handleExport，按类型分发。
     documentService.onExportHtml(() => void handleExport('html'))
     documentService.onExportPdf(() => void handleExport('pdf'))
     documentService.onExportZip(() => void handleExport('zip'))
     documentService.onExportText(() => void handleExport('text'))
     documentService.onExportDocx(() => void handleExport('docx'))
+    documentService.onExportImage(() => void handleExport('image'))
     // 每次软件启动只自动检测一次；没有新版本时不打断用户。
     void checkForUpdates(false)
     void loadRecentFiles()
@@ -337,6 +338,7 @@ onUnmounted(() => {
     documentService.removeListeners(IPC_CHANNELS.menuExportZip)
     documentService.removeListeners(IPC_CHANNELS.menuExportText)
     documentService.removeListeners(IPC_CHANNELS.menuExportDocx)
+    documentService.removeListeners(IPC_CHANNELS.menuExportImage)
 })
 
 const handleScrollToHeading = (headingIndex: number): void => {
@@ -352,8 +354,8 @@ const getSuggestedName = (): string => {
     return fileName.replace(/\.[^.]+$/, '') || '未命名'
 }
 
-// 统一导出入口：HTML/PDF/DOCX 先渲染内容，TXT 直接输出原文，ZIP 打包 Markdown 与本地图片。
-const handleExport = async (type: 'html' | 'pdf' | 'zip' | 'text' | 'docx'): Promise<void> => {
+// 统一导出入口：HTML/PDF/图片先渲染内容，TXT 直接输出原文，ZIP 打包 Markdown 与本地图片。
+const handleExport = async (type: 'html' | 'pdf' | 'zip' | 'text' | 'docx' | 'image'): Promise<void> => {
     if (!isDocumentOpen.value) return
     const suggestedName = getSuggestedName()
     try {
@@ -376,6 +378,7 @@ const handleExport = async (type: 'html' | 'pdf' | 'zip' | 'text' | 'docx'): Pro
         }
         const html = await buildExportHtml(currentContent.value, currentFilePath.value, suggestedName)
         if (type === 'html') await exportService.exportHtml(html, suggestedName)
+        else if (type === 'image') await exportService.exportImage(html, suggestedName)
         else await exportService.exportPdf(html, suggestedName)
     } catch (error) {
         await window.electronAPI.showErrorMessage('导出失败', (error as Error).message)

@@ -38,6 +38,8 @@ export const documentService = {
     window.electronAPI.onMenuExportText(callback),
   onExportDocx: (callback: () => void) =>
     window.electronAPI.onMenuExportDocx(callback),
+  onExportImage: (callback: () => void) =>
+    window.electronAPI.onMenuExportImage(callback),
   onOpenRecentFile: (callback: (filePath: string) => void) =>
     window.electronAPI.onMenuOpenRecentFile(callback),
   onClearRecentFiles: (callback: () => void) =>

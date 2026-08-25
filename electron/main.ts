@@ -32,6 +32,7 @@ import type {
   AttachmentCopyProgress,
   ExportDocxData,
   ExportHtmlData,
+  ExportImageData,
   ExportTextData,
   ExportZipData,
 } from "../src/types/electron";
@@ -750,6 +751,92 @@ ipcMain.handle(
     if (result.canceled || !result.filePath) return { canceled: true };
     await fs.promises.writeFile(result.filePath, Buffer.from(docxData));
     return { canceled: false, filePath: result.filePath };
+  },
+);
+
+// 导出为图片：用隐藏窗口加载导出的 HTML 后栅格化为 PNG，不影响当前编辑窗口。
+// 渲染端提供的 HTML 已内联当前主题样式和图片资源，因此 capturePage 能直接得到
+// 与编辑器视觉一致的整页图片；窗口在结束后无论成败都会销毁。
+ipcMain.handle(
+  IPC_CHANNELS.exportImage,
+  async (_event, { html, suggestedName }: ExportImageData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.png`,
+      filters: [{ name: "PNG 图片", extensions: ["png"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+
+    const captureWindow = new BrowserWindow({
+      show: false,
+      x: -5000,
+      y: -5000,
+      width: 1024,
+      height: 768,
+      useContentSize: true,
+      frame: false,
+      skipTaskbar: true,
+      webPreferences: {
+        sandbox: true,
+        contextIsolation: true,
+        backgroundThrottling: false,
+        // 图片导出需要读取布局尺寸，这里只加载渲染层生成的 data URL，风险可控。
+        javascript: true,
+      },
+    });
+    try {
+      const dataUrl = `data:text/html;charset=utf-8;base64,${Buffer.from(html, "utf-8").toString("base64")}`;
+      await withTimeout(
+        captureWindow.loadURL(dataUrl),
+        "图片页面加载超时（30 秒）",
+        30000,
+      );
+      const dimensions = (await withTimeout(
+        captureWindow.webContents.executeJavaScript(`(() => {
+          const docEl = document.documentElement;
+          const bodyEl = document.body;
+          const width = Math.max(
+            1,
+            Math.ceil(docEl.scrollWidth),
+            bodyEl ? Math.ceil(bodyEl.scrollWidth) : 1,
+          );
+          const height = Math.max(
+            1,
+            Math.ceil(docEl.scrollHeight),
+            bodyEl ? Math.ceil(bodyEl.scrollHeight) : 1,
+          );
+          return { width, height };
+        })()`),
+        "图片尺寸读取超时（10 秒）",
+        10000,
+      )) as { width: number; height: number };
+      const width = Math.max(1, Math.min(Math.round(dimensions.width), 2400));
+      const height = Math.max(1, Math.min(Math.round(dimensions.height), 12000));
+      captureWindow.setContentSize(width, height);
+      // 部分平台对隐藏窗口的绘制时机更保守；放到屏幕外显示后再捕获，
+      // 避免 capturePage 拿到空白帧，也不影响用户当前工作窗口。
+      captureWindow.setPosition(-5000, -5000);
+      captureWindow.showInactive();
+      await withTimeout(
+        new Promise<void>((resolve) => setTimeout(resolve, 350)),
+        "图片绘制等待超时",
+        3000,
+      );
+      const image = await withTimeout(
+        captureWindow.webContents.capturePage({
+          x: 0,
+          y: 0,
+          width,
+          height,
+        }),
+        "图片生成超时（30 秒）",
+        30000,
+      );
+      await fs.promises.writeFile(result.filePath, image.toPNG());
+      return { canceled: false, filePath: result.filePath };
+    } finally {
+      captureWindow.destroy();
+    }
   },
 );
 
