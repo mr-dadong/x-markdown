@@ -53,11 +53,7 @@
           <div class="chat-sidebar__welcome-hints">
             <div class="chat-sidebar__hint">
               <Icon icon="lucide:file-text" :size="12" />
-              <span>使用 @文档 引用全文</span>
-            </div>
-            <div class="chat-sidebar__hint">
-              <Icon icon="lucide:text" :size="12" />
-              <span>使用 @选区 引用选中文本</span>
+              <span>AI 会基于当前文档内容回答</span>
             </div>
             <div class="chat-sidebar__hint">
               <Icon icon="lucide:corner-down-left" :size="12" />
@@ -78,6 +74,15 @@
           @retry="retry"
         />
 
+        <!-- AI 思考中指示器 -->
+        <div v-if="isStreaming && !streamingContent" class="chat-thinking">
+          <div class="chat-thinking__bubble">
+            <span class="chat-thinking__dot" />
+            <span class="chat-thinking__dot" />
+            <span class="chat-thinking__dot" />
+          </div>
+        </div>
+
         <!-- 流式输出中的临时消息 -->
         <div v-if="isStreaming && streamingContent" class="chat-msg chat-msg--assistant" style="padding: 0 12px;">
           <div class="chat-msg__bubble chat-msg__bubble--assistant">
@@ -87,8 +92,9 @@
                 <span>AI</span>
               </span>
             </div>
-            <div class="chat-msg__content">{{ streamingContent }}</div>
+            <div class="chat-msg__content markdown-body" v-html="renderedStreamingContent" />
             <div class="chat-sidebar__streaming-indicator">
+              <span class="chat-sidebar__typing-cursor" />
               <button type="button" class="chat-sidebar__stop-btn" title="停止" @mousedown.prevent="cancel">
                 <Icon icon="lucide:square" :size="10" />
                 <span>停止</span>
@@ -102,8 +108,6 @@
       <AiChatInput
         ref="inputRef"
         :is-streaming="isStreaming"
-        :has-document="hasDocument"
-        :has-selection="hasSelection"
         @send="sendMessage"
         @cancel="cancel"
       />
@@ -114,6 +118,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
+import MarkdownIt from 'markdown-it'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
 import { useAiChatContext } from '../../composables/useAiChatContext'
@@ -132,6 +137,23 @@ const emit = defineEmits<{
   close: []
   'open-settings': []
 }>()
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: false,
+  breaks: true,
+})
+
+// 自定义代码块渲染
+md.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx]
+  const lang = token.info.trim()
+  const langLabel = lang ? `<span class="code-lang">${lang}</span>` : ''
+  const content = md.utils.escapeHtml(token.content)
+  return `<div class="code-block-wrapper">${langLabel}<pre class="code-block"><code>${content}</code></pre></div>`
+}
 
 // AI 状态
 const { isConfigured } = useAiStatus()
@@ -169,6 +191,12 @@ const inputRef = ref<InstanceType<typeof AiChatInput> | null>(null)
 
 // 显示的消息（排除流式中的临时内容）
 const displayMessages = computed(() => messages.value)
+
+// 流式内容的 Markdown 渲染
+const renderedStreamingContent = computed(() => {
+  if (!streamingContent.value) return ''
+  return md.render(streamingContent.value)
+})
 
 // 状态文本
 const statusText = computed(() => {
@@ -474,6 +502,23 @@ const startResize = (event: MouseEvent): void => {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--color-line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-sidebar__typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--color-accent);
+  animation: blink 1s infinite;
+  border-radius: 1px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 .chat-sidebar__stop-btn {
@@ -495,6 +540,66 @@ const startResize = (event: MouseEvent): void => {
 .chat-sidebar__stop-btn:hover {
   background: #dc2626;
   color: #ffffff;
+}
+
+/* AI 思考中动画 */
+.chat-thinking {
+  padding: 0 12px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.chat-thinking__bubble {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: 10px 10px 10px 2px;
+}
+
+.chat-thinking__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-muted);
+  animation: thinking 1.4s infinite;
+}
+
+.chat-thinking__dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.chat-thinking__dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinking {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* 消息入场动画 */
+.chat-msg {
+  animation: msgSlideIn 0.2s ease-out;
+}
+
+@keyframes msgSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 复用消息样式 */
@@ -539,8 +644,133 @@ const startResize = (event: MouseEvent): void => {
 
 .chat-msg__content {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--color-ink);
-  white-space: pre-wrap;
+}
+
+/* Markdown 渲染样式 */
+.chat-msg__content :deep(h1),
+.chat-msg__content :deep(h2),
+.chat-msg__content :deep(h3),
+.chat-msg__content :deep(h4) {
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.chat-msg__content :deep(h1) { font-size: 17px; }
+.chat-msg__content :deep(h2) { font-size: 15px; }
+.chat-msg__content :deep(h3) { font-size: 14px; }
+
+.chat-msg__content :deep(h1:first-child),
+.chat-msg__content :deep(h2:first-child),
+.chat-msg__content :deep(h3:first-child) {
+  margin-top: 0;
+}
+
+.chat-msg__content :deep(p) {
+  margin: 0 0 8px;
+}
+
+.chat-msg__content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.chat-msg__content :deep(ul),
+.chat-msg__content :deep(ol) {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.chat-msg__content :deep(li) {
+  margin: 3px 0;
+}
+
+.chat-msg__content :deep(.code-block-wrapper) {
+  position: relative;
+  margin: 8px 0;
+}
+
+.chat-msg__content :deep(.code-lang) {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  z-index: 1;
+}
+
+.chat-msg__content :deep(.code-block) {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.chat-msg__content :deep(code) {
+  background: var(--color-selected);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.chat-msg__content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+.chat-msg__content :deep(blockquote) {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-selected);
+  border-radius: 0 6px 6px 0;
+}
+
+.chat-msg__content :deep(blockquote p) {
+  margin: 0;
+}
+
+.chat-msg__content :deep(a) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-msg__content :deep(table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+  font-size: 12px;
+}
+
+.chat-msg__content :deep(th),
+.chat-msg__content :deep(td) {
+  border: 1px solid var(--color-line);
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.chat-msg__content :deep(th) {
+  background: var(--color-selected);
+  font-weight: 600;
+}
+
+.chat-msg__content :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-line);
+  margin: 12px 0;
+}
+
+.chat-msg__content :deep(strong) {
+  font-weight: 600;
 }
 </style>

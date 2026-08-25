@@ -50,12 +50,6 @@
         </button>
       </div>
     </div>
-
-    <!-- 上下文提示 -->
-    <div v-if="hasContext" class="chat-input__context">
-      <Icon icon="lucide:file-text" :size="11" />
-      <span>{{ contextLabel }}</span>
-    </div>
   </div>
 </template>
 
@@ -72,8 +66,6 @@ interface QuickAction {
 
 const props = defineProps<{
   isStreaming: boolean
-  hasDocument: boolean
-  hasSelection: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,16 +80,8 @@ const canSend = computed(() => inputText.value.trim().length > 0 && !props.isStr
 
 const placeholder = computed(() => {
   if (props.isStreaming) return '正在生成…'
-  return '输入消息，或使用 @文档 @选区 引用上下文…'
+  return '输入消息…'
 })
-
-const contextLabel = computed(() => {
-  if (props.hasSelection) return '已识别选区'
-  if (props.hasDocument) return '已识别文档'
-  return ''
-})
-
-const hasContext = computed(() => props.hasDocument || props.hasSelection)
 
 const quickActions: QuickAction[] = [
   { id: 'summarize', label: '总结', icon: 'lucide:list', prompt: '请总结当前文档的主要内容' },
@@ -132,8 +116,15 @@ const handleKeydown = (event: KeyboardEvent): void => {
 const autoResize = (): void => {
   const textarea = inputRef.value
   if (!textarea) return
-  textarea.style.height = 'auto'
-  textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`
+  // 重置高度以获取正确的 scrollHeight
+  textarea.style.height = '22px'
+  // 如果内容超过一行，自动扩展
+  if (textarea.scrollHeight > 22) {
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`
+    textarea.style.overflowY = 'auto'
+  } else {
+    textarea.style.overflowY = 'hidden'
+  }
 }
 
 const focus = (): void => {
@@ -194,12 +185,12 @@ defineExpose({ focus })
 
 .chat-input__wrapper {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   background: var(--color-panel);
   border: 1px solid var(--color-line);
-  border-radius: 10px;
-  padding: 8px 8px 8px 12px;
+  border-radius: 20px;
+  padding: 6px 6px 6px 14px;
   transition: border-color 0.15s ease;
 }
 
@@ -209,16 +200,19 @@ defineExpose({ focus })
 
 .chat-input__textarea {
   flex: 1;
-  min-height: 20px;
+  height: 22px;
+  min-height: 22px;
   max-height: 120px;
   border: none;
   background: transparent;
   color: var(--color-ink);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 22px;
   resize: none;
   outline: none;
   font-family: inherit;
+  padding: 0;
+  overflow-y: hidden;
 }
 
 .chat-input__textarea::placeholder {
@@ -239,9 +233,9 @@ defineExpose({ focus })
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -254,6 +248,7 @@ defineExpose({ focus })
 
 .chat-input__btn--send:hover:not(:disabled) {
   background: var(--color-accent-strong);
+  transform: scale(1.05);
 }
 
 .chat-input__btn--send:disabled {
@@ -268,14 +263,6 @@ defineExpose({ focus })
 
 .chat-input__btn--stop:hover {
   background: #b91c1c;
-}
-
-.chat-input__context {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--color-muted);
-  padding: 0 2px;
+  transform: scale(1.05);
 }
 </style>
