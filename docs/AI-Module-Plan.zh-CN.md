@@ -218,15 +218,302 @@ const writerAgent = new Agent({
 
 ### 阶段 C：P1 文档级能力
 
-- [ ] 新增当前文档 Chat 侧栏。
+#### C.1 Chat 侧栏（替代当前 AI 助手面板）
 
-- [ ] 新增自定义提示词库。
+**现状分析**
 
-- [ ] 新增结构化 Markdown 生成。
+当前右上角 AI 图标点击后打开 `AiAssistantPanel`，该面板是一个静态动作网格 + 结果预览的组合。存在以下问题：
 
-- [ ] 新增代码块助手入口。
+- 动作网格与选区工具栏 (`AiSelectionBar`) 功能高度重叠，用户困惑。
+- 缺乏对话上下文，每次动作都是独立的单轮请求。
+- 面板位置浮动在右上角，遮挡编辑区域，且无法持久化状态。
+- "额外要求"输入框体验粗糙，无法表达复杂意图。
 
-产出：用户可以在文档上下文中进行多轮对话和生成。
+**目标**
+
+将右上角 AI 图标改为打开 Chat 侧栏，提供基于当前文档上下文的多轮对话能力。Chat 侧栏是 P1 阶段的核心交互形态，替代现有的 `AiAssistantPanel`。
+
+**交互设计**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  AppHeader                                              │
+│  [文件] [导出] [编辑] [视图] [窗口]    [🌙] [💬] [⚙]  │
+│                                              ↑          │
+│                                         Chat 侧栏入口   │
+├──────────┬──────────────────────────┬───────────────────┤
+│          │                          │  Chat 侧栏        │
+│  侧边栏  │      MarkdownEditor      │  ┌─────────────┐ │
+│          │                          │  │ 💬 AI Chat   │ │
+│          │                          │  ├─────────────┤ │
+│          │                          │  │ 对话消息列表  │ │
+│          │                          │  │             │ │
+│          │                          │  │ [用户消息]   │ │
+│          │                          │  │ [AI 回复]    │ │
+│          │                          │  │             │ │
+│          │                          │  ├─────────────┤ │
+│          │                          │  │ [输入框]     │ │
+│          │                          │  └─────────────┘ │
+└──────────┴──────────────────────────┴───────────────────┘
+```
+
+**功能规格**
+
+1. **侧栏布局**
+   - 固定在编辑区右侧，宽度 360px，可拖拽调整（最小 280px，最大 500px）。
+   - 与左侧文件侧栏对称，不遮挡编辑区主体。
+   - 打开/关闭状态持久化到本地存储，下次启动自动恢复。
+   - 快捷键：`Ctrl+Shift+A`（可自定义）。
+
+2. **消息系统**
+   - 多轮对话，保留完整上下文。
+   - 消息类型：用户消息、AI 回复、系统提示（如"已插入到文档"）。
+   - AI 回复支持 Markdown 渲染（代码高亮、表格、列表等）。
+   - 流式输出，逐字显示，支持中途取消。
+   - 消息操作：复制、重新生成、插入到光标、替换选区。
+
+3. **文档上下文集成**
+   - 自动注入当前文档内容作为系统上下文（可配置开关）。
+   - 支持 `@当前文档` 显式引用，发送全文或选区。
+   - 支持 `@选区` 引用当前选中文本。
+   - 用户消息中可用 `` `代码块` `` 语法高亮代码片段。
+
+4. **快捷动作**
+   - 输入框上方提供常用动作快捷按钮：
+     - 总结文档
+     - 生成大纲
+     - 翻译选区
+     - 解释代码
+   - 点击后自动填充对应 Prompt，用户可修改后发送。
+   - 动作列表可配置（设置页 > AI > 快捷动作）。
+
+5. **结果处理**
+   - AI 回复中的代码块右上角显示"插入"按钮。
+   - 整条回复底部显示"插入到光标"和"替换选区"按钮。
+   - 插入前预览 diff，确认后写入编辑器。
+   - 支持撤销（Ctrl+Z）回退插入操作。
+
+**技术实现**
+
+```
+src/components/ai/
+├── AiChatSidebar.vue          # Chat 侧栏主容器
+├── AiChatMessage.vue          # 单条消息组件（用户/AI/系统）
+├── AiChatInput.vue            # 输入框 + 快捷动作
+├── AiChatMessageActions.vue   # 消息操作按钮（复制/插入/重试）
+└── AiChatContextPicker.vue    # @引用选择器
+
+src/composables/
+├── useAiChat.ts               # Chat 状态管理（消息列表、发送、取消）
+└── useAiChatContext.ts        # 文档上下文注入逻辑
+
+src/types/ai.ts                # 扩展 Chat 相关类型
+```
+
+**IPC 扩展**
+
+```ts
+// 新增 Chat 专用 IPC
+aiService.chatInvoke(request: AiChatRequest): Promise<{ requestId: string }>
+aiService.chatCancel(requestId: string): void
+aiService.onChatDelta(callback): unsubscribe
+aiService.onChatDone(callback): unsubscribe
+aiService.onChatError(callback): unsubscribe
+
+// Chat 请求结构
+interface AiChatRequest {
+  requestId: string
+  messages: AiChatMessage[]      // 完整对话历史
+  documentContext?: string       // 当前文档内容
+  selection?: string             // 当前选区
+  options?: {
+    temperature?: number
+    maxTokens?: number
+  }
+}
+
+interface AiChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+```
+
+**与现有代码的改动**
+
+| 文件 | 改动 |
+|------|------|
+| `AppHeader.vue` | AI 图标改为 Chat 侧栏开关，tooltip 改为"AI Chat (Ctrl+Shift+A)" |
+| `EditorView.vue` | 移除 `AiAssistantPanel`，引入 `AiChatSidebar`；管理侧栏显隐状态 |
+| `AiAssistantPanel.vue` | **废弃**，功能合并到 Chat 侧栏的快捷动作 |
+| `AiSelectionBar.vue` | 保留，选中文本后仍显示动作条；动作结果发送到 Chat 侧栏展示 |
+| `useAiAssistant.ts` | 重构为 `useAiChat.ts`，支持多轮对话 |
+| `ai.ts` (types) | 新增 `AiChatMessage`、`AiChatRequest` 等类型 |
+| `aiIpc.ts` | 新增 Chat IPC handlers |
+| `aiService.ts` | 新增 Chat 相关方法 |
+
+**状态管理**
+
+```ts
+// useAiChat.ts 核心状态
+const messages = ref<AiChatMessage[]>([])
+const isStreaming = ref(false)
+const streamingContent = ref('')
+const activeRequestId = ref('')
+
+// 持久化：对话历史保存到 localStorage
+// key: `ai-chat-${filePath}` （按文档隔离）
+// 保留最近 50 条消息，超出后截断早期对话
+```
+
+**验收标准**
+
+- [ ] 右上角 AI 图标点击打开 Chat 侧栏（替代原 AiAssistantPanel）。
+- [ ] Chat 侧栏支持多轮对话，保留上下文。
+- [ ] AI 回复流式显示，支持取消。
+- [ ] 支持 `@当前文档` 和 `@选区` 引用。
+- [ ] 消息中的代码块可一键插入到文档。
+- [ ] 整条回复可插入到光标或替换选区。
+- [ ] 侧栏打开/关闭状态持久化。
+- [ ] 快捷键 `Ctrl+Shift+A` 切换侧栏。
+- [ ] 选中文本后的动作条仍正常工作，结果在 Chat 侧栏展示。
+- [ ] 对话历史按文档隔离保存。
+
+---
+
+#### C.2 自定义提示词库
+
+**目标**
+
+允许用户创建和管理自定义 Prompt 模板，在 Chat 侧栏和选区动作中复用。
+
+**功能规格**
+
+1. **内置模板**
+   - 总结：`请用 3-5 句话总结以下内容`
+   - 润色：`请润色以下文本，保持原意但提升表达质量`
+   - 续写：`请根据上下文继续写下去`
+   - 大纲：`请根据以下内容生成 Markdown 大纲`
+   - TOC：`请根据标题层级生成目录`
+   - 翻译：`请将以下内容翻译为{target_language}`
+
+2. **用户自定义**
+   - 设置页 > AI > 提示词库。
+   - 支持增删改查，拖拽排序。
+   - 变量占位符：`{selection}`（选区）、`{document}`（文档）、`{language}`（目标语言）。
+   - 导入/导出为 JSON 文件。
+
+3. **集成点**
+   - Chat 侧栏输入框 `/` 触发提示词选择器。
+   - 选区动作条末尾"更多"按钮展开自定义提示词列表。
+   - 快捷动作配置中可选择自定义提示词。
+
+**数据结构**
+
+```ts
+interface AiPromptTemplate {
+  id: string
+  name: string
+  description?: string
+  prompt: string           // 支持 {selection} {document} {language} 占位符
+  category: 'built-in' | 'custom'
+  icon?: string
+  sortOrder: number
+}
+```
+
+**存储**
+
+- 内置模板硬编码在 `electron/ai/prompts.ts`。
+- 用户自定义模板保存在 `app.getPath('userData')/ai-prompts.json`。
+- 通过 IPC 暴露 CRUD 接口。
+
+**验收标准**
+
+- [ ] 设置页可管理提示词库（增删改查、排序）。
+- [ ] Chat 侧栏 `/` 触发提示词选择器。
+- [ ] 选区动作条可展开自定义提示词。
+- [ ] 变量占位符正确替换。
+- [ ] 支持导入/导出。
+
+---
+
+#### C.3 结构化 Markdown 生成
+
+**目标**
+
+在 Chat 侧栏中提供结构化内容生成能力，针对 Markdown 语法优化。
+
+**支持的结构类型**
+
+| 类型 | 触发方式 | 输出 |
+|------|----------|------|
+| 标题大纲 | Chat: "生成大纲" / 快捷动作 | 多级标题结构 |
+| TOC | Chat: "生成目录" / 快捷动作 | `[链接](#锚点)` 列表 |
+| 表格 | Chat: "生成表格" / 选区动作 | Markdown 表格 |
+| Callout | Chat: "生成提示块" / 选区动作 | `> [!note]` 语法 |
+| Mermaid | Chat: "生成图表" / 选区动作 | Mermaid 代码块 |
+| frontmatter | Chat: "生成元数据" / 快捷动作 | YAML frontmatter |
+
+**实现方式**
+
+- 复用现有 `AiEditAction` 类型中的 `outline`、`toc`、`table`、`callout`、`mermaid`、`frontmatter`。
+- 在 Chat 侧栏中，这些动作作为快捷按钮展示。
+- AI 回复中的结构化内容自动识别，提供"插入"按钮。
+- Mermaid 代码块插入后自动触发预览渲染。
+
+**验收标准**
+
+- [ ] Chat 侧栏快捷动作包含结构化生成按钮。
+- [ ] 生成的 Markdown 结构语法正确。
+- [ ] 插入后在编辑器中正确渲染。
+- [ ] Mermaid 插入后自动显示图表预览。
+
+---
+
+#### C.4 代码块助手
+
+**目标**
+
+针对文档中的代码块提供专项 AI 辅助。
+
+**功能规格**
+
+1. **触发方式**
+   - 光标在代码块内时，侧边栏显示"代码助手"面板。
+   - 选中代码块后，选区动作条显示代码相关动作。
+   - Chat 侧栏中可直接询问代码问题。
+
+2. **支持动作**
+   - 解释代码：逐行注释说明。
+   - 添加注释：生成 JSDoc/docstring 风格注释。
+   - 生成测试：根据代码生成单元测试框架。
+   - 重构建议：提供优化方案和重构后代码。
+   - 语言转换：将代码转换为其他语言。
+
+3. **上下文感知**
+   - 自动识别代码语言（从 fenced code block 的语言标识）。
+   - 注入相邻段落作为业务上下文。
+   - 支持 `@其他文件` 引用相关代码（P2 阶段）。
+
+**集成点**
+
+- `MarkdownEditor` 中检测光标位置，若在代码块内则显示代码助手入口。
+- Chat 侧栏输入框检测到代码相关问题时，自动注入代码块上下文。
+- 选区动作条：选中代码时显示"解释"、"注释"、"测试"、"重构"按钮。
+
+**验收标准**
+
+- [ ] 光标在代码块内时显示代码助手入口。
+- [ ] 选中代码后动作条显示代码相关动作。
+- [ ] 代码语言自动识别。
+- [ ] 生成的注释/测试语法正确。
+- [ ] Chat 中询问代码问题时自动注入上下文。
+
+---
+
+**阶段 C 总体产出**
+
+用户可以通过 Chat 侧栏进行基于文档上下文的多轮对话，使用自定义提示词，生成结构化 Markdown 内容，并获得代码块专项辅助。右上角 AI 图标从简单的动作面板升级为完整的对话式 AI 助手。
 
 ### 阶段 D：P2 工作区级能力
 

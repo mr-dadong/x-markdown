@@ -30,8 +30,25 @@
     <!-- 选中文本时出现 AI 动作条，表格内选区由上方表格工具栏接管，此处不重复弹出。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowAiMenu"
       :tippy-options="{ placement: 'top', maxWidth: 600 }">
-      <AiSelectionBar @run="(action) => emit('ai-action', action)" @open-panel="emit('open-ai-panel')"
-        @open-settings="emit('open-settings')" />
+      <!-- 内联 AI 处理中或有结果时显示 InlineAiBar -->
+      <InlineAiBar
+        v-if="inlineAiStreaming || inlineAiResult || inlineAiError"
+        :is-streaming="inlineAiStreaming"
+        :result="inlineAiResult"
+        :error="inlineAiError"
+        :current-action="inlineAiAction"
+        @accept="acceptInlineAiResult"
+        @reject="rejectInlineAiResult"
+        @cancel="cancelInlineAi"
+        @retry="retryInlineAi"
+      />
+      <!-- 否则显示动作选择条 -->
+      <AiSelectionBar
+        v-else
+        @run="runInlineAiAction"
+        @open-panel="emit('open-ai-panel')"
+        @open-settings="emit('open-settings')"
+      />
     </bubble-menu>
 
     <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
@@ -207,6 +224,8 @@ import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
 import type { AiEditAction } from '../types/ai'
 import AiSelectionBar from './ai/AiSelectionBar.vue'
+import InlineAiBar from './ai/InlineAiBar.vue'
+import { useInlineAi } from '../composables/useInlineAi'
 import InsertLinkPanel from './editor/InsertLinkPanel.vue'
 import EmojiPicker from './editor/EmojiPicker.vue'
 import type { EditorHandle } from '../types/editor'
@@ -328,6 +347,44 @@ const {
   () => props.active,
 )
 
+// 内联 AI 处理
+const {
+  isStreaming: inlineAiStreaming,
+  result: inlineAiResult,
+  error: inlineAiError,
+  currentAction: inlineAiAction,
+  justCancelled: inlineAiJustCancelled,
+  runAction: runInlineAiAction,
+  acceptResult: acceptInlineAiResult,
+  rejectResult: rejectInlineAiResult,
+  retry: retryInlineAi,
+  cancel: cancelInlineAi,
+} = useInlineAi({
+  getSelection: () => editor.value?.state.doc.textBetween(
+    editor.value.state.selection.from,
+    editor.value.state.selection.to,
+  ) ?? '',
+  getDocumentContext: () => editor.value?.state.doc.textContent ?? '',
+  applyResult: (text: string) => {
+    if (!editor.value) return
+    const { from, to } = editor.value.state.selection
+    editor.value.chain().focus().deleteRange({ from, to }).insertContent(text).run()
+  },
+})
+
+// AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
+const shouldShowAiMenu = (): boolean => {
+  if (props.modalOpen) return false
+  // 刚取消时不显示，避免闪烁
+  if (inlineAiJustCancelled.value) return false
+  // 如果正在流式处理或有结果，也显示
+  if (inlineAiStreaming.value || inlineAiResult.value || inlineAiError.value) return true
+  const { selection } = editor.value?.state ?? {}
+  if (!selection || selection.empty) return false
+  if (isTableSelection(selection)) return false
+  return true
+}
+
 // 块菜单与表格浮动工具栏同为深色风格，图标旁直接展示短标签，完整含义放悬停提示。
 interface BlockAction {
   icon: string
@@ -405,15 +462,6 @@ const shouldShowTableMenu = (): boolean => {
   if (props.modalOpen) return false
   const selection = editor.value?.state.selection
   return selection ? isTableSelection(selection) : false
-}
-
-// AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
-const shouldShowAiMenu = (): boolean => {
-  if (props.modalOpen) return false
-  const { selection } = editor.value?.state ?? {}
-  if (!selection || selection.empty) return false
-  if (isTableSelection(selection)) return false
-  return true
 }
 
 interface ActiveLink {

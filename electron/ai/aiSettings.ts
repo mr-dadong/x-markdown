@@ -14,7 +14,7 @@ const AI_SETTINGS_FILE = "ai-settings.json";
 const defaultAiSettings = (): AiSettings => ({
   enabled: false,
   provider: "openai",
-  model: "gpt-4o-mini",
+  model: "",
   temperature: 0.7,
   maxTokens: 2048,
   timeoutMs: 30000,

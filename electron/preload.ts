@@ -18,6 +18,10 @@ import type {
 } from '../src/types/electron'
 import type { UpdateDownloadProgress } from '../src/types/update'
 import type {
+  AiChatDeltaEvent,
+  AiChatDoneEvent,
+  AiChatErrorEvent,
+  AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
   AiErrorEvent,
@@ -62,6 +66,32 @@ const electronAPI: ElectronAPI = {
       const listener = (_event: Electron.IpcRendererEvent, payload: AiErrorEvent): void => callback(payload)
       ipcRenderer.on(IPC_CHANNELS.aiStreamError, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamError, listener)
+    },
+
+    // Chat 多轮对话
+    chatInvoke: (request: AiChatRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiChatInvoke, request),
+
+    chatCancel: (requestId: string): void => {
+      ipcRenderer.send(IPC_CHANNELS.aiChatCancel, requestId)
+    },
+
+    onChatDelta: (callback: (event: AiChatDeltaEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiChatDeltaEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiChatStreamDelta, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiChatStreamDelta, listener)
+    },
+
+    onChatDone: (callback: (event: AiChatDoneEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiChatDoneEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiChatStreamDone, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiChatStreamDone, listener)
+    },
+
+    onChatError: (callback: (event: AiChatErrorEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiChatErrorEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiChatStreamError, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiChatStreamError, listener)
     },
   },
   // Electron 32 起不再向 File 暴露 path，统一通过官方接口取得系统文件路径。

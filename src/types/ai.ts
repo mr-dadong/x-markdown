@@ -107,4 +107,46 @@ export interface AiServiceApi {
   onDelta: (callback: (event: AiDeltaEvent) => void) => () => void;
   onDone: (callback: (event: AiDoneEvent) => void) => () => void;
   onError: (callback: (event: AiErrorEvent) => void) => () => void;
+  // Chat 多轮对话
+  chatInvoke: (request: AiChatRequest) => Promise<{ requestId: string }>;
+  chatCancel: (requestId: string) => void;
+  onChatDelta: (callback: (event: AiChatDeltaEvent) => void) => () => void;
+  onChatDone: (callback: (event: AiChatDoneEvent) => void) => () => void;
+  onChatError: (callback: (event: AiChatErrorEvent) => void) => () => void;
+}
+
+// ─── Chat 多轮对话类型 ───────────────────────────────────────────────
+
+export type AiChatRole = 'user' | 'assistant' | 'system'
+
+export interface AiChatMessage {
+  id: string
+  role: AiChatRole
+  content: string
+  timestamp: number
+}
+
+export interface AiChatRequest {
+  requestId: string
+  messages: Array<{ role: AiChatRole; content: string }>
+  documentContext?: string
+  selection?: string
+  options?: {
+    temperature?: number
+    maxTokens?: number
+  }
+}
+
+export interface AiChatDeltaEvent {
+  requestId: string
+  delta: string
+}
+
+export interface AiChatDoneEvent {
+  requestId: string
+}
+
+export interface AiChatErrorEvent {
+  requestId: string
+  error: string
 }

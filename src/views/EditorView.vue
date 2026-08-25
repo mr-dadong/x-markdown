@@ -1,7 +1,7 @@
 <template>
     <div class="flex h-screen flex-col overflow-hidden bg-paper text-ink">
         <AppHeader :is-dark-theme="isDarkTheme" :has-update="hasUpdate" @toggle-theme="toggleTheme"
-            @open-settings="isSettingsOpen = true" @open-update="openUpdateModal" @open-ai="isAiAssistantOpen = true" />
+            @open-settings="isSettingsOpen = true" @open-update="openUpdateModal" @open-ai="isAiChatOpen = true" />
 
         <div class="flex flex-1 overflow-hidden">
             <Sidebar v-if="isSidebarVisible" :current-file-path="currentFilePath" :content="currentContent"
@@ -19,7 +19,7 @@
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
                     :modal-open="isSettingsOpen || isUpdateModalOpen"
                     @update:content="handleContentUpdate" @ai-action="handleAiAction"
-                    @open-ai-panel="isAiAssistantOpen = true" @open-settings="openAiSettings" />
+                    @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
@@ -85,6 +85,11 @@
                     </div>
                 </div>
             </main>
+            <!-- Chat 侧栏：放在 flex 行内，与编辑区并列 -->
+            <AiChatSidebar v-if="isAiChatOpen && isDocumentOpen" :get-document-context="getAiDocumentContext"
+                :get-selection="getAiSelection" :insert-at-cursor="insertAiAtCursor"
+                :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
+                @close="isAiChatOpen = false" @open-settings="openAiSettings" />
         </div>
 
         <AppStatusBar :line-count="documentStats.lineCount" :word-count="documentStats.wordCount"
@@ -94,10 +99,6 @@
         <SettingsModal v-if="isSettingsOpen" :initial-section="settingsInitialSection" @close="closeSettings" />
         <UpdateModal v-if="isUpdateModalOpen" />
         <ConfirmDialog />
-        <AiAssistantPanel v-if="isAiAssistantOpen && isDocumentOpen" :get-selection="getAiSelection"
-            :get-document-context="getAiDocumentContext" :apply-result="applyAiResult"
-            :initial-action="pendingAiAction" @close="isAiAssistantOpen = false"
-            @action-executed="pendingAiAction = null" @open-settings="openAiSettings" />
     </div>
 </template>
 
@@ -107,7 +108,7 @@ import { Icon } from '@iconify/vue/offline'
 import appIcon from '../../build/icons/256x256.png'
 import AppHeader from '../components/AppHeader.vue'
 import AppStatusBar from '../components/AppStatusBar.vue'
-import AiAssistantPanel from '../components/ai/AiAssistantPanel.vue'
+import AiChatSidebar from '../components/ai/AiChatSidebar.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import DocumentBar from '../components/DocumentBar.vue'
 import FindReplacePanel from '../components/FindReplacePanel.vue'
@@ -138,8 +139,7 @@ const sourceEditorRef = ref<SourceEditorHandle | null>(null)
 const isSidebarVisible = ref(false)
 const isSettingsOpen = ref(false)
 const settingsInitialSection = ref<SettingsSection>('general')
-const isAiAssistantOpen = ref(false)
-const pendingAiAction = ref<AiEditAction | null>(null)
+const isAiChatOpen = ref(false)
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
@@ -161,25 +161,32 @@ const getAiSelection = (): string => {
 
 const getAiDocumentContext = (): string => currentContent.value
 
-const applyAiResult = (text: string, replaceSelection: boolean): void => {
+const getAiFilePath = (): string | null => currentFilePath.value
+
+const insertAiAtCursor = (text: string): void => {
     if (isSourceMode.value) {
-        if (replaceSelection) sourceEditorRef.value?.replaceSelection(text)
-        else sourceEditorRef.value?.insertAtCursor(text)
+        sourceEditorRef.value?.insertAtCursor(text)
         return
     }
-    if (replaceSelection) editorRef.value?.replaceSelection(text)
-    else editorRef.value?.insertAtCursor(text)
+    editorRef.value?.insertAtCursor(text)
 }
 
-// 选中文本后点击 AI 动作：打开面板并自动执行对应动作。
+const replaceAiSelection = (text: string): void => {
+    if (isSourceMode.value) {
+        sourceEditorRef.value?.replaceSelection(text)
+        return
+    }
+    editorRef.value?.replaceSelection(text)
+}
+
+// 选中文本后点击 AI 动作：打开 Chat 侧栏。
 const handleAiAction = (action: AiEditAction): void => {
-    pendingAiAction.value = action
-    isAiAssistantOpen.value = true
+    isAiChatOpen.value = true
 }
 
-// 从 AI 面板跳转到设置页的 AI 配置区。
+// 从 Chat 侧栏跳转到设置页的 AI 配置区。
 const openAiSettings = (): void => {
-    isAiAssistantOpen.value = false
+    isAiChatOpen.value = false
     settingsInitialSection.value = 'ai'
     isSettingsOpen.value = true
 }
@@ -333,6 +340,21 @@ const handleWindowKeydown = (event: KeyboardEvent): void => {
     if (matchesShortcut(event, settings.shortcuts.toggleSource) && !event.repeat) {
         event.preventDefault()
         void toggleSourceMode()
+        return
+    }
+
+    // AI Chat 侧栏快捷键
+    if (
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        !event.altKey &&
+        !event.repeat &&
+        event.key.toLowerCase() === 'a'
+    ) {
+        event.preventDefault()
+        if (isDocumentOpen.value) {
+            isAiChatOpen.value = !isAiChatOpen.value
+        }
         return
     }
 

@@ -1,4 +1,4 @@
-import type { AiEditAction, AiInvokeRequest } from "../../src/types/ai";
+import type { AiChatRequest, AiEditAction, AiInvokeRequest } from "../../src/types/ai";
 
 const ACTION_INSTRUCTIONS: Record<AiEditAction, string> = {
   polish: "润色文字，保持原意和语气，让表达更清晰自然。",
@@ -60,5 +60,33 @@ export function buildAiPrompt(request: AiInvokeRequest): string {
   }
 
   parts.push("只输出可安全插入 Markdown 文档的结果，不要输出多余的前言或解释。");
+  return parts.join("\n\n");
+}
+
+export function buildChatSystemPrompt(request: AiChatRequest): string {
+  const parts = [
+    "你是 XMD 的 Markdown 写作助手，正在与用户进行多轮对话。",
+    "请根据对话上下文和文档内容提供帮助。",
+    "返回 Markdown 格式的结果，保持简洁专业。",
+  ];
+
+  if (request.documentContext?.trim()) {
+    parts.push(
+      "以下是用户当前正在编辑的 Markdown 文档内容（仅供参考，不要直接修改）：",
+      "```",
+      request.documentContext.trim(),
+      "```",
+    );
+  }
+
+  if (request.selection?.trim()) {
+    parts.push(
+      "用户当前选中的文本：",
+      "```",
+      request.selection.trim(),
+      "```",
+    );
+  }
+
   return parts.join("\n\n");
 }

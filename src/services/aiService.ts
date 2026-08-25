@@ -1,4 +1,8 @@
 import type {
+  AiChatDeltaEvent,
+  AiChatDoneEvent,
+  AiChatErrorEvent,
+  AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
   AiErrorEvent,
@@ -20,4 +24,10 @@ export const aiService = {
   onDelta: (callback: (event: AiDeltaEvent) => void) => window.electronAPI.aiService.onDelta(callback),
   onDone: (callback: (event: AiDoneEvent) => void) => window.electronAPI.aiService.onDone(callback),
   onError: (callback: (event: AiErrorEvent) => void) => window.electronAPI.aiService.onError(callback),
+  // Chat 多轮对话
+  chatInvoke: (request: AiChatRequest) => window.electronAPI.aiService.chatInvoke(request),
+  chatCancel: (requestId: string) => window.electronAPI.aiService.chatCancel(requestId),
+  onChatDelta: (callback: (event: AiChatDeltaEvent) => void) => window.electronAPI.aiService.onChatDelta(callback),
+  onChatDone: (callback: (event: AiChatDoneEvent) => void) => window.electronAPI.aiService.onChatDone(callback),
+  onChatError: (callback: (event: AiChatErrorEvent) => void) => window.electronAPI.aiService.onChatError(callback),
 };

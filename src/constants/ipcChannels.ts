@@ -78,4 +78,10 @@ export const IPC_CHANNELS = {
   aiStreamDelta: "ai-stream-delta",
   aiStreamDone: "ai-stream-done",
   aiStreamError: "ai-stream-error",
+  // Chat 多轮对话
+  aiChatInvoke: "ai-chat-invoke",
+  aiChatCancel: "ai-chat-cancel",
+  aiChatStreamDelta: "ai-chat-stream-delta",
+  aiChatStreamDone: "ai-chat-stream-done",
+  aiChatStreamError: "ai-chat-stream-error",
 } as const;

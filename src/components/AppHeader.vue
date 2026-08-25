@@ -33,7 +33,7 @@
       <button type="button"
         class="flex h-7 w-8 items-center justify-center rounded bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
         :class="isDarkTheme ? 'text-icon hover:bg-control-hover hover:text-ink' : 'text-[#666666] hover:bg-[#e8e8e6] hover:text-[#292929]'"
-        title="AI 助手" @click="emit('open-ai')">
+        title="AI Chat (Ctrl+Shift+A)" @click="emit('open-ai')">
         <Icon icon="lucide:sparkles" :size="18" />
       </button>
       <button type="button"

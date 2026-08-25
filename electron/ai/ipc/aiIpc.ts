@@ -1,6 +1,10 @@
 import { ipcMain, type BrowserWindow } from "electron";
 import { IPC_CHANNELS } from "../../../src/constants/ipcChannels";
 import type {
+  AiChatDeltaEvent,
+  AiChatDoneEvent,
+  AiChatErrorEvent,
+  AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
   AiErrorEvent,
@@ -10,8 +14,8 @@ import type {
   AiSettingsInput,
 } from "../../../src/types/ai";
 import { getAiSettings, saveAiSettings, toPublicSettings } from "../aiSettings";
-import { getAiAgentStatus, getWriterAgent } from "../mastra";
-import { buildAiPrompt } from "../prompts";
+import { getAiAgentStatus, getChatAgent, getWriterAgent } from "../mastra";
+import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
 
 interface ActiveAiRequest {
   controller: AbortController;
@@ -219,6 +223,100 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
   });
 
   ipcMain.on(IPC_CHANNELS.aiCancel, (_event, requestId: string) => {
+    const active = activeRequests.get(requestId);
+    if (!active) return;
+    active.cancelled = true;
+    active.controller.abort();
+  });
+
+  // ─── Chat 多轮对话 ─────────────────────────────────────────────────
+
+  function assertChatRequest(value: unknown): asserts value is AiChatRequest {
+    if (!value || typeof value !== "object") throw new Error("Chat 请求格式不正确");
+    const request = value as Partial<AiChatRequest>;
+    if (typeof request.requestId !== "string" || !request.requestId) {
+      throw new Error("Chat 请求缺少 requestId");
+    }
+    if (!Array.isArray(request.messages) || request.messages.length === 0) {
+      throw new Error("Chat 请求缺少消息列表");
+    }
+  }
+
+  ipcMain.handle(IPC_CHANNELS.aiChatInvoke, async (_event, value: unknown) => {
+    assertChatRequest(value);
+    const request = value;
+
+    const status = await getAiAgentStatus();
+    if (!status.configured) {
+      throw new Error("请先在设置中启用并配置 AI");
+    }
+
+    const settings = await getAiSettings();
+    const controller = new AbortController();
+    const active: ActiveAiRequest = {
+      controller,
+      timeout: setTimeout(() => controller.abort(), settings.timeoutMs),
+      cancelled: false,
+    };
+    activeRequests.set(request.requestId, active);
+
+    const sendDelta = (delta: string): void => {
+      const event: AiChatDeltaEvent = { requestId: request.requestId, delta };
+      getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamDelta, event);
+    };
+    const sendDone = (): void => {
+      const event: AiChatDoneEvent = { requestId: request.requestId };
+      getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamDone, event);
+    };
+    const sendError = (message: string): void => {
+      const event: AiChatErrorEvent = { requestId: request.requestId, error: message };
+      getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamError, event);
+    };
+
+    try {
+      const agent = await getChatAgent();
+
+      // 构建完整的消息列表：系统提示 + 文档上下文 + 对话历史
+      const systemPrompt = buildChatSystemPrompt(request);
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        ...request.messages.map((m) => ({ role: m.role, content: m.content })),
+      ];
+
+      const stream = await agent.stream(messages, {
+        modelSettings: {
+          temperature: request.options?.temperature ?? settings.temperature,
+          maxOutputTokens: request.options?.maxTokens ?? settings.maxTokens,
+        },
+        abortSignal: controller.signal,
+      });
+
+      let finished = false;
+      for await (const chunk of stream.fullStream) {
+        if (active.cancelled) break;
+        if (chunk.type === "text-delta") {
+          sendDelta(chunk.payload.text);
+        } else if (chunk.type === "finish") {
+          finished = true;
+          sendDone();
+        } else if (chunk.type === "error") {
+          sendError(errorMessage(chunk.payload.error));
+          finished = true;
+        }
+      }
+
+      if (!finished && !active.cancelled) sendDone();
+    } catch (error) {
+      if (!active.cancelled) sendError(errorMessage(error));
+    } finally {
+      clearTimeout(active.timeout);
+      activeRequests.delete(request.requestId);
+    }
+
+    return { requestId: request.requestId };
+  });
+
+  ipcMain.on(IPC_CHANNELS.aiChatCancel, (_event, requestId: string) => {
     const active = activeRequests.get(requestId);
     if (!active) return;
     active.cancelled = true;

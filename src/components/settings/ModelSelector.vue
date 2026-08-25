@@ -3,7 +3,7 @@
     <div class="model-selector-input-wrap" :class="{ 'model-selector-focus': focused }">
       <Icon icon="lucide:cube" :size="15" class="model-selector-icon" />
       <input ref="inputRef" v-model="inputValue" type="text" class="model-selector-input" :placeholder="placeholder"
-        @focus="onFocus" @blur="onBlur" @keydown="onKeyDown" />
+        @focus="onFocus" @blur="onBlur" @keydown="onKeyDown" @input="onInput" />
       <button v-if="inputValue" type="button" class="model-selector-clear" @mousedown.prevent="clear">
         <Icon icon="lucide:x" :size="12" />
       </button>
@@ -159,15 +159,19 @@ const onFocus = () => {
   activeIndex.value = -1
 }
 
+const onInput = () => {
+  // 实时同步输入值到父组件，确保点击保存时值已更新
+  emit('update:modelValue', inputValue.value.trim())
+}
+
 const onBlur = () => {
   focused.value = false
+  // 立即提交当前输入值，不使用延迟，确保点击保存按钮时值已同步
+  const value = inputValue.value.trim()
+  emit('update:modelValue', value)
+  // 延迟关闭下拉框，让 mousedown 事件先触发
   setTimeout(() => {
     showDropdown.value = false
-    // 失焦时提交当前输入值
-    const value = inputValue.value.trim()
-    if (value) {
-      emit('update:modelValue', value)
-    }
   }, 150)
 }
 

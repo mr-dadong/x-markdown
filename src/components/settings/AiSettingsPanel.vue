@@ -12,7 +12,7 @@
 
     <SettingGroup title="模型名称" description="从列表选择或输入自定义模型名称，点击刷新获取可用模型。">
       <ModelSelector ref="modelSelectorRef" v-model="model" v-model:customModels="customModels"
-        placeholder="gpt-4o-mini" @fetch="onFetchModels" />
+        placeholder="输入或选择模型" @fetch="onFetchModels" />
     </SettingGroup>
 
     <SettingGroup v-if="provider !== 'anthropic'" title="API 地址"
@@ -159,7 +159,7 @@ const save = async (): Promise<void> => {
       maxTokens: maxTokens.value,
       timeoutMs: timeoutMs.value,
       allowLocalRequests: allowLocalRequests.value,
-      customModels: customModels.value,
+      customModels: [...customModels.value],
     })
     hasApiKey.value = settings.hasApiKey
     apiKey.value = ''

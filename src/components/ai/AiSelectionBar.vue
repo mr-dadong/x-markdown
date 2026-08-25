@@ -1,40 +1,42 @@
 <template>
   <!-- AI 未配置时：引导用户去设置页，不展示动作按钮。 -->
-  <div v-if="!isConfigured()" class="flex items-center gap-2 rounded-md bg-ink p-1.5 text-inverse" contenteditable="false">
-    <button
-      type="button"
-      title="打开 AI 设置"
-      class="flex h-8 items-center gap-2 rounded-md px-3 text-[12px] font-medium hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-inverse"
-      @mousedown.prevent="emit('open-settings')"
-    >
-      <Icon icon="lucide:sparkles" :size="14" class="shrink-0" />
-      <span>配置 AI 后使用</span>
-    </button>
-  </div>
+  <Transition name="ai-bar">
+    <div v-if="!isConfigured()" class="ai-bar ai-bar-setup" contenteditable="false">
+      <button
+        type="button"
+        title="打开 AI 设置"
+        class="ai-bar-btn ai-bar-setup-btn"
+        @mousedown.prevent="emit('open-settings')"
+      >
+        <Icon icon="lucide:sparkles" :size="14" class="ai-bar-icon" />
+        <span>配置 AI 后使用</span>
+      </button>
+    </div>
 
-  <!-- AI 已配置：展示常用动作。 -->
-  <div v-else class="flex items-center gap-0.5 rounded-md bg-ink p-1 text-inverse" contenteditable="false">
-    <button
-      v-for="action in visibleActions"
-      :key="action.id"
-      type="button"
-      :title="action.label"
-      class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-inverse"
-      @mousedown.prevent="emit('run', action.id)"
-    >
-      <Icon :icon="action.icon" :size="14" class="shrink-0" />
-      <span>{{ action.label }}</span>
-    </button>
-    <span class="mx-1 h-5 w-px bg-current opacity-30" />
-    <button
-      type="button"
-      title="更多 AI 动作"
-      class="flex h-8 w-8 items-center justify-center rounded-md hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-inverse"
-      @mousedown.prevent="emit('open-panel')"
-    >
-      <Icon icon="lucide:sparkles" :size="14" />
-    </button>
-  </div>
+    <!-- AI 已配置：展示常用动作。 -->
+    <div v-else class="ai-bar ai-bar-actions" contenteditable="false">
+      <button
+        v-for="action in visibleActions"
+        :key="action.id"
+        type="button"
+        :title="action.label"
+        class="ai-bar-btn ai-bar-action-btn"
+        @mousedown.prevent="emit('run', action.id)"
+      >
+        <Icon :icon="action.icon" :size="14" class="ai-bar-icon" />
+        <span>{{ action.label }}</span>
+      </button>
+      <span class="ai-bar-divider" />
+      <button
+        type="button"
+        title="更多 AI 动作"
+        class="ai-bar-btn ai-bar-more-btn"
+        @mousedown.prevent="emit('open-panel')"
+      >
+        <Icon icon="lucide:sparkles" :size="14" />
+      </button>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -65,3 +67,84 @@ const visibleActions: ActionItem[] = [
   { id: 'continue', label: '续写', icon: 'lucide:pen-line' },
 ]
 </script>
+
+<style scoped>
+/* 入场/退场动画 */
+.ai-bar-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-bar-leave-active {
+  transition: all 0.15s ease-in;
+}
+
+.ai-bar-enter-from {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+
+.ai-bar-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.ai-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-ink);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+:root.dark .ai-bar {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ai-bar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--color-inverse);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.ai-bar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ai-bar-btn:active {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(0.97);
+}
+
+.ai-bar-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.ai-bar-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 4px;
+}
+
+.ai-bar-more-btn {
+  padding: 0 8px;
+}
+
+.ai-bar-setup-btn {
+  gap: 6px;
+}
+</style>
