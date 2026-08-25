@@ -184,15 +184,16 @@ export const useAiChat = (options: AiChatOptions) => {
   const insertMessageToCursor = (messageId: string): void => {
     const msg = messages.value.find((m) => m.id === messageId);
     if (!msg || msg.role !== "assistant") return;
-    options.insertAtCursor(msg.content);
-    addSystemMessage("已插入到文档");
-  };
-
-  const replaceSelectionWithMessage = (messageId: string): void => {
-    const msg = messages.value.find((m) => m.id === messageId);
-    if (!msg || msg.role !== "assistant") return;
-    options.replaceSelection(msg.content);
-    addSystemMessage("已替换选区");
+    
+    // 智能判断：如果有选区则替换选区，否则插入到光标位置
+    const selection = options.getSelection();
+    if (selection && selection.trim()) {
+      options.replaceSelection(msg.content);
+      addSystemMessage("已替换选区");
+    } else {
+      options.insertAtCursor(msg.content);
+      addSystemMessage("已插入到文档");
+    }
   };
 
   const copyMessage = async (messageId: string): Promise<void> => {
@@ -247,7 +248,6 @@ export const useAiChat = (options: AiChatOptions) => {
     retry,
     clearHistory,
     insertMessageToCursor,
-    replaceSelectionWithMessage,
     copyMessage,
     loadHistory,
   };

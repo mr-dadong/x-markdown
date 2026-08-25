@@ -69,7 +69,6 @@
           :message="msg"
           :is-streaming="isStreaming"
           @insert="insertMessageToCursor"
-          @replace="replaceSelectionWithMessage"
           @copy="copyMessage"
           @retry="retry"
         />
@@ -108,6 +107,7 @@
       <AiChatInput
         ref="inputRef"
         :is-streaming="isStreaming"
+        :get-selection="props.getSelection"
         @send="sendMessage"
         @cancel="cancel"
       />
@@ -175,7 +175,6 @@ const {
   retry,
   clearHistory,
   insertMessageToCursor,
-  replaceSelectionWithMessage,
   copyMessage,
 } = useAiChat({
   getDocumentContext: props.getDocumentContext,
@@ -659,8 +658,8 @@ const startResize = (event: MouseEvent): void => {
   line-height: 1.4;
 }
 
-.chat-msg__content :deep(h1) { font-size: 17px; }
-.chat-msg__content :deep(h2) { font-size: 15px; }
+.chat-msg__content :deep(h1) { font-size: 18px; }
+.chat-msg__content :deep(h2) { font-size: 16px; }
 .chat-msg__content :deep(h3) { font-size: 14px; }
 
 .chat-msg__content :deep(h1:first-child),

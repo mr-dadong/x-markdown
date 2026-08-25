@@ -1,21 +1,5 @@
 <template>
   <div class="chat-input">
-    <!-- 快捷动作 -->
-    <div class="chat-input__actions">
-      <button
-        v-for="action in quickActions"
-        :key="action.id"
-        type="button"
-        class="chat-input__action-btn"
-        :title="action.label"
-        :disabled="isStreaming"
-        @mousedown.prevent="handleQuickAction(action)"
-      >
-        <Icon :icon="action.icon" :size="12" />
-        <span>{{ action.label }}</span>
-      </button>
-    </div>
-
     <!-- 输入区域 -->
     <div class="chat-input__wrapper">
       <textarea
@@ -29,6 +13,15 @@
         @input="autoResize"
       />
       <div class="chat-input__buttons">
+        <button
+          v-if="hasSelection"
+          type="button"
+          class="chat-input__btn chat-input__btn--selection"
+          title="添加选区内容"
+          @mousedown.prevent="addSelection"
+        >
+          <Icon icon="lucide:text-select" :size="14" />
+        </button>
         <button
           v-if="isStreaming"
           type="button"
@@ -57,15 +50,9 @@
 import { computed, nextTick, ref } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 
-interface QuickAction {
-  id: string
-  label: string
-  icon: string
-  prompt: string
-}
-
 const props = defineProps<{
   isStreaming: boolean
+  getSelection: () => string
 }>()
 
 const emit = defineEmits<{
@@ -78,20 +65,27 @@ const inputText = ref('')
 
 const canSend = computed(() => inputText.value.trim().length > 0 && !props.isStreaming)
 
+const hasSelection = computed(() => {
+  const selection = props.getSelection()
+  return selection && selection.trim().length > 0
+})
+
 const placeholder = computed(() => {
   if (props.isStreaming) return '正在生成…'
   return '输入消息…'
 })
 
-const quickActions: QuickAction[] = [
-  { id: 'summarize', label: '总结', icon: 'lucide:list', prompt: '请总结当前文档的主要内容' },
-  { id: 'outline', label: '大纲', icon: 'lucide:list-tree', prompt: '请根据当前文档生成标题大纲' },
-  { id: 'translate', label: '翻译', icon: 'lucide:pen-line', prompt: '请将选中的内容翻译为英文' },
-  { id: 'explain', label: '解释', icon: 'lucide:code-2', prompt: '请解释这段代码的含义' },
-]
-
-const handleQuickAction = (action: QuickAction): void => {
-  inputText.value = action.prompt
+const addSelection = (): void => {
+  const selection = props.getSelection()
+  if (!selection || !selection.trim()) return
+  
+  // 将选区内容添加到输入框
+  if (inputText.value.trim()) {
+    inputText.value += '\n\n' + selection
+  } else {
+    inputText.value = selection
+  }
+  
   nextTick(() => {
     inputRef.value?.focus()
     autoResize()
@@ -142,45 +136,6 @@ defineExpose({ focus })
   padding: 12px;
   border-top: 1px solid var(--color-line);
   background: var(--color-paper);
-}
-
-.chat-input__actions {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.chat-input__actions::-webkit-scrollbar {
-  display: none;
-}
-
-.chat-input__action-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid var(--color-line);
-  background: var(--color-panel);
-  color: var(--color-secondary);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.chat-input__action-btn:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--color-selected);
-}
-
-.chat-input__action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .chat-input__wrapper {
@@ -239,6 +194,17 @@ defineExpose({ focus })
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.chat-input__btn--selection {
+  background: var(--color-selected);
+  color: var(--color-accent);
+}
+
+.chat-input__btn--selection:hover {
+  background: var(--color-accent);
+  color: var(--color-inverse);
+  transform: scale(1.05);
 }
 
 .chat-input__btn--send {

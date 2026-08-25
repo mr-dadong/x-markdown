@@ -3,11 +3,8 @@
     <button type="button" class="msg-actions__btn" title="复制" @mousedown.prevent="emit('copy')">
       <Icon icon="lucide:copy" :size="13" />
     </button>
-    <button type="button" class="msg-actions__btn" title="插入到光标" @mousedown.prevent="emit('insert')">
+    <button type="button" class="msg-actions__btn" title="插入" @mousedown.prevent="emit('insert')">
       <Icon icon="lucide:corner-down-left" :size="13" />
-    </button>
-    <button type="button" class="msg-actions__btn" title="替换选区" @mousedown.prevent="emit('replace')">
-      <Icon icon="lucide:replace" :size="13" />
     </button>
     <button v-if="!isStreaming" type="button" class="msg-actions__btn" title="重新生成" @mousedown.prevent="emit('retry')">
       <Icon icon="lucide:rotate-ccw" :size="13" />
@@ -25,7 +22,6 @@ defineProps<{
 
 const emit = defineEmits<{
   insert: []
-  replace: []
   copy: []
   retry: []
 }>()

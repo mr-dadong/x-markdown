@@ -18,7 +18,6 @@
         :message-id="message.id"
         :is-streaming="isStreaming"
         @insert="$emit('insert', message.id)"
-        @replace="$emit('replace', message.id)"
         @copy="$emit('copy', message.id)"
         @retry="$emit('retry')"
       />
@@ -46,7 +45,6 @@ const props = defineProps<{
 
 defineEmits<{
   insert: [messageId: string]
-  replace: [messageId: string]
   copy: [messageId: string]
   retry: []
 }>()
@@ -150,7 +148,7 @@ const renderedContent = computed(() => {
 }
 
 /* Markdown 渲染样式 */
-.chat-msg__content :deep(.markdown-body) {
+.chat-msg__content.markdown-body {
   font-size: 13px;
   line-height: 1.7;
   color: var(--color-ink);
