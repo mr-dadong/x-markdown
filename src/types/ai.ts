@@ -13,7 +13,8 @@ export type AiEditAction =
   | "table"
   | "callout"
   | "mermaid"
-  | "frontmatter";
+  | "frontmatter"
+  | "ai-write";
 
 export interface AiSettings {
   enabled: boolean;

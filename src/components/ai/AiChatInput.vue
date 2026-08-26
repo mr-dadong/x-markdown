@@ -1,5 +1,24 @@
 <template>
   <div class="chat-input">
+    <!-- 选区标签列表 -->
+    <div v-if="pendingSelections && pendingSelections.length > 0" class="chat-input__selection-tags">
+      <div
+        v-for="(selection, index) in pendingSelections"
+        :key="index"
+        class="chat-input__selection-tag"
+      >
+        <Icon icon="lucide:quote" :size="10" />
+        <span class="chat-input__selection-label">{{ truncateText(selection) }}</span>
+        <button
+          type="button"
+          class="chat-input__selection-remove"
+          title="移除"
+          @mousedown.prevent="$emit('remove-pending-selection', index)"
+        >
+          <Icon icon="lucide:x" :size="10" />
+        </button>
+      </div>
+    </div>
     <!-- 输入区域 -->
     <div class="chat-input__wrapper">
       <textarea
@@ -13,15 +32,6 @@
         @input="autoResize"
       />
       <div class="chat-input__buttons">
-        <button
-          v-if="hasSelection"
-          type="button"
-          class="chat-input__btn chat-input__btn--selection"
-          title="添加选区内容"
-          @mousedown.prevent="addSelection"
-        >
-          <Icon icon="lucide:text-select" :size="14" />
-        </button>
         <button
           v-if="isStreaming"
           type="button"
@@ -52,12 +62,14 @@ import { Icon } from '@iconify/vue/offline'
 
 const props = defineProps<{
   isStreaming: boolean
-  getSelection: () => string
+  pendingSelections?: string[]
 }>()
 
 const emit = defineEmits<{
   send: [content: string]
   cancel: []
+  'clear-pending-selections': []
+  'remove-pending-selection': [index: number]
 }>()
 
 const inputRef = ref<HTMLTextAreaElement | null>(null)
@@ -65,36 +77,28 @@ const inputText = ref('')
 
 const canSend = computed(() => inputText.value.trim().length > 0 && !props.isStreaming)
 
-const hasSelection = computed(() => {
-  const selection = props.getSelection()
-  return selection && selection.trim().length > 0
-})
+const truncateText = (text: string): string => {
+  const trimmed = text.trim()
+  return trimmed.length > 40 ? trimmed.slice(0, 40) + '…' : trimmed
+}
 
 const placeholder = computed(() => {
   if (props.isStreaming) return '正在生成…'
   return '输入消息…'
 })
 
-const addSelection = (): void => {
-  const selection = props.getSelection()
-  if (!selection || !selection.trim()) return
-  
-  // 将选区内容添加到输入框
-  if (inputText.value.trim()) {
-    inputText.value += '\n\n' + selection
-  } else {
-    inputText.value = selection
-  }
-  
-  nextTick(() => {
-    inputRef.value?.focus()
-    autoResize()
-  })
-}
-
 const handleSend = (): void => {
   if (!canSend.value) return
-  emit('send', inputText.value)
+  let content = inputText.value
+  // 如果有 pending selections，附加到消息中
+  if (props.pendingSelections && props.pendingSelections.length > 0) {
+    const selectionsText = props.pendingSelections
+      .map((s, i) => `选区${i + 1}：\n\`\`\`\n${s}\n\`\`\``)
+      .join('\n\n')
+    content = content + '\n\n' + selectionsText
+    emit('clear-pending-selections')
+  }
+  emit('send', content)
   inputText.value = ''
   nextTick(() => autoResize())
 }
@@ -136,6 +140,51 @@ defineExpose({ focus })
   padding: 12px;
   border-top: 1px solid var(--color-line);
   background: var(--color-paper);
+}
+
+.chat-input__selection-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chat-input__selection-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 8px;
+  background: var(--color-selected);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--color-secondary);
+  max-width: fit-content;
+}
+
+.chat-input__selection-label {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-input__selection-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+}
+
+.chat-input__selection-remove:hover {
+  background: var(--color-control-hover);
+  color: var(--color-ink);
 }
 
 .chat-input__wrapper {
@@ -194,17 +243,6 @@ defineExpose({ focus })
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
-}
-
-.chat-input__btn--selection {
-  background: var(--color-selected);
-  color: var(--color-accent);
-}
-
-.chat-input__btn--selection:hover {
-  background: var(--color-accent);
-  color: var(--color-inverse);
-  transform: scale(1.05);
 }
 
 .chat-input__btn--send {

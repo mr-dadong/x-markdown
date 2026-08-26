@@ -97,6 +97,7 @@ const actionLabels: Record<AiEditAction, string> = {
   callout: '生成提示框',
   mermaid: '生成图表',
   frontmatter: '生成元数据',
+  'ai-write': 'AI 实时编写',
 }
 
 const actionLabel = computed(() => {

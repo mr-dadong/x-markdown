@@ -14,6 +14,7 @@ const ACTION_INSTRUCTIONS: Record<AiEditAction, string> = {
   callout: "把当前内容整理成一个 Markdown Callout 提示块。",
   mermaid: "把当前内容转换为 Mermaid 图表源码，只输出代码块。",
   frontmatter: "为当前文档生成 YAML frontmatter，包含 title、summary、tags 字段。",
+  "ai-write": "根据用户的要求，在光标位置生成 Markdown 内容。",
 };
 
 export const AI_ACTION_LABELS: Record<AiEditAction, string> = {
@@ -30,14 +31,17 @@ export const AI_ACTION_LABELS: Record<AiEditAction, string> = {
   callout: "整理为提示块",
   mermaid: "生成 Mermaid",
   frontmatter: "生成 YAML",
+  "ai-write": "AI 实时编写",
 };
 
 export function buildAiPrompt(request: AiInvokeRequest): string {
   const action = ACTION_INSTRUCTIONS[request.action] ?? ACTION_INSTRUCTIONS.polish;
   const target = request.selection?.trim() || request.documentContext?.trim();
+  const instruction = request.options?.instruction?.trim();
 
-  if (!target) {
-    throw new Error("没有可处理的文本，请先选中内容或打开文档");
+  // ai-write 支持纯指令编写：空文档、无选区时凭指令也能生成内容
+  if (!target && !instruction) {
+    throw new Error("没有可处理的文本，请先选中内容或输入编写要求");
   }
 
   const parts = [

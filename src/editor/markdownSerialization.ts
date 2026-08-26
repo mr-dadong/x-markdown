@@ -15,6 +15,7 @@ interface TableMarkdownParserState {
 }
 
 const configuredTableMarkdownParsers = new WeakSet<object>();
+const tableCellContentPaddedParsers = new WeakSet<object>();
 
 type TableSerializerState = MarkdownSerializerState & {
   inTable: boolean;
@@ -310,6 +311,26 @@ export const protectTableCodePipesForParsing = (markdown: string): string => {
       return result;
     })
     .join("\n");
+};
+
+/**
+ * markdown-it 渲染空表格单元格时会输出 `<td></td>`，TipTap 会把它解析成
+ * 没有任何子节点的 tableCell；而 tableCell 至少要包含一个块级子节点，
+ * 插入文档时会抛出 "Invalid content for node tableCell"。
+ * AI 流式输出表格时经常出现列数不足的行（markdown-it 自动补空单元格），
+ * 合法 Markdown 本身也允许空单元格，因此给空单元格补上空段落保证结构合法。
+ */
+export const ensureTableCellsHaveContent = (markdown: MarkdownIt): void => {
+  if (tableCellContentPaddedParsers.has(markdown)) return;
+  tableCellContentPaddedParsers.add(markdown);
+
+  const renderWithoutPadding = markdown.render.bind(markdown);
+  // 只匹配真正的空单元格标签（含对齐样式等属性），单元格内有内容时不受影响
+  markdown.render = (source: string, env?: unknown): string =>
+    renderWithoutPadding(source, env).replace(
+      /<(td|th)([^>]*)><\/\1>/gu,
+      "<$1$2><p></p></$1>",
+    );
 };
 
 /**

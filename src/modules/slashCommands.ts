@@ -18,6 +18,7 @@ export interface SlashCommand {
   keywords: string[];
   opensLinkForm?: boolean;
   opensEmojiPicker?: boolean;
+  opensAiWriter?: boolean;
   run?: (
     editor: Editor,
     range: SlashRange,
@@ -459,6 +460,16 @@ export const slashCommands: SlashCommand[] = [
     iconClass: "bg-toolbar text-accent",
     keywords: ["超链接", "链接", "网址", "link", "url", "href", "charuchaolianjie", "crclj"],
     opensLinkForm: true,
+  },
+  {
+    id: "ai-write",
+    group: "扩展内容",
+    label: "AI 实时编写",
+    description: "让 AI 在光标处实时生成内容",
+    icon: "lucide:sparkles",
+    iconClass: "bg-selected text-accent",
+    keywords: ["AI", "实时编写", "生成", "写作", "续写", "shishi", "ssbx"],
+    opensAiWriter: true,
   },
 ];
 

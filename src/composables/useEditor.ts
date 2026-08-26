@@ -46,6 +46,7 @@ export const useMarkdownEditor = (
   emit?: (event: "update:content", content: string) => void,
   getCurrentDocumentPath?: () => string | null,
   getIsActive: () => boolean = () => true,
+  onOpenAiWriter?: (range: SlashRange) => void,
 ) => {
   const { settings } = useSettings();
   const slashMenuVisible = ref(false);
@@ -392,6 +393,11 @@ export const useMarkdownEditor = (
     }
     if (command.opensEmojiPicker) {
       openEmojiPicker(range);
+      return;
+    }
+    if (command.opensAiWriter) {
+      // 触发AI实时编写事件
+      onOpenAiWriter?.(range);
       return;
     }
     if (!command.run) return;

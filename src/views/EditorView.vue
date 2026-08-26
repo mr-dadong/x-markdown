@@ -19,7 +19,8 @@
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
                     :modal-open="isSettingsOpen || isUpdateModalOpen"
                     @update:content="handleContentUpdate" @ai-action="handleAiAction"
-                    @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings" />
+                    @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings"
+                    @add-to-selection="handleAddToSelection" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
@@ -89,6 +90,8 @@
             <AiChatSidebar v-if="isAiChatOpen && isDocumentOpen" :get-document-context="getAiDocumentContext"
                 :get-selection="getAiSelection" :insert-at-cursor="insertAiAtCursor"
                 :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
+                :pending-selections="pendingSelections" @clear-pending-selections="clearPendingSelections"
+                @remove-pending-selection="removePendingSelection"
                 @close="isAiChatOpen = false" @open-settings="openAiSettings" />
         </div>
 
@@ -140,6 +143,7 @@ const isSidebarVisible = ref(false)
 const isSettingsOpen = ref(false)
 const settingsInitialSection = ref<SettingsSection>('general')
 const isAiChatOpen = ref(false)
+const pendingSelections = ref<string[]>([])
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
@@ -182,6 +186,22 @@ const replaceAiSelection = (text: string): void => {
 // 选中文本后点击 AI 动作：打开 Chat 侧栏。
 const handleAiAction = (action: AiEditAction): void => {
     isAiChatOpen.value = true
+}
+
+// 添加选中文本到 AI Chat 输入框
+const handleAddToSelection = (text: string): void => {
+    pendingSelections.value.push(text)
+    isAiChatOpen.value = true
+}
+
+// 消费 pending selection 后清空
+const clearPendingSelections = (): void => {
+    pendingSelections.value = []
+}
+
+// 移除单个选区
+const removePendingSelection = (index: number): void => {
+    pendingSelections.value.splice(index, 1)
 }
 
 // 从 Chat 侧栏跳转到设置页的 AI 配置区。

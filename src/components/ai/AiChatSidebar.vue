@@ -107,9 +107,11 @@
       <AiChatInput
         ref="inputRef"
         :is-streaming="isStreaming"
-        :get-selection="props.getSelection"
+        :pending-selections="props.pendingSelections"
         @send="sendMessage"
         @cancel="cancel"
+        @clear-pending-selections="emit('clear-pending-selections')"
+        @remove-pending-selection="(i) => emit('remove-pending-selection', i)"
       />
     </template>
   </aside>
@@ -131,11 +133,14 @@ const props = defineProps<{
   insertAtCursor: (text: string) => void
   replaceSelection: (text: string) => void
   getFilePath: () => string | null
+  pendingSelections?: string[]
 }>()
 
 const emit = defineEmits<{
   close: []
   'open-settings': []
+  'clear-pending-selections': []
+  'remove-pending-selection': [index: number]
 }>()
 
 // 初始化 markdown-it
@@ -200,7 +205,7 @@ const renderedStreamingContent = computed(() => {
 // 状态文本
 const statusText = computed(() => {
   if (isStreaming.value) return '正在生成…'
-  if (displayMessages.value.length === 0) return '准备就绪'
+  if (displayMessages.value.length === 0) return ''
   return `${displayMessages.value.filter((m) => m.role !== 'system').length} 条消息`
 })
 
@@ -236,7 +241,7 @@ onMounted(() => {
 
 // ─── 拖拽调整宽度 ───────────────────────────────────────────────────
 
-const sidebarWidth = ref(360)
+const sidebarWidth = ref(400)
 const isResizing = ref(false)
 let startX = 0
 let startWidth = 0
@@ -248,7 +253,7 @@ const startResize = (event: MouseEvent): void => {
 
   const onMouseMove = (e: MouseEvent): void => {
     const delta = startX - e.clientX
-    sidebarWidth.value = Math.min(500, Math.max(280, startWidth + delta))
+    sidebarWidth.value = Math.min(560, Math.max(320, startWidth + delta))
   }
 
   const onMouseUp = (): void => {
@@ -267,8 +272,8 @@ const startResize = (event: MouseEvent): void => {
   display: flex;
   flex-direction: column;
   width: v-bind(sidebarWidth + 'px');
-  min-width: 280px;
-  max-width: 500px;
+  min-width: 320px;
+  max-width: 560px;
   height: 100%;
   flex-shrink: 0;
   background: var(--color-paper);

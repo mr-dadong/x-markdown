@@ -39,17 +39,23 @@ const EDIT_ACTIONS = new Set([
   "callout",
   "mermaid",
   "frontmatter",
+  "ai-write",
 ]);
 
 function assertInvokeRequest(value: unknown): asserts value is AiInvokeRequest {
   if (!value || typeof value !== "object") throw new Error("AI 请求格式不正确");
   const request = value as Partial<AiInvokeRequest>;
+  // ai-write 支持纯指令编写：空文档、无选区时只携带 instruction 也能发起请求
+  const hasContext =
+    typeof request.selection === "string" || typeof request.documentContext === "string";
+  const hasInstruction =
+    typeof request.options?.instruction === "string" && request.options.instruction.trim() !== "";
   if (
     typeof request.requestId !== "string" ||
     !request.requestId ||
     typeof request.action !== "string" ||
     !EDIT_ACTIONS.has(request.action) ||
-    (typeof request.selection !== "string" && typeof request.documentContext !== "string")
+    (!hasContext && !hasInstruction)
   ) {
     throw new Error("AI 请求格式不正确");
   }
@@ -189,6 +195,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
 
     try {
       const agent = await getWriterAgent();
+      console.log('[aiIpc] invoke:', { requestId: request.requestId, action: request.action, instruction: request.options?.instruction });
       const stream = await agent.stream(buildAiPrompt(request), {
         modelSettings: {
           temperature: settings.temperature,
@@ -201,18 +208,25 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       for await (const chunk of stream.fullStream) {
         if (active.cancelled) break;
         if (chunk.type === "text-delta") {
+          console.log('[aiIpc] text-delta:', chunk.payload.text);
           sendDelta(chunk.payload.text);
         } else if (chunk.type === "finish") {
+          console.log('[aiIpc] finish');
           finished = true;
           sendDone();
         } else if (chunk.type === "error") {
+          console.error('[aiIpc] error:', chunk.payload.error);
           sendError(errorMessage(chunk.payload.error));
           finished = true;
         }
       }
 
-      if (!finished && !active.cancelled) sendDone();
+      if (!finished && !active.cancelled) {
+        console.log('[aiIpc] sending done (not finished)');
+        sendDone();
+      }
     } catch (error) {
+      console.error('[aiIpc] catch error:', error);
       if (!active.cancelled) sendError(errorMessage(error));
     } finally {
       clearTimeout(active.timeout);

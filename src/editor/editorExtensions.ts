@@ -25,6 +25,7 @@ import { Attachment } from "../extensions/Attachment";
 import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
 import { LegacyMediaFilter } from "../extensions/LegacyMediaFilter";
 import { RawMarkdownBlock } from "../extensions/RawMarkdownBlock";
+import { AiGhostMark } from "../extensions/AiGhostMark";
 import {
   Callout,
   FootnoteDefinition,
@@ -52,6 +53,7 @@ import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { mediaService } from "../services/mediaService";
 import {
   configureTyporaTableParsing,
+  ensureTableCellsHaveContent,
   parseTableAlignment,
   serializeMarkdownTableNode,
 } from "./markdownSerialization";
@@ -108,6 +110,7 @@ const SerializableTable = Table.extend({
         parse: {
           setup(markdown: MarkdownIt) {
             configureTyporaTableParsing(markdown);
+            ensureTableCellsHaveContent(markdown);
           },
         },
       },
@@ -328,5 +331,8 @@ export const createEditorExtensions = (options: {
     }),
     AttachmentTransfer,
     SectionCollapse,
+    AiGhostMark.configure({
+      ghostClass: "ai-ghost-content",
+    }),
   ];
 };
