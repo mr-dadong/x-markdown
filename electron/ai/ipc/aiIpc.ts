@@ -195,7 +195,6 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
 
     try {
       const agent = await getWriterAgent();
-      console.log('[aiIpc] invoke:', { requestId: request.requestId, action: request.action, instruction: request.options?.instruction });
       const stream = await agent.stream(buildAiPrompt(request), {
         modelSettings: {
           temperature: settings.temperature,
@@ -208,10 +207,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       for await (const chunk of stream.fullStream) {
         if (active.cancelled) break;
         if (chunk.type === "text-delta") {
-          console.log('[aiIpc] text-delta:', chunk.payload.text);
           sendDelta(chunk.payload.text);
         } else if (chunk.type === "finish") {
-          console.log('[aiIpc] finish');
           finished = true;
           sendDone();
         } else if (chunk.type === "error") {
@@ -222,7 +219,6 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       }
 
       if (!finished && !active.cancelled) {
-        console.log('[aiIpc] sending done (not finished)');
         sendDone();
       }
     } catch (error) {

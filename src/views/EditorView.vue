@@ -135,6 +135,7 @@ import { exportService } from '../services/exportService'
 import { fileSystemService } from '../services/fileSystemService'
 import { getFileName } from '../utils/file'
 import { matchesShortcut } from '../utils/shortcuts'
+import { blockFractionToSourceLine, getTopLevelBlockRanges, mapBlockIndex, sourceLineToBlockFraction } from '../modules/viewSync'
 import type { EditorHandle, SourceEditorHandle } from '../types/editor'
 
 const editorRef = ref<EditorHandle | null>(null)
@@ -293,20 +294,44 @@ const toggleSidebar = (): void => {
 
 const toggleSourceMode = async (): Promise<void> => {
     if (!isDocumentOpen.value) return
-    const scrollProgress = isSourceMode.value
-        ? sourceEditorRef.value?.getScrollProgress() ?? 0
-        : editorRef.value?.getScrollProgress() ?? 0
+
+    // 切换前先记录当前视图的阅读位置，切换后按顶层块映射换算到目标视图。
+    // 顶层块是不受排版差异影响的最小对齐单位：图片占高、字体变大只会改变
+    // 块内部的高度，块与块之间的先后顺序在两种视图中保持一致。
+    const blockRanges = getTopLevelBlockRanges(currentContent.value)
+
+    // 渲染 → 源码：锚点是视口顶部所在块，以及切入该块的深度比例。
+    const renderedAnchor = isSourceMode.value
+        ? null
+        : editorRef.value?.getViewportAnchor() ?? null
+    const renderedBlockCount = isSourceMode.value ? 0 : editorRef.value?.getBlockCount() ?? 0
+    // 源码 → 渲染：锚点是视口顶部行号（0 起始）。
+    const sourceLine = isSourceMode.value
+        ? sourceEditorRef.value?.getViewportSourceLine() ?? null
+        : null
+
     isSourceMode.value = !isSourceMode.value
     if (activeDocumentId.value !== null) {
         documentModes.set(activeDocumentId.value, isSourceMode.value)
     }
 
-    // 等待目标视图完成显示和布局后，再恢复切换前的阅读进度。
+    // 等待目标视图完成显示和布局后，再恢复切换前的阅读位置。
     await nextTick()
+    if (blockRanges.length === 0) return
     if (isSourceMode.value) {
-        sourceEditorRef.value?.setScrollProgress(scrollProgress)
+        if (renderedAnchor === null) return
+        const sourceBlockIndex = mapBlockIndex(renderedAnchor.index, renderedBlockCount, blockRanges.length)
+        // 块内偏移也按比例换算成源码行，往返切换不会跳回块顶。
+        const targetLine = blockFractionToSourceLine(blockRanges, sourceBlockIndex, renderedAnchor.fraction)
+        sourceEditorRef.value?.scrollToSourceLine(targetLine)
     } else {
-        editorRef.value?.setScrollProgress(scrollProgress)
+        if (sourceLine === null) return
+        const { index, fraction } = sourceLineToBlockFraction(blockRanges, sourceLine)
+        const targetBlockCount = editorRef.value?.getBlockCount() ?? 0
+        editorRef.value?.scrollToBlockFraction(
+            mapBlockIndex(index, blockRanges.length, targetBlockCount),
+            fraction,
+        )
     }
 }
 

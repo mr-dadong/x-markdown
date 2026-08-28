@@ -1,58 +1,48 @@
 <template>
-  <Transition name="inline-writer">
-    <div v-if="visible" class="inline-writer-bar" contenteditable="false">
-      <!-- 加载状态 -->
-      <Transition name="inline-writer-fade" mode="out-in">
-        <div v-if="isStreaming" key="loading" class="inline-writer-state inline-writer-loading">
-          <div class="inline-writer-spinner">
-            <svg viewBox="0 0 24 24" class="inline-writer-spinner-svg">
-              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="60 40" stroke-linecap="round" />
-            </svg>
-          </div>
-          <div class="inline-writer-loading-text">
-            <span class="inline-writer-action-name">{{ actionLabel }}</span>
-            <span class="inline-writer-dots">
-              <span>.</span><span>.</span><span>.</span>
-            </span>
-          </div>
-          <button type="button" class="inline-writer-btn inline-writer-stop" title="停止" @mousedown.prevent.stop="$emit('cancel')">
-            <Icon icon="lucide:square" :size="12" />
+  <!-- macOS 风格悬浮胶囊：毛玻璃材质，三种状态在容器内平滑切换 -->
+  <div class="inline-writer-bar" contenteditable="false">
+    <Transition name="inline-writer-fade" mode="out-in">
+      <!-- 流式状态：呼吸星光指示进行中，右侧仅保留停止按钮 -->
+      <div v-if="isStreaming" key="loading" class="inline-writer-state">
+        <Icon icon="lucide:sparkles" :size="14" class="inline-writer-sparkle" />
+        <span class="inline-writer-text">{{ actionLabel }}中</span>
+        <button type="button" class="inline-writer-stop" title="停止" @mousedown.prevent.stop="$emit('cancel')">
+          <Icon icon="lucide:square" :size="11" />
+        </button>
+      </div>
+
+      <!-- 完成状态：绿色对勾徽标弹入，接受/放弃做成胶囊分段按钮 -->
+      <div v-else-if="status === 'done'" key="done" class="inline-writer-state">
+        <span class="inline-writer-check">
+          <Icon icon="lucide:check" :size="13" />
+        </span>
+        <span class="inline-writer-text">AI 编写完成</span>
+        <div class="inline-writer-actions">
+          <button type="button" class="inline-writer-btn inline-writer-btn-primary"
+            @mousedown.prevent.stop="$emit('accept')">
+            <span>接受</span>
+            <kbd class="inline-writer-kbd inline-writer-kbd-light">Tab</kbd>
+          </button>
+          <button type="button" class="inline-writer-btn inline-writer-btn-ghost"
+            @mousedown.prevent.stop="$emit('reject')">
+            <span>放弃</span>
+            <kbd class="inline-writer-kbd">Esc</kbd>
           </button>
         </div>
+      </div>
 
-        <!-- 完成状态 -->
-        <div v-else-if="status === 'done'" key="done" class="inline-writer-state inline-writer-done">
-          <div class="inline-writer-done-content">
-            <div class="inline-writer-done-info">
-              <Icon icon="lucide:check-circle" :size="16" class="inline-writer-done-icon" />
-              <span class="inline-writer-done-text">AI 编写完成</span>
-            </div>
-            <div class="inline-writer-done-actions">
-              <button type="button" class="inline-writer-btn inline-writer-accept" @mousedown.prevent.stop="$emit('accept')">
-                <Icon icon="lucide:check" :size="14" />
-                <span>接受</span>
-                <kbd class="inline-writer-kbd">Tab</kbd>
-              </button>
-              <button type="button" class="inline-writer-btn inline-writer-reject" @mousedown.prevent.stop="$emit('reject')">
-                <Icon icon="lucide:x" :size="14" />
-                <kbd class="inline-writer-kbd">Esc</kbd>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 错误状态 -->
-        <div v-else-if="error" key="error" class="inline-writer-state inline-writer-error">
-          <Icon icon="lucide:alert-circle" :size="16" class="inline-writer-error-icon" />
-          <span class="inline-writer-error-text">{{ error }}</span>
-          <button type="button" class="inline-writer-btn inline-writer-retry" @mousedown.prevent.stop="$emit('retry')">
-            <Icon icon="lucide:rotate-ccw" :size="14" />
-            <span>重试</span>
-          </button>
-        </div>
-      </Transition>
-    </div>
-  </Transition>
+      <!-- 错误状态：红色警示 + 重试 -->
+      <div v-else-if="error" key="error" class="inline-writer-state">
+        <Icon icon="lucide:alert-circle" :size="16" class="inline-writer-error-icon" />
+        <span class="inline-writer-text inline-writer-error-text" :title="error">{{ error }}</span>
+        <button type="button" class="inline-writer-btn inline-writer-btn-primary"
+          @mousedown.prevent.stop="$emit('retry')">
+          <Icon icon="lucide:rotate-ccw" :size="12" />
+          <span>重试</span>
+        </button>
+      </div>
+    </Transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -72,10 +62,6 @@ defineEmits<{
   cancel: []
   retry: []
 }>()
-
-const visible = computed(() =>
-  props.status === 'streaming' || props.status === 'done' || !!props.error
-)
 
 const isStreaming = computed(() => props.status === 'streaming')
 
@@ -97,273 +83,230 @@ const actionLabels: Record<AiEditAction, string> = {
 }
 
 const actionLabel = computed(() => {
-  return props.currentAction ? actionLabels[props.currentAction] : 'AI 编写中'
+  return props.currentAction ? actionLabels[props.currentAction] : 'AI 编写'
 })
 </script>
 
 <style scoped>
-/* 主容器动画 */
-.inline-writer-enter-active {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.inline-writer-leave-active {
-  transition: all 0.2s ease-in;
-}
-
-.inline-writer-enter-from {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.96);
-}
-
-.inline-writer-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
-}
-
-/* 状态切换动画 */
-.inline-writer-fade-enter-active {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.inline-writer-fade-leave-active {
-  transition: all 0.15s ease-in;
-}
-
-.inline-writer-fade-enter-from {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-.inline-writer-fade-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
+/* ===== 毛玻璃胶囊容器 ===== */
+/* 半透明底 + 背景模糊模拟 macOS 系统材质，柔和多层阴影营造悬浮感 */
 .inline-writer-bar {
-  min-width: 240px;
-  max-width: 380px;
-  background: var(--color-paper);
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.12);
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+  max-width: 100%;
+  pointer-events: auto;
 }
 
 :root.dark .inline-writer-bar {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.12);
+  background: rgba(44, 44, 48, 0.66);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .inline-writer-state {
-  padding: 10px 12px;
-}
-
-/* 加载状态 */
-.inline-writer-loading {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 
-.inline-writer-spinner {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  color: var(--color-accent);
-}
-
-.inline-writer-spinner-svg {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.inline-writer-loading-text {
-  flex: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  font-size: 13px;
-  color: var(--color-ink);
-}
-
-.inline-writer-action-name {
-  font-weight: 500;
-}
-
-.inline-writer-dots span {
-  animation: dotPulse 1.4s infinite;
-  opacity: 0;
-}
-
-.inline-writer-dots span:nth-child(1) { animation-delay: 0s; }
-.inline-writer-dots span:nth-child(2) { animation-delay: 0.2s; }
-.inline-writer-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes dotPulse {
-  0%, 60%, 100% { opacity: 0; }
-  30% { opacity: 1; }
-}
-
-.inline-writer-stop {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.inline-writer-stop:hover {
-  background-color: #dc2626 !important;
-  color: #ffffff !important;
-}
-
-:root.dark .inline-writer-stop:hover {
-  background-color: #ef4444 !important;
-  color: #ffffff !important;
-}
-
-/* 完成状态 */
-.inline-writer-done {
-  padding: 10px 12px;
-}
-
-.inline-writer-done-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.inline-writer-done-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.inline-writer-done-icon {
-  flex-shrink: 0;
-  color: #10b981;
-}
-
-.inline-writer-done-text {
+.inline-writer-text {
   font-size: 13px;
   font-weight: 500;
   color: var(--color-ink);
   white-space: nowrap;
 }
 
-.inline-writer-done-actions {
+/* AI 星光：书写期间轻柔呼吸，兼任"进行中"指示 */
+.inline-writer-sparkle {
+  color: var(--color-accent);
+  flex-shrink: 0;
+  animation: inline-writer-sparkle-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes inline-writer-sparkle-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+/* 停止按钮：悬停变红提示可终止 */
+.inline-writer-stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(120, 120, 128, 0.16);
+  color: var(--color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.inline-writer-stop:hover {
+  background: #ff3b30;
+  color: #fff;
+}
+
+.inline-writer-stop:active {
+  transform: scale(0.92);
+}
+
+:root.dark .inline-writer-stop:hover {
+  background: #ff453a;
+}
+
+/* ===== 完成状态：对勾徽标弹簧入场 ===== */
+.inline-writer-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #34c759;
+  color: #fff;
+  flex-shrink: 0;
+  animation: inline-writer-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root.dark .inline-writer-check {
+  background: #30d158;
+}
+
+@keyframes inline-writer-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.inline-writer-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
 }
 
-/* 错误状态 */
-.inline-writer-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.inline-writer-error-icon {
-  flex-shrink: 0;
-  color: var(--color-danger);
-}
-
-.inline-writer-error-text {
-  flex: 1;
-  font-size: 12px;
-  color: var(--color-danger);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 按钮通用样式 */
+/* ===== 胶囊按钮 ===== */
 .inline-writer-btn {
   display: flex;
   align-items: center;
   gap: 5px;
   height: 30px;
   padding: 0 12px;
-  border-radius: 7px;
+  border-radius: 999px;
   border: none;
-  background: transparent;
-  color: var(--color-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s ease;
   white-space: nowrap;
+  transition: background-color 0.15s ease, transform 0.12s ease, filter 0.15s ease;
 }
 
-.inline-writer-btn:hover {
-  background-color: var(--color-toolbar);
+.inline-writer-btn:active {
+  transform: scale(0.95);
+}
+
+.inline-writer-btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.inline-writer-btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.inline-writer-btn-ghost {
+  background: rgba(120, 120, 128, 0.16);
   color: var(--color-ink);
 }
 
-.inline-writer-accept {
-  background: var(--color-accent);
-  color: var(--color-inverse);
-  font-weight: 600;
+.inline-writer-btn-ghost:hover {
+  background: rgba(120, 120, 128, 0.26);
 }
 
-.inline-writer-accept:hover {
-  background: var(--color-accent-strong);
-  color: var(--color-inverse);
+/* ===== 错误状态 ===== */
+.inline-writer-error-icon {
+  color: #ff3b30;
+  flex-shrink: 0;
 }
 
-.inline-writer-reject {
-  padding: 0 8px;
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
+:root.dark .inline-writer-error-icon {
+  color: #ff453a;
 }
 
-.inline-writer-reject:hover {
-  background: var(--color-toolbar);
-  border-color: var(--color-muted);
+.inline-writer-error-text {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-danger);
 }
 
-.inline-writer-retry:hover {
-  background-color: var(--color-accent);
-  color: var(--color-inverse);
-}
-
-/* 快捷键提示 */
+/* ===== 按键提示 ===== */
 .inline-writer-kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 4px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 4px;
   font-size: 10px;
   font-family: inherit;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-  margin-left: 3px;
-}
-
-.inline-writer-accept .inline-writer-kbd {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.inline-writer-reject .inline-writer-kbd {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(120, 120, 128, 0.18);
   color: var(--color-muted);
+}
+
+.inline-writer-kbd-light {
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ===== 状态切换过渡 ===== */
+.inline-writer-fade-enter-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.inline-writer-fade-leave-active {
+  transition: all 0.12s ease-in;
+}
+
+.inline-writer-fade-enter-from {
+  opacity: 0;
+  transform: translateY(5px) scale(0.97);
+}
+
+.inline-writer-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-3px) scale(0.98);
 }
 </style>

@@ -271,19 +271,27 @@ watch(
   },
 )
 
-// 两种显示模式的内容高度不同，因此使用 0 到 1 的阅读进度同步位置。
-const getScrollProgress = (): number => {
-  const scroller = view.value?.scrollDOM
-  if (!scroller) return 0
-  const scrollableHeight = scroller.scrollHeight - scroller.clientHeight
-  return scrollableHeight > 0 ? scroller.scrollTop / scrollableHeight : 0
+// 视图切换定位：源码视图以视口顶部行号为锚点。
+// 返回 0 起始行号，与 markdown-it token.map 的行号体系一致；文档为空时返回空。
+const getViewportSourceLine = (): number | null => {
+  const sourceView = view.value
+  if (!sourceView || sourceView.state.doc.length === 0) return null
+  // CodeMirror 行号 1 起始，减 1 换算为 0 起始。
+  return sourceView.state.doc.lineAt(sourceView.viewport.from).number - 1
 }
 
-const setScrollProgress = (progress: number): void => {
-  const scroller = view.value?.scrollDOM
-  if (!scroller) return
-  const scrollableHeight = scroller.scrollHeight - scroller.clientHeight
-  scroller.scrollTop = Math.max(0, Math.min(1, progress)) * scrollableHeight
+// 把指定行（0 起始，允许小数，向下取整）滚动到视口顶部，不改动光标与选区。
+// 用 scrollIntoView 效果而非直接写 scrollTop：编辑器刚从隐藏切回显示时，
+// 直接写 scrollTop 可能落在过期的高度估算上，交给 CodeMirror 测量更可靠。
+const scrollToSourceLine = (line: number): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+  const document = sourceView.state.doc
+  const lineNumber = Math.max(1, Math.min(Math.floor(line) + 1, document.lines))
+  const targetLine = document.line(lineNumber)
+  sourceView.dispatch({
+    effects: EditorView.scrollIntoView(targetLine.from, { y: 'start' }),
+  })
 }
 
 const getView = (): EditorView | null => view.value
@@ -318,8 +326,8 @@ const insertAtCursor = (text: string): void => {
 }
 
 defineExpose<SourceEditorHandle>({
-  getScrollProgress,
-  setScrollProgress,
+  getViewportSourceLine,
+  scrollToSourceLine,
   getView,
   updateSearch: (matches: { from: number; to: number }[], currentIndex: number) => {
     if (view.value) updateSearch(view.value, matches, currentIndex)

@@ -42,8 +42,9 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
    * 把累积的AI输出整体替换进 startPos..endPos 范围。
    * tiptap-markdown 接管了 insertContentAt：传入字符串会先按 Markdown 解析，
    * 因此表格、标题、代码块等语法一旦凑齐就会实时渲染，而不是显示为纯文本。
+   * withCaret 为 true 时在内容末尾显示书写位置指示条（仅流式中使用）。
    */
-  const renderStreamedMarkdown = (): void => {
+  const renderStreamedMarkdown = (withCaret = false): void => {
     cancelPendingRender();
 
     const editor = options.editor();
@@ -60,6 +61,9 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
       .focus()
       .insertContentAt({ from, to }, ghostText.value)
       .command(({ tr }) => {
+        // 流式写入每100ms发生一次，排除出撤销历史，
+        // 否则按 Ctrl+Z 会逐条回退几十次渲染记录
+        tr.setMeta("addToHistory", false);
         // 借助事务映射获取替换后AI内容的真实范围：
         // 在空段落中插入块级内容时，编辑器会吞并段落边界，起始位置会前移
         mappedFrom = tr.mapping.map(from, -1);
@@ -72,7 +76,7 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
     endPos.value = mappedTo;
 
     // 重新标记AI生成范围，高亮当前已写入的内容
-    editor.commands.markAsAiGenerated(startPos.value, endPos.value);
+    editor.commands.markAsAiGenerated(startPos.value, endPos.value, withCaret);
   };
 
   // 节流调度一次流式渲染，保证渲染实时感的同时控制解析频率
@@ -80,7 +84,7 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
     if (renderTimer !== null) return;
     renderTimer = setTimeout(() => {
       renderTimer = null;
-      renderStreamedMarkdown();
+      renderStreamedMarkdown(true);
     }, STREAM_RENDER_INTERVAL_MS);
   };
 
@@ -200,7 +204,6 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
     endPos.value = startPos.value;
 
     try {
-      console.log('[useInlineWriter] startWriting:', { requestId, action, selection, documentContext, instruction });
       await aiService.invoke({
         requestId,
         action,
@@ -210,7 +213,6 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
           instruction,
         },
       });
-      console.log('[useInlineWriter] invoke returned');
     } catch (invokeError) {
       console.error('[useInlineWriter] invoke error:', invokeError);
       if (status.value === "streaming") {
@@ -237,7 +239,6 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
   });
 
   const offDone = aiService.onDone((event) => {
-    console.log('[useInlineWriter] onDone:', event.requestId);
     if (event.requestId !== activeRequestId.value) return;
     // 结束时立即渲染最后一次增量，保证完整内容都按Markdown样式呈现
     renderStreamedMarkdown();
@@ -246,7 +247,6 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
   });
 
   const offError = aiService.onError((event) => {
-    console.log('[useInlineWriter] onError:', event.requestId, event.error);
     if (event.requestId !== activeRequestId.value) return;
     status.value = "error";
     error.value = event.error;

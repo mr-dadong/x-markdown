@@ -283,7 +283,7 @@ import { useInlineAi } from '../composables/useInlineAi'
 import { useInlineWriter } from '../composables/useInlineWriter'
 import InsertLinkPanel from './editor/InsertLinkPanel.vue'
 import EmojiPicker from './editor/EmojiPicker.vue'
-import type { EditorHandle } from '../types/editor'
+import type { EditorHandle, ViewportAnchor } from '../types/editor'
 import { mediaService } from '../services/mediaService'
 import { windowService } from '../services/windowService'
 
@@ -557,12 +557,13 @@ watch(showAiWriterInput, (value) => {
 })
 
 // AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
+// AI 实时编写期间不弹出：操作由底部状态栏承接，弹出动作条会遮挡正在生成的内容。
 const shouldShowAiMenu = (): boolean => {
   if (props.modalOpen) return false
   // 刚取消时不显示，避免闪烁
   if (inlineAiJustCancelled.value) return false
-  // 如果正在实时编写，也显示
-  if (inlineWriterStatus.value !== 'idle') return true
+  // 实时编写进行中或等待接受时隐藏动作条
+  if (inlineWriterStatus.value !== 'idle') return false
   // 如果正在流式处理或有结果，也显示
   if (inlineAiStreaming.value || inlineAiResult.value || inlineAiError.value) return true
   const { selection } = editor.value?.state ?? {}
@@ -853,19 +854,54 @@ const openActiveLink = async (): Promise<void> => {
   if (activeLink.value) await openMarkdownLink(activeLink.value.href)
 }
 
-// 富文本视图通过滚动容器的阅读进度与源码视图保持大致相同的位置。
-const getScrollProgress = (): number => {
-  const element = editorShell.value?.querySelector<HTMLElement>('.editor-scroll')
-  if (!element) return 0
-  const scrollableHeight = element.scrollHeight - element.clientHeight
-  return scrollableHeight > 0 ? element.scrollTop / scrollableHeight : 0
+// 视图切换定位：渲染视图以顶层内容块为锚点。
+// 找到滚动容器与编辑器正文根节点（.tiptap），正文根的直接子元素即顶层块。
+const getEditorScroller = (): HTMLElement | null =>
+  editorShell.value?.querySelector<HTMLElement>('.editor-scroll') ?? null
+
+// 返回视口顶部所在顶层块的锚点：块序号 + 视口顶部切入该块的深度比例。
+// 保留比例才能在往返切换时回到块内同一相对位置，而不是跳回块顶。
+// 滚动越过全部内容、落在底部留白区时，锚定到最后一个块的底部。
+const getViewportAnchor = (): ViewportAnchor | null => {
+  const tipTapEditor = editor.value
+  const scroller = getEditorScroller()
+  if (!tipTapEditor || !scroller) return null
+  const blocks = Array.from(tipTapEditor.view.dom.children)
+  if (blocks.length === 0) return null
+
+  const viewportTop = scroller.getBoundingClientRect().top
+  for (let index = 0; index < blocks.length; index += 1) {
+    const blockRect = blocks[index].getBoundingClientRect()
+    if (blockRect.bottom > viewportTop) {
+      // 块高为 0（空段落等）时视为对齐块顶，避免除零。
+      const fraction = blockRect.height > 0
+        ? Math.min(1, Math.max(0, (viewportTop - blockRect.top) / blockRect.height))
+        : 0
+      return { index, fraction }
+    }
+  }
+  return { index: blocks.length - 1, fraction: 1 }
 }
 
-const setScrollProgress = (progress: number): void => {
-  const element = editorShell.value?.querySelector<HTMLElement>('.editor-scroll')
-  if (!element) return
-  const scrollableHeight = element.scrollHeight - element.clientHeight
-  element.scrollTop = Math.max(0, Math.min(1, progress)) * scrollableHeight
+const getBlockCount = (): number => editor.value?.state.doc.childCount ?? 0
+
+// 把视口顶部滚动到目标块的指定比例位置。
+// 用增量方式写 scrollTop：getBoundingClientRect 与 scrollTop 都在同一坐标系下，
+// 预览缩放（CSS zoom）时增量依然正确；比例由源码行范围换算而来，往返不漂移。
+const scrollToBlockFraction = (index: number, fraction: number): void => {
+  const tipTapEditor = editor.value
+  const scroller = getEditorScroller()
+  if (!tipTapEditor || !scroller) return
+  const blocks = Array.from(tipTapEditor.view.dom.children)
+  const block = blocks[Math.max(0, Math.min(index, blocks.length - 1))]
+  if (!block) return
+
+  const scrollerRect = scroller.getBoundingClientRect()
+  const blockRect = block.getBoundingClientRect()
+  const clampedFraction = Math.min(1, Math.max(0, fraction))
+  // 目标位置相对视口顶部的距离：正数向下滚，负数向上滚。
+  const delta = (blockRect.top - scrollerRect.top) + clampedFraction * blockRect.height
+  scroller.scrollTop += delta
 }
 
 const startEditLink = async (): Promise<void> => {
@@ -924,8 +960,9 @@ const insertAtCursor = (text: string): void => {
 // 暴露方法给父组件
 defineExpose<EditorHandle>({
   scrollToHeading,
-  getScrollProgress,
-  setScrollProgress,
+  getViewportAnchor,
+  getBlockCount,
+  scrollToBlockFraction,
   getEditor: () => editor.value ?? null,
   getSelectionText,
   replaceSelection,
@@ -1388,72 +1425,56 @@ defineExpose<EditorHandle>({
 }
 
 /* ===== AI 幽灵文本 ===== */
+/* 未接收的内容用低饱和背景色区分，保留原本字色和字形，方便用户接受前审阅内容质量 */
 .ai-ghost-content {
-  color: var(--color-accent);
-  font-style: italic;
-  position: relative;
-  display: inline;
-}
-
-.ai-ghost-content::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -2px;
-  height: 2px;
-  background: var(--color-accent);
-  opacity: 0.3;
-  border-radius: 1px;
-  animation: ghost-pulse 2s ease-in-out infinite;
-}
-
-@keyframes ghost-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
+  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-radius: 3px;
+  box-decoration-break: clone;
 }
 
 :root.dark .ai-ghost-content {
-  color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-:root.dark .ai-ghost-content::after {
-  opacity: 0.4;
+/* 流式生成中的AI书写位置指示条 */
+.ai-ghost-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 1px;
+  background-color: var(--color-accent);
+  vertical-align: text-bottom;
 }
 
-/* InlineWriterBar 过渡动画 */
+/* InlineWriterBar 出入场：弹簧曲线，从下方轻盈浮起 */
 .inline-writer-enter-active {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .inline-writer-leave-active {
-  transition: all 0.2s ease-in;
+  transition: all 0.18s ease-in;
 }
 
 .inline-writer-enter-from {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(14px) scale(0.9);
 }
 
 .inline-writer-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(8px) scale(0.95);
 }
 
-/* AI 实时编写状态栏 - 单独占一行 */
+/* AI 实时编写状态栏：悬浮居中的胶囊容器，不拦截内容区域的交互 */
 .ai-writer-status-bar {
   position: absolute;
-  bottom: 0;
+  bottom: 14px;
   left: 0;
   right: 0;
   z-index: 50;
-  padding: 12px 16px;
-  background: var(--color-paper);
-  border-top: 1px solid var(--color-line);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-}
-
-:root.dark .ai-writer-status-bar {
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
 }
 </style>

@@ -216,3 +216,143 @@ describe("内联 AI 实时编写流式渲染", () => {
         }
     });
 });
+
+describe("AI 幽灵标记显示与撤销行为", () => {
+    // 创建带正文的编辑器并把光标移到文末，模拟续写场景
+    const createWriterAtDocEnd = async () => {
+        const editor = new EditorConstructor({
+            extensions: createEditorExtensions(),
+            content: "原始内容",
+        });
+        editor.chain().setTextSelection(editor.state.doc.content.size - 1).run();
+
+        const writer = useInlineWriter({
+            editor: () => editor,
+            getSelection: () => "",
+            getDocumentContext: () => "",
+        });
+        return { editor, writer };
+    };
+
+    test("流式中显示书写位置指示条，完成并接受后移除所有幽灵标记", async () => {
+        const { editor, writer } = await createWriterAtDocEnd();
+
+        try {
+            await writer.startWriting("ai-write", "续写一段");
+            const requestId = lastRequestId();
+
+            emitDelta(requestId, "AI 续写的内容");
+            await sleep(180);
+            assert.ok(
+                editor.view.dom.querySelector(".ai-ghost-content"),
+                "流式中已写入内容应带幽灵背景标记",
+            );
+            assert.ok(
+                editor.view.dom.querySelector(".ai-ghost-caret"),
+                "流式中应显示书写位置指示条",
+            );
+            assert.ok(
+                editor.state.selection.empty,
+                "流式写入后选区应保持收起，避免误触发选区气泡菜单遮挡生成内容",
+            );
+
+            emitDone(requestId);
+            await sleep(50);
+            assert.ok(
+                editor.view.dom.querySelector(".ai-ghost-content"),
+                "完成后幽灵背景标记应保留到接受前",
+            );
+            assert.equal(
+                editor.view.dom.querySelector(".ai-ghost-caret"),
+                null,
+                "完成后书写位置指示条应消失",
+            );
+
+            writer.acceptResult();
+            assert.equal(
+                editor.view.dom.querySelector(".ai-ghost-content"),
+                null,
+                "接受后幽灵标记应全部清除",
+            );
+        } finally {
+            editor.destroy();
+        }
+    });
+
+    test("多次流式渲染不会累积重叠的幽灵装饰", async () => {
+        const { editor, writer } = await createWriterAtDocEnd();
+
+        try {
+            await writer.startWriting("ai-write", "续写一段");
+            const requestId = lastRequestId();
+
+            emitDelta(requestId, "第一段内容。");
+            await sleep(180);
+            const countAfterFirstRender = editor.view.dom.querySelectorAll(".ai-ghost-content").length;
+            assert.ok(countAfterFirstRender >= 1, "首次渲染后应出现幽灵标记");
+
+            emitDelta(requestId, "第二段内容。");
+            await sleep(180);
+            const countAfterSecondRender = editor.view.dom.querySelectorAll(".ai-ghost-content").length;
+            assert.equal(
+                countAfterSecondRender,
+                countAfterFirstRender,
+                "重复标记完整范围时应覆盖旧范围，而不是叠加装饰",
+            );
+        } finally {
+            editor.destroy();
+        }
+    });
+
+    test("接受后撤销不会逐条回退流式写入记录", async () => {
+        const { editor, writer } = await createWriterAtDocEnd();
+
+        try {
+            await writer.startWriting("ai-write", "续写一段");
+            const requestId = lastRequestId();
+
+            emitDelta(requestId, "AI 续写的内容");
+            await sleep(180);
+            emitDelta(requestId, "，还在继续写。");
+            emitDone(requestId);
+            await sleep(50);
+
+            writer.acceptResult();
+            assert.match(editor.state.doc.textContent, /还在继续写/, "接受后应保留完整内容");
+
+            editor.commands.undo();
+            assert.match(
+                editor.state.doc.textContent,
+                /还在继续写/,
+                "流式写入不进撤销栈，撤销不应删除已接受的AI内容",
+            );
+        } finally {
+            editor.destroy();
+        }
+    });
+
+    test("拒绝后可通过撤销找回被删除的AI内容", async () => {
+        const { editor, writer } = await createWriterAtDocEnd();
+
+        try {
+            await writer.startWriting("ai-write", "续写一段");
+            const requestId = lastRequestId();
+
+            emitDelta(requestId, "AI 续写的内容");
+            emitDone(requestId);
+            await sleep(50);
+
+            writer.rejectResult();
+            assert.doesNotMatch(editor.state.doc.textContent, /续写/, "拒绝后应删除AI内容");
+
+            editor.commands.undo();
+            assert.match(
+                editor.state.doc.textContent,
+                /AI 续写的内容/,
+                "拒绝的删除动作可被撤销找回",
+            );
+        } finally {
+            editor.destroy();
+        }
+    });
+});
