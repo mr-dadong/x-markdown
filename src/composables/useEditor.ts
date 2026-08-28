@@ -228,7 +228,15 @@ export const useMarkdownEditor = (
   }
 
   // 搜索规则由斜杠命令模块统一管理，编辑器只维护当前输入状态。
-  const filteredCommands = computed(() => filterSlashCommands(slashQuery.value));
+  // 上下箭头按扁平数组索引导航，而面板按分组顺序渲染，两者可能不一致
+  // （如“AI 实时编写”定义在命令数组末尾、却属于“扩展内容”组），
+  // 因此按分组顺序排序，保证键盘选中顺序与视觉顺序一致。
+  // 先复制一份再排序：空查询时 filterSlashCommands 返回的是源数组引用。
+  const filteredCommands = computed(() =>
+    [...filterSlashCommands(slashQuery.value)].sort(
+      (a, b) => slashCommandGroups.indexOf(a.group) - slashCommandGroups.indexOf(b.group),
+    ),
+  );
 
   const commandGroups = computed(() =>
     slashCommandGroups.map((name) => ({

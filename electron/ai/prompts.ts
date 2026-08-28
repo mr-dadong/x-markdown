@@ -14,7 +14,7 @@ const ACTION_INSTRUCTIONS: Record<AiEditAction, string> = {
   callout: "把当前内容整理成一个 Markdown Callout 提示块。",
   mermaid: "把当前内容转换为 Mermaid 图表源码，只输出代码块。",
   frontmatter: "为当前文档生成 YAML frontmatter，包含 title、summary、tags 字段。",
-  "ai-write": "根据用户的要求，在光标位置生成 Markdown 内容。",
+  "ai-write": "根据用户要求与章节上下文，在写入位置（▍）生成与前后内容自然衔接的 Markdown 内容。",
 };
 
 export const AI_ACTION_LABELS: Record<AiEditAction, string> = {
@@ -60,7 +60,13 @@ export function buildAiPrompt(request: AiInvokeRequest): string {
     parts.push(`选中内容：\n\`\`\`\n${request.selection.trim()}\n\`\`\``);
   }
   if (request.documentContext?.trim()) {
-    parts.push(`文档上下文（只用于辅助理解）：\n\`\`\`\n${request.documentContext.trim()}\n\`\`\``);
+    // ai-write 的上下文是"章节位置 + 光标前后截断内容"（▍ 为写入点），
+    // 其他动作拿到的仍是整篇文档参考，措辞分开避免误导模型。
+    const contextLabel =
+      request.action === "ai-write"
+        ? `光标处的文档上下文（${"▍"} 为写入位置，生成内容需在此处与前后文自然衔接）`
+        : "文档上下文（只用于辅助理解）";
+    parts.push(`${contextLabel}：\n\`\`\`\n${request.documentContext.trim()}\n\`\`\``);
   }
 
   parts.push("只输出可安全插入 Markdown 文档的结果，不要输出多余的前言或解释。");

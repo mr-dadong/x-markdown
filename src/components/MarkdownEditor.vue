@@ -105,33 +105,41 @@
     <InsertLinkPanel v-if="linkInsertVisible" v-model:url="linkInsertUrl" v-model:label="linkInsertLabel"
       :error="linkInsertError" :position="linkInsertStyle" @cancel="cancelLinkInsert" @submit="submitLinkInsert" />
 
-    <!-- AI 实时编写输入框 -->
-    <Transition name="ai-writer">
-      <div v-if="showAiWriterInput" class="ai-writer-input-container" contenteditable="false"
-        :style="aiWriterInputStyle">
-        <div class="ai-writer-input-header">
-          <Icon icon="lucide:sparkles" :size="16" class="ai-writer-input-icon" />
-          <span class="ai-writer-input-title">AI 实时编写</span>
-          <button type="button" class="ai-writer-input-close" @mousedown.prevent="closeAiWriterInput">
-            <Icon icon="lucide:x" :size="14" />
-          </button>
-        </div>
-        <textarea ref="aiWriterInputRef" v-model="aiWriterInstruction" class="ai-writer-input"
-          placeholder="描述你想要AI写什么，例如：写一首关于春天的诗、续写这个故事、生成一个函数..." rows="3"
-          @keydown.enter.exact.prevent="startAiWriting"
-          @keydown.escape.prevent="closeAiWriterInput" />
-        <div class="ai-writer-input-actions">
-          <button type="button" class="ai-writer-btn ai-writer-cancel-btn" @mousedown.prevent="closeAiWriterInput">
+    <!-- AI 实时编写输入框：与插入链接面板同一套浅色表单语言，锚定在正文光标处并随滚动跟随。 -->
+    <div v-if="showAiWriterInput" v-show="!aiWriterPanelHidden" ref="aiWriterPanelRef"
+      class="fixed z-50 flex w-[320px] flex-col gap-2.5 rounded-lg border border-line bg-paper p-2.5"
+      :style="aiWriterInputStyle" contenteditable="false" @mousedown.stop>
+      <div class="flex h-7 items-center justify-between px-1">
+        <span class="flex items-center gap-2 text-[12px] font-semibold text-ink">
+          <Icon icon="lucide:sparkles" :size="15" class="text-accent" />
+          AI 实时编写
+        </span>
+        <span class="font-mono text-[10px] text-muted/60">ESC</span>
+      </div>
+      <!-- 输入区沿用链接面板的内嵌样式：灰底区分层级，聚焦时提亮为纸色。 -->
+      <div class="flex flex-col overflow-hidden rounded-md border border-line bg-toolbar focus-within:bg-paper">
+        <textarea ref="aiWriterInputRef" v-model="aiWriterInstruction" rows="3"
+          placeholder="描述你想让 AI 写的内容，例如：写一首关于春天的诗、续写这个故事"
+          class="w-full resize-none bg-transparent px-2.5 py-2 text-[12px] leading-5 text-ink outline-none placeholder:text-muted/50"
+          @keydown.enter.exact.prevent="startAiWriting" @keydown.esc.prevent="closeAiWriterInput" />
+      </div>
+      <div class="flex h-8 items-center justify-between">
+        <span class="px-1 text-[10px] text-muted/60">Enter 开始</span>
+        <div class="flex items-center gap-1">
+          <button type="button"
+            class="flex h-7 items-center rounded-md px-2.5 text-[11px] text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+            @mousedown.prevent="closeAiWriterInput">
             取消
           </button>
-          <button type="button" class="ai-writer-btn ai-writer-start-btn" :disabled="!aiWriterInstruction.trim()"
+          <button type="button" :disabled="!aiWriterInstruction.trim()"
+            class="flex h-7 items-center gap-1 rounded-md bg-ink px-3 text-[11px] font-medium text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
             @mousedown.prevent="startAiWriting">
-            <Icon icon="lucide:play" :size="14" />
+            <Icon icon="lucide:play" :size="12" />
             开始编写
           </button>
         </div>
       </div>
-    </Transition>
+    </div>
 
     <!-- Emoji 选择器：grid 由 /emoji 打开，list 由冒号输入触发，二者共用同一组件。 -->
     <EmojiPicker v-if="emojiMenuMode" :mode="emojiMenuMode" :query="emojiQuery" :selected-index="emojiSelectedIndex"
@@ -260,6 +268,8 @@
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
 import { isTableSelection } from '../modules/tableInteraction'
+import { clampPanelLeft } from '../modules/panelPosition'
+import { buildWriterContext } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
@@ -397,9 +407,10 @@ const {
   () => props.currentFilePath,
   () => props.active,
   (range) => {
-    // 打开AI实时编写输入框
+    // 打开AI实时编写输入框，面板锚定在光标处，等渲染完成后按光标坐标定位。
     showAiWriterInput.value = true
     aiWriterRange.value = range
+    void nextTick(() => updateAiWriterPosition())
   }
 )
 
@@ -445,7 +456,12 @@ const {
     editor.value.state.selection.from,
     editor.value.state.selection.to,
   ) ?? '',
-  getDocumentContext: () => editor.value?.state.doc.textContent ?? '',
+  // 编写上下文按光标提取：标题面包屑 + 当前章节截断，避免每次请求都发送全文档。
+  getDocumentContext: () => {
+    if (!editor.value) return ''
+    const { doc, selection } = editor.value.state
+    return buildWriterContext(doc, selection.from)
+  },
 })
 
 // 包装函数，处理指令参数
@@ -456,16 +472,59 @@ const startInlineWriting = (instruction: string): void => {
 
 // AI 实时编写输入框相关函数
 const aiWriterInputRef = ref<HTMLTextAreaElement | null>(null)
+const aiWriterPanelRef = ref<HTMLElement | null>(null)
+const aiWriterPosition = ref({ left: 0, top: 0 })
 
-// 固定在编辑器底部，不跟随光标移动
-const aiWriterInputStyle = computed(() => {
-  return {
-    position: 'fixed' as const,
-    bottom: '60px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 100,
+// 面板锚定文档里的光标：读取光标屏幕坐标，出现在光标下方 8px。
+// 边界一律按编辑区（而非整个窗口）计算，避免盖住底部状态栏或飘出编辑区；
+// 下方放不下翻转到光标上方，光标滚出可视区则暂时隐藏，滚回再出现。
+const aiWriterPanelHidden = ref(false)
+const updateAiWriterPosition = (): void => {
+  if (!showAiWriterInput.value || !aiWriterRange.value || !editor.value) return
+  const cursor = editor.value.view.coordsAtPos(aiWriterRange.value.to)
+  const shellRect = editorShell.value?.getBoundingClientRect()
+  const edgeGap = 12
+  const panelGap = 8
+  const shellTop = shellRect?.top ?? 0
+  const shellBottom = shellRect?.bottom ?? window.innerHeight
+  const shellLeft = shellRect?.left ?? 0
+  const shellRight = shellRect?.right ?? window.innerWidth
+
+  if (cursor.top > shellBottom || cursor.bottom < shellTop) {
+    aiWriterPanelHidden.value = true
+    return
   }
+  aiWriterPanelHidden.value = false
+
+  // 面板处于隐藏态时测量高度为 0，回退到默认高度保证翻转判断正确。
+  const panelHeight = aiWriterPanelRef.value?.getBoundingClientRect().height || 180
+  let top = cursor.bottom + panelGap
+  if (top + panelHeight > shellBottom - edgeGap) top = cursor.top - panelGap - panelHeight
+  // 上下都紧张的极端情况，钳制在编辑区内保证面板完整可见。
+  top = Math.max(shellTop + edgeGap, Math.min(top, shellBottom - edgeGap - panelHeight))
+  const left = Math.max(shellLeft + edgeGap, Math.min(cursor.left, shellRight - 320 - edgeGap))
+  aiWriterPosition.value = { left, top }
+}
+
+// 滚动跟随手写光标：面板随内容一起移动，不会漂在视口固定位置。
+// 用 rAF 合并高频滚动事件，减少布局读取。
+let aiWriterScrollFrame = 0
+const handleAiWriterScroll = (): void => {
+  if (!showAiWriterInput.value || aiWriterScrollFrame !== 0) return
+  aiWriterScrollFrame = requestAnimationFrame(() => {
+    aiWriterScrollFrame = 0
+    updateAiWriterPosition()
+  })
+}
+
+const aiWriterInputStyle = computed(() => ({
+  left: `${aiWriterPosition.value.left}px`,
+  top: `${aiWriterPosition.value.top}px`,
+}))
+
+// 面板从隐藏恢复显示时把焦点还给输入框：元素被隐藏会丢失焦点。
+watch(aiWriterPanelHidden, (hidden) => {
+  if (!hidden && showAiWriterInput.value) aiWriterInputRef.value?.focus()
 })
 
 const closeAiWriterInput = (): void => {
@@ -544,10 +603,12 @@ const blockActionSeparators = [2, 3, 5]
 const editorShell = ref<HTMLElement | null>(null)
 const blockMenu = ref<HTMLElement | null>(null)
 
-// 编辑区滚动时同时刷新块控件与斜杠面板：面板跟随光标，光标滚出可视区则关闭。
+// 编辑区滚动时同时刷新块控件、斜杠面板与 AI 输入框：
+// 斜杠面板滚出光标可视区即关闭，AI 输入框则持续锚定光标跟随内容移动。
 const handleEditorScroll = (): void => {
   refreshBlockControlPosition()
   handleSlashMenuScroll()
+  handleAiWriterScroll()
 }
 
 // 菜单使用 fixed 定位，需要按编辑区而非整个窗口限制上下边界，避免覆盖底部状态栏。
@@ -567,7 +628,7 @@ const safeBlockMenuStyle = computed(() => {
 })
 
 const linkInsertStyle = computed(() => ({
-  left: `${Math.max(12, Math.min(Number.parseFloat(slashMenuStyle.value.left), window.innerWidth - 332))}px`,
+  left: `${clampPanelLeft(Number.parseFloat(slashMenuStyle.value.left), 320, window.innerWidth)}px`,
   top: slashMenuStyle.value.top,
 }))
 
@@ -1358,147 +1419,6 @@ defineExpose<EditorHandle>({
 
 :root.dark .ai-ghost-content::after {
   opacity: 0.4;
-}
-
-/* ===== AI 实时编写输入框 ===== */
-.ai-writer-input-container {
-  position: fixed;
-  z-index: 50;
-  min-width: 360px;
-  max-width: 440px;
-  background: var(--color-paper);
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
-:root.dark .ai-writer-input-container {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.ai-writer-input-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-line);
-  background: var(--color-panel);
-}
-
-.ai-writer-input-icon {
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.ai-writer-input-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.ai-writer-input-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.ai-writer-input-close:hover {
-  background: var(--color-toolbar);
-  color: var(--color-ink);
-}
-
-.ai-writer-input {
-  width: 100%;
-  padding: 14px 16px;
-  border: none;
-  background: transparent;
-  color: var(--color-ink);
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-}
-
-.ai-writer-input::placeholder {
-  color: var(--color-muted);
-}
-
-.ai-writer-input-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-line);
-  background: var(--color-panel);
-}
-
-.ai-writer-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.ai-writer-cancel-btn {
-  background: transparent;
-  color: var(--color-secondary);
-}
-
-.ai-writer-cancel-btn:hover {
-  background: var(--color-toolbar);
-  color: var(--color-ink);
-}
-
-.ai-writer-start-btn {
-  background: var(--color-accent);
-  color: var(--color-inverse);
-}
-
-.ai-writer-start-btn:hover {
-  background: var(--color-accent-strong);
-}
-
-.ai-writer-start-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 输入框动画 */
-.ai-writer-enter-active {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ai-writer-leave-active {
-  transition: all 0.2s ease-in;
-}
-
-.ai-writer-enter-from {
-  opacity: 0;
-  transform: translateY(-12px) scale(0.95);
-}
-
-.ai-writer-leave-to {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.97);
 }
 
 /* InlineWriterBar 过渡动画 */
