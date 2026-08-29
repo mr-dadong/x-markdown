@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from "electron";
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent, type IpcMainEvent } from "electron";
 import { IPC_CHANNELS } from "../../../src/constants/ipcChannels";
 import type {
   AiChatDeltaEvent,
@@ -73,7 +73,7 @@ function resolveBaseUrl(provider: string, customBaseUrl?: string): string {
     case "anthropic":
       return "https://api.anthropic.com/v1";
     case "ollama":
-      return "http://localhost:11434";
+      return "http://localhost:11434/v1";
     default:
       throw new Error("自定义提供方需要填写 API 地址");
   }
@@ -99,7 +99,9 @@ async function fetchOpenAiModels(baseUrl: string, apiKey?: string): Promise<AiMo
 }
 
 async function fetchOllamaModels(baseUrl: string): Promise<AiModelInfo[]> {
-  const url = `${baseUrl}/api/tags`;
+  // Ollama 原生 /api/tags 接口需要不带 /v1 的根地址
+  const rootUrl = baseUrl.replace(/\/v1\/?$/, "");
+  const url = `${rootUrl}/api/tags`;
   const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!response.ok) {
     throw new Error(`获取 Ollama 模型失败 (${response.status}): ${response.statusText}`);
@@ -148,21 +150,40 @@ async function fetchModels(): Promise<AiFetchModelsResult> {
 export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | null }): void {
   const { getMainWindow } = options;
 
-  ipcMain.handle(IPC_CHANNELS.aiGetSettings, async () => {
+  // 单窗口桌面应用：校验 AI IPC 请求来自主窗口渲染进程
+  function validateSender(event: IpcMainInvokeEvent | IpcMainEvent): void {
+    const mainWindow = getMainWindow();
+    if (mainWindow && event.sender !== mainWindow.webContents) {
+      throw new Error("未授权的 AI 请求来源");
+    }
+  }
+
+  ipcMain.handle(IPC_CHANNELS.aiGetSettings, async (event) => {
+    validateSender(event);
     const settings = await getAiSettings();
     return toPublicSettings(settings);
   });
 
   ipcMain.handle(
     IPC_CHANNELS.aiSaveSettings,
-    async (_event, input: AiSettingsInput) => saveAiSettings(input),
+    async (event, input: AiSettingsInput) => {
+      validateSender(event);
+      return saveAiSettings(input);
+    },
   );
 
-  ipcMain.handle(IPC_CHANNELS.aiGetStatus, async () => getAiAgentStatus());
+  ipcMain.handle(IPC_CHANNELS.aiGetStatus, async (event) => {
+    validateSender(event);
+    return getAiAgentStatus();
+  });
 
-  ipcMain.handle(IPC_CHANNELS.aiFetchModels, async () => fetchModels());
+  ipcMain.handle(IPC_CHANNELS.aiFetchModels, async (event) => {
+    validateSender(event);
+    return fetchModels();
+  });
 
-  ipcMain.handle(IPC_CHANNELS.aiInvoke, async (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.aiInvoke, async (event, value: unknown) => {
+    validateSender(event);
     assertInvokeRequest(value);
     const request = value;
 
@@ -232,7 +253,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     return { requestId: request.requestId };
   });
 
-  ipcMain.on(IPC_CHANNELS.aiCancel, (_event, requestId: string) => {
+  ipcMain.on(IPC_CHANNELS.aiCancel, (event, requestId: string) => {
+    validateSender(event);
     const active = activeRequests.get(requestId);
     if (!active) return;
     active.cancelled = true;
@@ -252,7 +274,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     }
   }
 
-  ipcMain.handle(IPC_CHANNELS.aiChatInvoke, async (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.aiChatInvoke, async (event, value: unknown) => {
+    validateSender(event);
     assertChatRequest(value);
     const request = value;
 
@@ -286,14 +309,19 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     try {
       const agent = await getChatAgent();
 
-      // 构建完整的消息列表：系统提示 + 文档上下文 + 对话历史
+      // 系统提示通过 system 参数传入，消息列表只保留 user/assistant 对话历史
       const systemPrompt = buildChatSystemPrompt(request);
-      const messages = [
-        { role: "system" as const, content: systemPrompt },
-        ...request.messages.map((m) => ({ role: m.role, content: m.content })),
-      ];
+      const messages = request.messages
+        .filter((m) => m.role !== "system")
+        .map((m, i) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          id: `chat-msg-${i}`,
+          createdAt: new Date(),
+        }));
 
       const stream = await agent.stream(messages, {
+        system: systemPrompt,
         modelSettings: {
           temperature: request.options?.temperature ?? settings.temperature,
           maxOutputTokens: request.options?.maxTokens ?? settings.maxTokens,
@@ -326,7 +354,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     return { requestId: request.requestId };
   });
 
-  ipcMain.on(IPC_CHANNELS.aiChatCancel, (_event, requestId: string) => {
+  ipcMain.on(IPC_CHANNELS.aiChatCancel, (event, requestId: string) => {
+    validateSender(event);
     const active = activeRequests.get(requestId);
     if (!active) return;
     active.cancelled = true;

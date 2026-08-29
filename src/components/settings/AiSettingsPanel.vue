@@ -16,7 +16,7 @@
     </SettingGroup>
 
     <SettingGroup v-if="provider !== 'anthropic'" title="API 地址"
-      description="留空使用官方地址；Ollama 通常填 http://localhost:11434/v1。">
+      description="留空使用官方地址；Ollama 可留空或填 http://localhost:11434/v1。">
       <input v-model="baseUrl" type="text" class="ai-control" placeholder="https://api.openai.com/v1" />
     </SettingGroup>
 

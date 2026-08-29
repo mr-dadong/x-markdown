@@ -7,14 +7,28 @@ const CHAT_AGENT_ID = "xmd-chat";
 
 let writerAgent: Agent<string> | null = null;
 let chatAgent: Agent<string> | null = null;
-let currentSignature = "";
+// 两个 Agent 各自维护独立的配置签名，避免一方刷新后覆盖另一方的缓存判断
+let writerSignature = "";
+let chatSignature = "";
 
 function buildModelConfig(settings: AiSettings): unknown {
   const id = `${settings.provider}/${settings.model}`;
-  if (settings.baseUrl) {
+
+  // Ollama 需要 OpenAI 兼容地址（带 /v1）：留空时补默认值，
+  // 用户填了不带 /v1 的根地址时自动补全
+  let url = settings.baseUrl;
+  if (settings.provider === "ollama") {
+    if (!url) {
+      url = "http://localhost:11434/v1";
+    } else if (!/\/v1\/?$/.test(url)) {
+      url = url.replace(/\/+$/, "") + "/v1";
+    }
+  }
+
+  if (url) {
     return {
       id,
-      url: settings.baseUrl,
+      url,
       ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
     };
   }
@@ -32,11 +46,11 @@ export async function getWriterAgent(): Promise<Agent<string>> {
     settings.baseUrl ?? "",
     settings.apiKey?.slice(-4) ?? "",
   ].join("|");
-  if (writerAgent && writerAgent.name === "XMD Writer" && signature === currentSignature) {
+  if (writerAgent && writerAgent.name === "XMD Writer" && signature === writerSignature) {
     return writerAgent;
   }
 
-  currentSignature = signature;
+  writerSignature = signature;
   writerAgent = new Agent<string>({
     id: WRITER_AGENT_ID,
     name: "XMD Writer",
@@ -57,11 +71,11 @@ export async function getChatAgent(): Promise<Agent<string>> {
     settings.baseUrl ?? "",
     settings.apiKey?.slice(-4) ?? "",
   ].join("|");
-  if (chatAgent && chatAgent.name === "XMD Chat" && signature === currentSignature) {
+  if (chatAgent && chatAgent.name === "XMD Chat" && signature === chatSignature) {
     return chatAgent;
   }
 
-  currentSignature = signature;
+  chatSignature = signature;
   chatAgent = new Agent<string>({
     id: CHAT_AGENT_ID,
     name: "XMD Chat",

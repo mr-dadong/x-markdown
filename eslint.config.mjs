@@ -3,7 +3,7 @@ import vue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['node_modules/**', 'out/**', 'release/**', 'dist/**', '.wrangler/**'] },
+  { ignores: ['node_modules/**', 'out/**', 'release/**', 'dist/**', '.wrangler/**', 'marktext-develop/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs['flat/essential'],

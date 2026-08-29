@@ -15,6 +15,7 @@
     "dist:linux:x64": "bun run build && electron-builder --linux AppImage --x64 --publish never",
     "dist:linux:arm64": "bun run build && electron-builder --linux AppImage --arm64 --publish never",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json",
+    "test": "bun test ./src",
     "preview": "electron-vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

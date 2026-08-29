@@ -51,7 +51,7 @@ function normalizeSettings(
       ? input.apiKey.trim()
       : undefined,
     temperature: typeof input.temperature === "number"
-      ? clampUnitInterval(input.temperature)
+      ? clampTemperature(input.temperature)
       : fallback.temperature,
     maxTokens: typeof input.maxTokens === "number" && input.maxTokens > 0
       ? Math.floor(input.maxTokens)
@@ -73,7 +73,7 @@ function isAiProvider(value: unknown): value is AiProvider {
   return value === "openai" || value === "anthropic" || value === "ollama" || value === "custom";
 }
 
-function clampUnitInterval(value: number): number {
+function clampTemperature(value: number): number {
   return Math.min(2, Math.max(0, Number.isFinite(value) ? value : 0.7));
 }
 
@@ -143,10 +143,6 @@ export async function loadAiSettings(): Promise<AiSettings> {
   return cachedSettings;
 }
 
-export function resetAiSettingsCache(): void {
-  cachedSettings = null;
-}
-
 export async function getAiSettings(): Promise<AiSettings> {
   return loadAiSettings();
 }
@@ -206,6 +202,7 @@ export async function getAiStatus(): Promise<AiStatus> {
   const settings = await loadAiSettings();
   return {
     initialized: true,
+    // allowLocalRequests 仅放宽 configured 判断（免 Key 的本地模型如 Ollama），不拦截网络请求
     configured:
       settings.enabled &&
       Boolean(settings.model) &&
