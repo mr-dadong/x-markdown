@@ -1,6 +1,81 @@
 {
-  "latest": "1.1.3",
+  "latest": "1.2.0",
   "releases": [
+    {
+      "version": "1.2.0",
+      "date": "2026-08-29",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：AI Chat 侧栏对话功能",
+        "优化：重构 AI 聊天组件的 Markdown 渲染和 UI",
+        "优化：AI 聊天输入和消息操作功能",
+        "新增：AI 实时编写功能，优化侧栏布局",
+        "新增：AI 面板添加位置边界限制",
+        "优化：AI 编写功能与视图切换定位",
+        "修复：AI 设置和 Ollama 集成问题"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.0-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.0/XMD-1.2.0-Windows-x64.exe",
+              "sha256": "a322bfbb45e16a0c1e0e420f5811e09732fed529f7113266567f501b594c2b80"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.0-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.0/XMD-1.2.0-macOS-arm64.dmg",
+              "sha256": "d1ad5149f03bf6746565d85e9ab7d4fe9e24f315f09abdb3d6070131bc0240a8"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.0-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.0/XMD-1.2.0-macOS-x64.dmg",
+              "sha256": "7a88c61d529fb94b842d9a55e882fcaba9d0d4710d1012829d463aeff218dbf0"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.0-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.0/XMD-1.2.0-Linux-x86_64.AppImage",
+              "sha256": "ae9f6827f88fe39b47c7d6c4f71c5174ccac4a693b3ad7af33414126b4ae1473"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.0-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.0/XMD-1.2.0-Linux-arm64.AppImage",
+              "sha256": "a9526dc2299c47651436ece596dfc4322e5feb621633569f67dd64ab31834663"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.1.3",
       "date": "2026-08-25",
