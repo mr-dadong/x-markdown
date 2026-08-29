@@ -1,5 +1,6 @@
 <template>
-  <div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-6" role="dialog" @mousedown.self="closeUpdateModal">
+  <div v-show="isUpdateModalOpen" class="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-6"
+    role="dialog" @mousedown.self="closeUpdateModal">
     <section class="flex max-h-[calc(100vh-3rem)] w-[min(560px,92vw)] flex-col overflow-hidden rounded-xl border border-line bg-paper">
       <header class="flex items-start justify-between border-b border-line px-6 py-4">
         <div class="flex min-w-0 flex-col gap-1.5">
@@ -61,7 +62,7 @@ import { Icon } from '@iconify/vue/offline'
 import { computed } from 'vue'
 import { useUpdater } from '../composables/useUpdater'
 
-const { updateInfo, isDownloading, downloadProgress, downloadedFilePath, downloadMessage, closeUpdateModal, downloadUpdate, installUpdate } = useUpdater()
+const { updateInfo, isUpdateModalOpen, isDownloading, downloadProgress, downloadedFilePath, downloadMessage, closeUpdateModal, downloadUpdate, installUpdate } = useUpdater()
 
 // 下载事件提供的是字节数，界面统一换算成 MB 并保留两位小数。
 const bytesToMb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(2)

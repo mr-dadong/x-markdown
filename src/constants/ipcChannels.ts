@@ -14,6 +14,7 @@ export const IPC_CHANNELS = {
   showApplicationMenu: "show-application-menu",
   rendererReady: "renderer-ready",
   rendererViewReady: "renderer-view-ready",
+  rendererDiagnostic: "renderer-diagnostic",
   menuNewFile: "menu-new-file",
   menuOpenFile: "menu-open-file",
   menuSaveFile: "menu-save-file",

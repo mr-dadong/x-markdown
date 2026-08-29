@@ -19,6 +19,7 @@ import { IPC_CHANNELS } from "../constants/ipcChannels";
 import { useSettings } from "./useSettings";
 import { useRecentFiles } from "./useRecentFiles";
 import { matchesShortcut, parseShortcut } from "../utils/shortcuts";
+import { diagnosticService } from "../services/diagnosticService";
 
 export const useDocument = () => {
   const { requestConfirmation } = useConfirmDialog();
@@ -654,6 +655,7 @@ export const useDocument = () => {
     } catch (error) {
       initializationError = error;
       console.error("初始化文档失败:", error);
+      diagnosticService.error("startup.document-error", error);
     } finally {
       // 初始化成功或失败都必须结束启动阶段，否则主窗口会一直保持隐藏。
       documentService.notifyRendererViewReady();

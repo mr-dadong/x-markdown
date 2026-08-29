@@ -1,7 +1,7 @@
 <template>
     <div class="flex h-screen flex-col overflow-hidden bg-paper text-ink">
         <AppHeader :is-dark-theme="isDarkTheme" :has-update="hasUpdate" @toggle-theme="toggleTheme"
-            @open-settings="isSettingsOpen = true" @open-update="openUpdateModal" @open-ai="isAiChatOpen = true" />
+            @open-settings="openGeneralSettings" @open-update="openUpdateModal" @open-ai="openAiChat" />
 
         <div class="flex flex-1 overflow-hidden">
             <Sidebar v-if="isSidebarVisible" :current-file-path="currentFilePath" :content="currentContent"
@@ -87,7 +87,7 @@
                 </div>
             </main>
             <!-- Chat 侧栏：放在 flex 行内，与编辑区并列 -->
-            <AiChatSidebar v-if="isAiChatOpen && isDocumentOpen" :get-document-context="getAiDocumentContext"
+            <AiChatSidebar :document-open="isDocumentOpen" :get-document-context="getAiDocumentContext"
                 :get-selection="getAiSelection" :insert-at-cursor="insertAiAtCursor"
                 :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
                 :pending-selections="pendingSelections" @clear-pending-selections="clearPendingSelections"
@@ -99,8 +99,8 @@
             :character-count="documentStats.characterCount" :is-modified="isModified"
             :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode" :document-open="isDocumentOpen"
             @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
-        <SettingsModal v-if="isSettingsOpen" :initial-section="settingsInitialSection" @close="closeSettings" />
-        <UpdateModal v-if="isUpdateModalOpen" />
+        <SettingsModal />
+        <UpdateModal />
         <ConfirmDialog />
     </div>
 </template>
@@ -126,7 +126,7 @@ import { useFindReplace } from '../composables/useFindReplace'
 import type { AiEditAction } from '../types/ai'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
-import type { SettingsSection } from '../composables/useSettings'
+import { overlayState } from '../modules/overlayState'
 import { useTheme } from '../composables/useTheme'
 import { useUpdater } from '../composables/useUpdater'
 import { IPC_CHANNELS } from '../constants/ipcChannels'
@@ -141,15 +141,26 @@ import type { EditorHandle, SourceEditorHandle } from '../types/editor'
 const editorRef = ref<EditorHandle | null>(null)
 const sourceEditorRef = ref<SourceEditorHandle | null>(null)
 const isSidebarVisible = ref(false)
-const isSettingsOpen = ref(false)
-const settingsInitialSection = ref<SettingsSection>('general')
-const isAiChatOpen = ref(false)
+const isSettingsOpen = overlayState.settingsOpen
+const settingsInitialSection = overlayState.settingsSection
+const isAiChatOpen = overlayState.aiChatOpen
 const pendingSelections = ref<string[]>([])
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
 const { isDarkTheme, toggleTheme } = useTheme()
 const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUpdater()
+
+// 顶部入口使用具名方法记录“点击已到达 Vue”与后续状态提交，
+// 生产包再次出现问题时可以区分点击未触发和组件未渲染两类原因。
+const openGeneralSettings = (): void => {
+    settingsInitialSection.value = 'general'
+    isSettingsOpen.value = true
+}
+
+const openAiChat = (): void => {
+    isAiChatOpen.value = true
+}
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
 // getSourceHandle 返回源码编辑器完整的 handle 引用，包括搜索装饰等方法。

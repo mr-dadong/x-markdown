@@ -36,6 +36,12 @@ export interface ApplicationMenuPosition {
   y: number;
 }
 
+export interface RendererDiagnosticEvent {
+  level: "error";
+  event: string;
+  detail?: Record<string, string | number | boolean | null>;
+}
+
 export interface SelectEditorFileOptions {
   kind: "image" | "video" | "file";
   currentDocumentPath: string | null;
@@ -138,6 +144,7 @@ export interface ElectronAPI {
   showApplicationMenu: (position: ApplicationMenuPosition) => Promise<void>;
   notifyRendererReady: () => Promise<OpenFileData[]>;
   notifyRendererViewReady: () => void;
+  logRendererDiagnostic: (event: RendererDiagnosticEvent) => void;
   onMenuNewFile: (callback: () => void) => void;
   onMenuOpenFile: (callback: (data: OpenFileData) => void) => void;
   onMenuSaveFile: (callback: () => void) => void;

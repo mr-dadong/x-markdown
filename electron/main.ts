@@ -37,6 +37,7 @@ import type {
   ExportImageData,
   ExportTextData,
   ExportZipData,
+  RendererDiagnosticEvent,
 } from "../src/types/electron";
 
 let mainWindow: BrowserWindow | null = null;
@@ -60,6 +61,30 @@ const installerExtensions = new Set([
   ".deb",
   ".rpm",
 ]);
+// 当前日志和上一份日志各限制为约 1 MB，总占用约不超过 2 MB。
+const diagnosticLogMaximumBytes = 1024 * 1024;
+let diagnosticWriteQueue: Promise<void> = Promise.resolve();
+
+// 生产包无法直接查看 DevTools，关键交互写入用户数据目录便于定位首次启动问题。
+// 日志只接受结构化事件和基础类型字段，不接收文档正文、AI 内容或密钥。
+async function appendRendererDiagnostic(event: RendererDiagnosticEvent): Promise<void> {
+  const logDirectory = path.join(app.getPath("userData"), "logs");
+  const logPath = path.join(logDirectory, "renderer-diagnostic.log");
+  await fs.promises.mkdir(logDirectory, { recursive: true });
+
+  const stats = await fs.promises.stat(logPath).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (stats && stats.size >= diagnosticLogMaximumBytes) {
+    const archivedPath = path.join(logDirectory, "renderer-diagnostic.previous.log");
+    await fs.promises.rm(archivedPath, { force: true });
+    await fs.promises.rename(logPath, archivedPath);
+  }
+
+  const line = `${JSON.stringify({ timestamp: new Date().toISOString(), ...event })}\n`;
+  await fs.promises.appendFile(logPath, line, "utf-8");
+}
 
 // 先完整写入同目录临时文件，再替换目标文件，避免写入中断时截断原文档。
 async function writeTextFileAtomically(
@@ -387,6 +412,18 @@ registerWindowIpc({
 ipcMain.on(IPC_CHANNELS.updateShortcuts, (_event, shortcuts: Record<string, string>) => {
   setConfiguredShortcuts(shortcuts);
 });
+
+ipcMain.on(
+  IPC_CHANNELS.rendererDiagnostic,
+  (_event, diagnosticEvent: RendererDiagnosticEvent) => {
+    if (diagnosticEvent.level !== "error") return;
+    diagnosticWriteQueue = diagnosticWriteQueue
+      .then(() => appendRendererDiagnostic(diagnosticEvent))
+      .catch((error) => {
+        console.error("写入渲染进程诊断日志失败:", error);
+      });
+  },
+);
 
 // 更新清单由主进程读取，避免网页跨域策略影响检测结果。
 ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {

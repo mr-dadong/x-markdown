@@ -1,6 +1,9 @@
 import { createApp } from 'vue'
 import App from './App.vue'
+import { diagnosticService } from './services/diagnosticService'
 import './assets/main.css'
+
+diagnosticService.installGlobalErrorHandlers()
 import 'katex/dist/katex.min.css'
 import './icons'
 

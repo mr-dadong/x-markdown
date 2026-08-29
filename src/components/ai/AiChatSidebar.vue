@@ -1,5 +1,5 @@
 <template>
-  <aside class="chat-sidebar" :class="{ 'chat-sidebar--resizing': isResizing }">
+  <aside v-show="sidebarOpen" class="chat-sidebar" :class="{ 'chat-sidebar--resizing': isResizing }">
     <!-- 拖拽调整宽度 -->
     <div class="chat-sidebar__resize-handle" @mousedown="startResize" />
 
@@ -128,6 +128,7 @@ import AiChatMessage from './AiChatMessage.vue'
 import AiChatInput from './AiChatInput.vue'
 
 const props = defineProps<{
+  documentOpen: boolean
   getDocumentContext: () => string
   getSelection: () => string
   insertAtCursor: (text: string) => void
@@ -135,6 +136,9 @@ const props = defineProps<{
   getFilePath: () => string | null
   pendingSelections?: string[]
 }>()
+import { overlayState } from '../../modules/overlayState'
+
+const sidebarOpen = computed(() => overlayState.aiChatOpen.value && props.documentOpen)
 
 const emit = defineEmits<{
   close: []
@@ -236,8 +240,15 @@ watch(
 
 onMounted(() => {
   scrollToBottom()
-  nextTick(() => inputRef.value?.focus())
 })
+
+// 侧栏常驻挂载，只有真正显示时才聚焦输入框，避免启动阶段抢走编辑器焦点。
+watch(
+  sidebarOpen,
+  (open) => {
+    if (open) nextTick(() => inputRef.value?.focus())
+  },
+)
 
 // ─── 拖拽调整宽度 ───────────────────────────────────────────────────
 

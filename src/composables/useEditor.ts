@@ -1221,6 +1221,14 @@ export const useMarkdownEditor = (
     },
     onUpdate: ({ editor, transaction }) => {
       /*
+       * 斜杠菜单和 Emoji 菜单属于编辑器界面状态，必须在每次正文变化后刷新。
+       * 外部加载文档时虽然不能把 Markdown 回传给文档层，但仍要完成界面同步；
+       * 否则首次输入“/”可能因为加载事务被过滤而看不到菜单，直到下一次事务才恢复。
+       */
+      refreshSlashMenu(editor);
+      refreshEmojiMenu(editor);
+
+      /*
        * 表格列宽、尾随段落等插件可能在文件刚打开且编辑器未获得焦点时调整内部文档。
        * 这些事务不代表用户编辑，不能向文档层发送更新，否则会触发自动保存覆盖原文件。
        */
@@ -1232,8 +1240,6 @@ export const useMarkdownEditor = (
       if (emit) {
         emit("update:content", markdown);
       }
-      refreshSlashMenu(editor);
-      refreshEmojiMenu(editor);
     },
     onSelectionUpdate: ({ editor }) => {
       refreshSlashMenu(editor);

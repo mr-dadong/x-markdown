@@ -12,6 +12,7 @@ import type {
   IpcChannel,
   OpenFileData,
   RecoveryDraftData,
+  RendererDiagnosticEvent,
   SaveFileData,
   SaveFileResult,
   SelectEditorFileOptions,
@@ -147,6 +148,10 @@ const electronAPI: ElectronAPI = {
 
   notifyRendererViewReady: () => {
     ipcRenderer.send(IPC_CHANNELS.rendererViewReady)
+  },
+
+  logRendererDiagnostic: (event: RendererDiagnosticEvent): void => {
+    ipcRenderer.send(IPC_CHANNELS.rendererDiagnostic, event)
   },
 
   onMenuNewFile: (callback: () => void) => {

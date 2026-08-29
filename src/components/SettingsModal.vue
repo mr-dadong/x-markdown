@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-7" role="dialog"
-    @mousedown.self="emit('close')">
+  <div v-show="settingsOpen" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-7"
+    role="dialog" @mousedown.self="closeSettings">
     <section
       class="flex h-[min(680px,88vh)] w-[min(940px,92vw)] flex-col overflow-hidden rounded-xl border border-line bg-paper">
       <header class="flex h-14 shrink-0 items-center justify-between border-b border-line px-5">
@@ -15,7 +15,7 @@
         </div>
         <button type="button" title="关闭设置"
           class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-          @click="emit('close')">
+          @click="closeSettings">
           <Icon icon="lucide:x" :size="18" />
         </button>
       </header>
@@ -221,19 +221,27 @@ import ToggleSwitch from './settings/ToggleSwitch.vue'
 import appIcon from '../../build/icons/256x256.png'
 import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
+import { overlayState } from '../modules/overlayState'
 
-const emit = defineEmits<{ close: [] }>()
+const settingsOpen = overlayState.settingsOpen
+const settingsSection = overlayState.settingsSection
 
-const props = defineProps<{
-  initialSection?: SettingsSection
-}>()
+const closeSettings = (): void => {
+  settingsOpen.value = false
+  settingsSection.value = 'general'
+}
 
 // 版本号和作者统一读取 package.json，发布时只需维护一处即可。
 const appVersion = packageInfo.version
 const appAuthor = packageInfo.author
 const { settings, resetShortcuts } = useSettings()
 const { isChecking, checkMessage, checkForUpdates } = useUpdater()
-const activeSection = ref<SettingsSection>(props.initialSection ?? 'general')
+const activeSection = ref<SettingsSection>(settingsSection.value)
+
+// 设置页常驻挂载以避免生产环境首次动态创建时错过呈现；每次打开前同步目标分区。
+watch(settingsOpen, (open) => {
+  if (open) activeSection.value = settingsSection.value
+})
 
 const updateLogs = ref<UpdateLog[]>([])
 const updateLogsLoading = ref(false)
@@ -358,7 +366,7 @@ const validateShortcut = (id: ShortcutId, value: string): string | null => {
 
 // Esc 关闭设置页；快捷键录制中由录制器先行消费，不会走到这里。
 const handleWindowKeydown = (event: KeyboardEvent): void => {
-  if (event.key === 'Escape') emit('close')
+  if (settingsOpen.value && event.key === 'Escape') closeSettings()
 }
 
 onMounted(() => {
