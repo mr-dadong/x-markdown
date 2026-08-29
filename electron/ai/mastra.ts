@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getAiSettings, getAiStatus } from "./aiSettings";
+import { getAiSettings, currentProviderConfig, resolveApiKey, getAiStatus } from "./aiSettings";
 import type { AiSettings, AiStatus } from "../../src/types/ai";
 
 const WRITER_AGENT_ID = "xmd-writer";
@@ -12,39 +12,48 @@ let writerSignature = "";
 let chatSignature = "";
 
 function buildModelConfig(settings: AiSettings): unknown {
-  const id = `${settings.provider}/${settings.model}`;
+  const config = currentProviderConfig(settings);
+  const id = `${settings.provider}/${config.model}`;
+  const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
 
-  // Ollama 需要 OpenAI 兼容地址（带 /v1）：留空时补默认值，
-  // 用户填了不带 /v1 的根地址时自动补全
-  let url = settings.baseUrl;
-  if (settings.provider === "ollama") {
-    if (!url) {
-      url = "http://localhost:11434/v1";
-    } else if (!/\/v1\/?$/.test(url)) {
-      url = url.replace(/\/+$/, "") + "/v1";
+  // 为每个已知厂商提供默认 API 地址
+  let url = config.baseUrl;
+  if (!url) {
+    switch (settings.provider) {
+      case "openai": url = "https://api.openai.com/v1"; break;
+      case "anthropic": url = "https://api.anthropic.com/v1"; break;
+      case "deepseek": url = "https://api.deepseek.com/v1"; break;
+      case "minimax": url = "https://api.minimax.io/v1"; break;
+      case "ollama": url = "http://localhost:11434/v1"; break;
     }
+  }
+
+  // Ollama 需要确保末尾带 /v1
+  if (settings.provider === "ollama" && url && !/\/v1\/?$/.test(url)) {
+    url = url.replace(/\/+$/, "") + "/v1";
   }
 
   if (url) {
     return {
       id,
       url,
-      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
+      ...(apiKey ? { apiKey } : {}),
     };
   }
   return {
     id,
-    ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
+    ...(apiKey ? { apiKey } : {}),
   };
 }
 
 export async function getWriterAgent(): Promise<Agent<string>> {
   const settings = await getAiSettings();
+  const config = currentProviderConfig(settings);
   const signature = [
     settings.provider,
-    settings.model,
-    settings.baseUrl ?? "",
-    settings.apiKey?.slice(-4) ?? "",
+    config.model,
+    config.baseUrl ?? "",
+    (config.apiKey ?? resolveApiKey(settings, settings.provider))?.slice(-4) ?? "",
   ].join("|");
   if (writerAgent && writerAgent.name === "XMD Writer" && signature === writerSignature) {
     return writerAgent;
@@ -65,11 +74,12 @@ export async function getWriterAgent(): Promise<Agent<string>> {
 
 export async function getChatAgent(): Promise<Agent<string>> {
   const settings = await getAiSettings();
+  const config = currentProviderConfig(settings);
   const signature = [
     settings.provider,
-    settings.model,
-    settings.baseUrl ?? "",
-    settings.apiKey?.slice(-4) ?? "",
+    config.model,
+    config.baseUrl ?? "",
+    (config.apiKey ?? resolveApiKey(settings, settings.provider))?.slice(-4) ?? "",
   ].join("|");
   if (chatAgent && chatAgent.name === "XMD Chat" && signature === chatSignature) {
     return chatAgent;

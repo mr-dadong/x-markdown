@@ -3,10 +3,18 @@
   "releases": [
     {
       "version": "1.2.0",
-      "date": "2026-08-25",
+      "date": "2026-08-29",
       "channel": "stable",
       "title": "版本更新",
-      "content": [],
+      "content": [
+        "新增：AI Chat 侧栏对话功能",
+        "优化：重构 AI 聊天组件的 Markdown 渲染和 UI",
+        "优化：AI 聊天输入和消息操作功能",
+        "新增：AI 实时编写功能，优化侧栏布局",
+        "新增：AI 面板添加位置边界限制",
+        "优化：AI 编写功能与视图切换定位",
+        "修复：AI 设置和 Ollama 集成问题"
+      ],
       "downloads": {
         "windows": {
           "available": true,

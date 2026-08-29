@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import type {
   AiProvider,
+  AiProviderConfig,
+  AiProviderPublicConfig,
   AiPublicSettings,
   AiSettings,
   AiSettingsInput,
@@ -11,22 +13,35 @@ import type {
 
 const AI_SETTINGS_FILE = "ai-settings.json";
 
+const defaultProviderConfig = (): AiProviderConfig => ({
+  model: "",
+  baseUrl: undefined,
+  apiKey: undefined,
+  customModels: [],
+});
+
 const defaultAiSettings = (): AiSettings => ({
   enabled: false,
   provider: "openai",
-  model: "",
+  providers: {
+    openai: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+    anthropic: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+    deepseek: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+    minimax: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+    ollama: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+    custom: { model: "", baseUrl: undefined, apiKey: undefined, customModels: [] },
+  },
   temperature: 0.7,
   maxTokens: 2048,
   timeoutMs: 30000,
   allowLocalRequests: false,
-  customModels: [],
 });
 
 interface StoredAiSettings {
-  config: Omit<AiSettings, "apiKey"> & {
-    apiKey?: undefined;
+  config: Omit<AiSettings, "providers"> & {
+    providers: Record<string, Omit<AiProviderConfig, "apiKey"> & { apiKey?: undefined }>;
   };
-  encryptedApiKey?: string;
+  encryptedApiKeys: Record<string, string>;
 }
 
 let cachedSettings: AiSettings | null = null;
@@ -43,13 +58,7 @@ function normalizeSettings(
   return {
     enabled: typeof input.enabled === "boolean" ? input.enabled : fallback.enabled,
     provider,
-    model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : fallback.model,
-    baseUrl: typeof input.baseUrl === "string" && input.baseUrl.trim()
-      ? input.baseUrl.trim()
-      : undefined,
-    apiKey: typeof input.apiKey === "string" && input.apiKey.trim()
-      ? input.apiKey.trim()
-      : undefined,
+    providers: normalizeProviders(input.providers, fallback.providers, provider),
     temperature: typeof input.temperature === "number"
       ? clampTemperature(input.temperature)
       : fallback.temperature,
@@ -63,25 +72,49 @@ function normalizeSettings(
       typeof input.allowLocalRequests === "boolean"
         ? input.allowLocalRequests
         : fallback.allowLocalRequests,
-    customModels: Array.isArray(input.customModels)
-      ? input.customModels.filter((m): m is string => typeof m === "string" && m.trim().length > 0)
-      : fallback.customModels ?? [],
   };
 }
 
+function normalizeProviders(
+  input: Record<string, AiProviderConfig> | undefined,
+  fallback: Record<string, AiProviderConfig>,
+  currentProvider: AiProvider,
+): Record<string, AiProviderConfig> {
+  if (!input) return fallback;
+  const result: Record<string, AiProviderConfig> = { ...fallback };
+  for (const key of Object.keys(input)) {
+    const p = input[key];
+    if (!p) continue;
+    result[key] = {
+      model: typeof p.model === "string" && p.model.trim() ? p.model.trim() : (fallback[key]?.model ?? ""),
+      baseUrl: typeof p.baseUrl === "string" && p.baseUrl.trim()
+        ? p.baseUrl.trim()
+        : (fallback[key]?.baseUrl),
+      apiKey: typeof p.apiKey === "string" && p.apiKey.trim()
+        ? p.apiKey.trim()
+        : (fallback[key]?.apiKey),
+      customModels: Array.isArray(p.customModels)
+        ? p.customModels.filter((m): m is string => typeof m === "string" && m.trim().length > 0)
+        : (fallback[key]?.customModels ?? []),
+    };
+  }
+  return result;
+}
+
 function isAiProvider(value: unknown): value is AiProvider {
-  return value === "openai" || value === "anthropic" || value === "ollama" || value === "custom";
+  return value === "openai" || value === "anthropic" || value === "deepseek" || value === "minimax" || value === "ollama" || value === "custom";
 }
 
 function clampTemperature(value: number): number {
   return Math.min(2, Math.max(0, Number.isFinite(value) ? value : 0.7));
 }
 
-function storedApiKey(encryptedApiKey?: string): string | undefined {
-  if (!encryptedApiKey) return undefined;
+function storedApiKey(encryptedApiKeys: Record<string, string>, provider: string): string | undefined {
+  const encrypted = encryptedApiKeys[provider];
+  if (!encrypted) return undefined;
   if (!safeStorage.isEncryptionAvailable()) return undefined;
   try {
-    return safeStorage.decryptString(Buffer.from(encryptedApiKey, "base64"));
+    return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
   } catch {
     return undefined;
   }
@@ -98,6 +131,8 @@ function envApiKey(provider: AiProvider): string | undefined {
   const envNames: Record<AiProvider, string[]> = {
     openai: ["XMD_AI_API_KEY", "OPENAI_API_KEY"],
     anthropic: ["XMD_AI_API_KEY", "ANTHROPIC_API_KEY"],
+    deepseek: ["XMD_AI_API_KEY", "DEEPSEEK_API_KEY"],
+    minimax: ["XMD_AI_API_KEY", "MINIMAX_API_KEY"],
     ollama: ["XMD_AI_API_KEY", "OLLAMA_API_KEY"],
     custom: ["XMD_AI_API_KEY"],
   };
@@ -111,119 +146,188 @@ function envApiKey(provider: AiProvider): string | undefined {
 async function readStoredSettings(): Promise<StoredAiSettings | null> {
   try {
     const raw = await fs.promises.readFile(settingsPath(), "utf-8");
-    const parsed = JSON.parse(raw) as Partial<StoredAiSettings>;
-    if (!parsed.config || typeof parsed.config !== "object") return null;
-    return {
-      config: parsed.config as StoredAiSettings["config"],
-      encryptedApiKey: typeof parsed.encryptedApiKey === "string"
-        ? parsed.encryptedApiKey
-        : undefined,
-    };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    if (error instanceof SyntaxError) return null;
-    throw error;
+    const parsed = JSON.parse(raw) as unknown;
+
+    // 迁移旧格式：扁平 model/baseUrl/apiKey → 每个厂商独立配置
+    if (parsed && typeof parsed === "object" && "config" in parsed) {
+      const p = parsed as Record<string, unknown>;
+      const config = p.config as Record<string, unknown> | undefined;
+      if (config && typeof config === "object" && "provider" in config && !("providers" in config)) {
+        // 旧格式：单套配置
+        const oldProvider = String(config.provider ?? "openai");
+        const oldModel = String(config.model ?? "");
+        const oldBaseUrl = typeof config.baseUrl === "string" ? config.baseUrl : undefined;
+        const oldCustomModels = Array.isArray(config.customModels) ? config.customModels.filter((m): m is string => typeof m === "string") : [];
+        const oldEncryptedApiKey = typeof p.encryptedApiKey === "string" ? p.encryptedApiKey : undefined;
+        const oldEncryptedApiKeys = typeof p.encryptedApiKeys === "object" && p.encryptedApiKeys !== null
+          ? (p.encryptedApiKeys as Record<string, string>) : {};
+
+        if (oldEncryptedApiKey && !oldEncryptedApiKeys[oldProvider]) {
+          oldEncryptedApiKeys[oldProvider] = oldEncryptedApiKey;
+        }
+
+        const providers: Record<string, Omit<AiProviderConfig, "apiKey"> & { apiKey?: undefined }> = {};
+        for (const key of Object.keys(defaultAiSettings().providers)) {
+          providers[key] = {
+            model: key === oldProvider ? oldModel : "",
+            baseUrl: key === oldProvider ? oldBaseUrl : undefined,
+            customModels: key === oldProvider ? oldCustomModels : [],
+          };
+        }
+
+        const migrated: StoredAiSettings = {
+          config: {
+            enabled: typeof config.enabled === "boolean" ? config.enabled : false,
+            provider: oldProvider as AiProvider,
+            providers,
+            temperature: typeof config.temperature === "number" ? config.temperature : 0.7,
+            maxTokens: typeof config.maxTokens === "number" ? config.maxTokens : 2048,
+            timeoutMs: typeof config.timeoutMs === "number" ? config.timeoutMs : 30000,
+            allowLocalRequests: typeof config.allowLocalRequests === "boolean" ? config.allowLocalRequests : false,
+          },
+          encryptedApiKeys: oldEncryptedApiKeys,
+        };
+        // 立即写入迁移后的格式
+        await writeStoredSettings(migrated);
+        return migrated;
+      }
+    }
+
+    return parsed as StoredAiSettings;
+  } catch {
+    return null;
   }
 }
 
-async function mergeStoredSettings(): Promise<AiSettings> {
-  const stored = await readStoredSettings();
-  if (!stored) return defaultAiSettings();
-
-  const apiKey = storedApiKey(stored.encryptedApiKey);
-  return normalizeSettings({ ...stored.config, ...(apiKey ? { apiKey } : {}) });
+async function writeStoredSettings(stored: StoredAiSettings): Promise<void> {
+  await fs.promises.writeFile(settingsPath(), JSON.stringify(stored, null, 2), "utf-8");
 }
 
-export async function loadAiSettings(): Promise<AiSettings> {
-  if (cachedSettings) return cachedSettings;
-
-  const settings = await mergeStoredSettings();
-  const envKey = envApiKey(settings.provider);
-  cachedSettings = envKey ? { ...settings, apiKey: envKey } : settings;
-  return cachedSettings;
+function resolveApiKeyForProvider(
+  provider: AiProvider,
+  stored: StoredAiSettings | null,
+  config: AiProviderConfig,
+): string | undefined {
+  if (config.apiKey) return config.apiKey;
+  const decrypted = stored ? storedApiKey(stored.encryptedApiKeys, provider) : undefined;
+  if (decrypted) return decrypted;
+  return envApiKey(provider);
 }
 
 export async function getAiSettings(): Promise<AiSettings> {
-  return loadAiSettings();
+  if (cachedSettings) return cachedSettings;
+  const stored = await readStoredSettings();
+  if (!stored) {
+    cachedSettings = defaultAiSettings();
+    return cachedSettings;
+  }
+  const { config, encryptedApiKeys } = stored;
+  const providers: Record<string, AiProviderConfig> = {};
+  const defaultProviders = defaultAiSettings().providers;
+  for (const key of Object.keys(defaultProviders)) {
+    const storedConfig = config.providers[key];
+    const encrypted = encryptedApiKeys[key];
+    const apiKey = storedConfig?.apiKey ?? (encrypted ? undefined : undefined);
+    const env = envApiKey(key as AiProvider);
+    providers[key] = {
+      model: storedConfig?.model ?? "",
+      baseUrl: storedConfig?.baseUrl,
+      apiKey: storedConfig?.apiKey ?? undefined,
+      customModels: storedConfig?.customModels ?? [],
+    };
+  }
+  cachedSettings = {
+    enabled: config.enabled,
+    provider: isAiProvider(config.provider) ? config.provider : defaultAiSettings().provider,
+    providers,
+    temperature: config.temperature,
+    maxTokens: config.maxTokens,
+    timeoutMs: config.timeoutMs,
+    allowLocalRequests: config.allowLocalRequests,
+  };
+  return cachedSettings;
 }
 
 export async function saveAiSettings(input: AiSettingsInput): Promise<AiPublicSettings> {
-  const current = await loadAiSettings();
-  const apiKeyChanged = input.apiKey != null;
-
-  const settings = normalizeSettings({
-    ...current,
-    ...input,
-    enabled: input.enabled ?? current.enabled,
-    provider: input.provider ?? current.provider,
-    model: input.model?.trim() || current.model,
-    baseUrl: input.baseUrl === null
-      ? undefined
-      : input.baseUrl?.trim() || current.baseUrl,
-    temperature: input.temperature ?? current.temperature,
-    maxTokens: input.maxTokens ?? current.maxTokens,
-    timeoutMs: input.timeoutMs ?? current.timeoutMs,
-    allowLocalRequests: input.allowLocalRequests ?? current.allowLocalRequests,
-    apiKey: apiKeyChanged
-      ? input.apiKey?.trim() || undefined
-      : current.apiKey,
-  });
-
-  const storedConfig: StoredAiSettings["config"] = {
-    enabled: settings.enabled,
-    provider: settings.provider,
-    model: settings.model,
-    baseUrl: settings.baseUrl,
-    temperature: settings.temperature,
-    maxTokens: settings.maxTokens,
-    timeoutMs: settings.timeoutMs,
-    allowLocalRequests: settings.allowLocalRequests,
-    customModels: settings.customModels,
+  const current = cachedSettings ?? await getAiSettings();
+  const merged = normalizeSettings(input, current);
+  const stored = await readStoredSettings();
+  const encryptedApiKeys: Record<string, string> = { ...(stored?.encryptedApiKeys ?? {}) };
+  const providers: Record<string, Omit<AiProviderConfig, "apiKey"> & { apiKey?: undefined }> = {};
+  for (const key of Object.keys(merged.providers)) {
+    const p = merged.providers[key];
+    if (p.apiKey) {
+      encryptedApiKeys[key] = encryptApiKey(p.apiKey);
+    }
+    providers[key] = {
+      model: p.model,
+      baseUrl: p.baseUrl,
+      customModels: p.customModels,
+    };
+  }
+  const toStore: StoredAiSettings = {
+    config: {
+      enabled: merged.enabled,
+      provider: merged.provider,
+      providers,
+      temperature: merged.temperature,
+      maxTokens: merged.maxTokens,
+      timeoutMs: merged.timeoutMs,
+      allowLocalRequests: merged.allowLocalRequests,
+    },
+    encryptedApiKeys,
   };
-
-  const stored: StoredAiSettings = { config: storedConfig };
-  if (settings.apiKey) {
-    stored.encryptedApiKey = encryptApiKey(settings.apiKey);
-  }
-
-  await fs.promises.mkdir(path.dirname(settingsPath()), { recursive: true });
-  const temporaryPath = `${settingsPath()}.${Date.now()}.tmp`;
-  await fs.promises.writeFile(temporaryPath, JSON.stringify(stored, null, 2), "utf-8");
-  if (process.platform === "win32") {
-    await fs.promises.rm(settingsPath(), { force: true });
-  }
-  await fs.promises.rename(temporaryPath, settingsPath());
-
-  cachedSettings = settings;
-  return toPublicSettings(settings);
+  await writeStoredSettings(toStore);
+  cachedSettings = merged;
+  return toPublicSettings(merged);
 }
 
 export async function getAiStatus(): Promise<AiStatus> {
-  const settings = await loadAiSettings();
+  const settings = await getAiSettings();
+  const config = currentProviderConfig(settings);
+  const apiKey = config.apiKey ?? resolveApiKeyForProvider(settings.provider, await readStoredSettings(), config);
   return {
     initialized: true,
-    // allowLocalRequests 仅放宽 configured 判断（免 Key 的本地模型如 Ollama），不拦截网络请求
     configured:
       settings.enabled &&
-      Boolean(settings.model) &&
-      (Boolean(settings.apiKey) || settings.allowLocalRequests),
+      Boolean(config.model) &&
+      (Boolean(apiKey) || settings.allowLocalRequests),
     provider: settings.provider,
-    model: settings.model,
-    hasApiKey: Boolean(settings.apiKey),
+    model: config.model,
+    hasApiKey: Boolean(apiKey),
   };
 }
 
+/** 获取当前选中厂商的独立配置 */
+export function currentProviderConfig(settings: AiSettings): AiProviderConfig {
+  return settings.providers[settings.provider] ?? defaultProviderConfig();
+}
+
+/** 获取指定厂商的 API Key（优先用户配置，其次环境变量） */
+export function resolveApiKey(settings: AiSettings, provider: string): string | undefined {
+  const config = settings.providers[provider] ?? defaultProviderConfig();
+  if (config.apiKey) return config.apiKey;
+  return envApiKey(provider as AiProvider);
+}
+
 export function toPublicSettings(settings: AiSettings): AiPublicSettings {
+  const providers: Record<string, AiProviderPublicConfig> = {};
+  for (const key of Object.keys(settings.providers)) {
+    const p = settings.providers[key];
+    providers[key] = {
+      model: p.model,
+      baseUrl: p.baseUrl,
+      hasApiKey: Boolean(p.apiKey) || Boolean(envApiKey(key as AiProvider)),
+      customModels: p.customModels,
+    };
+  }
   return {
     enabled: settings.enabled,
     provider: settings.provider,
-    model: settings.model,
-    baseUrl: settings.baseUrl,
-    hasApiKey: Boolean(settings.apiKey),
+    providers,
     temperature: settings.temperature,
     maxTokens: settings.maxTokens,
     timeoutMs: settings.timeoutMs,
     allowLocalRequests: settings.allowLocalRequests,
-    customModels: settings.customModels ?? [],
   };
 }

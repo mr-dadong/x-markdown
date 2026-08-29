@@ -7,7 +7,8 @@
       :class="{ 'icon-select-open': open }"
       @click="toggle"
     >
-      <Icon v-if="currentOption?.icon" :icon="currentOption.icon" :size="16" class="icon-select-icon" />
+      <Icon v-if="currentOption?.icon && !currentOption?.svg" :icon="currentOption.icon" :size="16" class="icon-select-icon" />
+      <span v-else-if="currentOption?.svg" v-html="currentOption.svg" class="icon-select-svg" />
       <span class="icon-select-label">{{ currentOption?.label ?? placeholder }}</span>
       <Icon icon="lucide:chevron-down" :size="14" class="icon-select-chevron" :class="{ 'icon-select-chevron-open': open }" />
     </button>
@@ -23,7 +24,8 @@
           :class="{ 'icon-select-selected': modelValue === option.value }"
           @click="select(option)"
         >
-          <Icon v-if="option.icon" :icon="option.icon" :size="16" class="icon-select-icon" />
+          <Icon v-if="option.icon && !option.svg" :icon="option.icon" :size="16" class="icon-select-icon" />
+          <span v-else-if="option.svg" v-html="option.svg" class="icon-select-svg" />
           <span class="icon-select-option-label">{{ option.label }}</span>
           <Icon v-if="modelValue === option.value" icon="lucide:check" :size="14" class="icon-select-check" />
         </button>
@@ -40,6 +42,7 @@ export interface IconSelectOption {
   value: string
   label: string
   icon?: string
+  svg?: string   // 内联 SVG 内容，优先级高于 icon
 }
 
 const props = defineProps<{
@@ -176,6 +179,20 @@ watch(() => props.options.length, () => {
 .icon-select-icon {
   flex-shrink: 0;
   color: var(--color-icon);
+}
+
+.icon-select-svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-select-svg :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 
 .icon-select-label {

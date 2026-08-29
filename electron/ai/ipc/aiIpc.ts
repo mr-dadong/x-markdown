@@ -13,7 +13,7 @@ import type {
   AiModelInfo,
   AiSettingsInput,
 } from "../../../src/types/ai";
-import { getAiSettings, saveAiSettings, toPublicSettings } from "../aiSettings";
+import { getAiSettings, currentProviderConfig, saveAiSettings, toPublicSettings } from "../aiSettings";
 import { getAiAgentStatus, getChatAgent, getWriterAgent } from "../mastra";
 import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
 
@@ -72,6 +72,10 @@ function resolveBaseUrl(provider: string, customBaseUrl?: string): string {
       return "https://api.openai.com/v1";
     case "anthropic":
       return "https://api.anthropic.com/v1";
+    case "deepseek":
+      return "https://api.deepseek.com/v1";
+    case "minimax":
+      return "https://api.minimax.io/v1";
     case "ollama":
       return "http://localhost:11434/v1";
     default:
@@ -126,7 +130,8 @@ async function fetchAnthropicModels(): Promise<AiModelInfo[]> {
 async function fetchModels(): Promise<AiFetchModelsResult> {
   try {
     const settings = await getAiSettings();
-    const baseUrl = resolveBaseUrl(settings.provider, settings.baseUrl);
+    const config = currentProviderConfig(settings);
+    const baseUrl = resolveBaseUrl(settings.provider, config.baseUrl);
 
     let models: AiModelInfo[];
     switch (settings.provider) {
@@ -137,7 +142,7 @@ async function fetchModels(): Promise<AiFetchModelsResult> {
         models = await fetchAnthropicModels();
         break;
       default:
-        models = await fetchOpenAiModels(baseUrl, settings.apiKey);
+        models = await fetchOpenAiModels(baseUrl, config.apiKey ?? undefined);
         break;
     }
 

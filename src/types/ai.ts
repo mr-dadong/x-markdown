@@ -1,4 +1,4 @@
-export type AiProvider = "openai" | "anthropic" | "ollama" | "custom";
+export type AiProvider = "openai" | "anthropic" | "deepseek" | "minimax" | "ollama" | "custom";
 
 export type AiEditAction =
   | "polish"
@@ -16,43 +16,53 @@ export type AiEditAction =
   | "frontmatter"
   | "ai-write";
 
-export interface AiSettings {
-  enabled: boolean;
-  provider: AiProvider;
+/** 每个厂商独立的配置（完整版，含 apiKey，仅主进程使用） */
+export interface AiProviderConfig {
   model: string;
   baseUrl?: string;
   apiKey?: string;
+  customModels?: string[];
+}
+
+/** 展现在渲染进程的厂商配置（不含 apiKey，仅含 hasApiKey 标记） */
+export interface AiProviderPublicConfig {
+  model: string;
+  baseUrl?: string;
+  hasApiKey: boolean;
+  customModels?: string[];
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  /** 当前选中的厂商 */
+  provider: AiProvider;
+  /** 每个厂商独立存储的配置 */
+  providers: Record<string, AiProviderConfig>;
   temperature: number;
   maxTokens: number;
   timeoutMs: number;
   allowLocalRequests: boolean;
-  customModels?: string[];
 }
 
 export interface AiSettingsInput {
   enabled?: boolean;
   provider?: AiProvider;
-  model?: string;
-  baseUrl?: string | null;
-  apiKey?: string | null;
+  providers?: Record<string, AiProviderConfig>;
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
   allowLocalRequests?: boolean;
-  customModels?: string[];
 }
 
 export interface AiPublicSettings {
   enabled: boolean;
   provider: AiProvider;
-  model: string;
-  baseUrl?: string;
-  hasApiKey: boolean;
+  /** 每个厂商的公开配置（不含 apiKey） */
+  providers: Record<string, AiProviderPublicConfig>;
   temperature: number;
   maxTokens: number;
   timeoutMs: number;
   allowLocalRequests: boolean;
-  customModels: string[];
 }
 
 export interface AiStatus {
