@@ -1,4 +1,8 @@
 !macro customInstall
+  ; 每次安装（包括同版本覆盖安装）都让应用在下次启动时重新校验并清理渲染缓存。
+  ; 这里只删除构建指纹，不删除 LocalStorage、AI 设置或最近文件。
+  Delete "$APPDATA\markdown-editor\renderer-build-id.txt"
+
   ; 注册“打开方式”，但不强制替换用户当前的默认 Markdown 编辑器。
   WriteRegStr HKCU "Software\Classes\XMD.Markdown" "" "Markdown 文档"
   WriteRegStr HKCU "Software\Classes\XMD.Markdown\DefaultIcon" "" '"$INSTDIR\XMD.exe",0'

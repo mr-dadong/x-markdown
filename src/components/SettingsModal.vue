@@ -26,9 +26,14 @@
           <button v-for="item in navigationItems" :key="item.id" type="button"
             class="flex h-10 items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
             :class="activeSection === item.id ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
-            @click="activeSection = item.id">
+            @click="tryChangeSection(item.id)">
             <Icon :icon="item.icon" :size="16" />
-            <span>{{ item.label }}</span>
+            <span class="flex min-w-0 flex-1 items-center justify-between gap-2">
+              <span>{{ item.label }}</span>
+              <span v-if="item.id === 'ai' && aiPanelRef?.isDirty"
+                class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                title="AI 分区有未保存的更改" />
+            </span>
           </button>
           <div class="mt-auto flex items-center gap-2 border-t border-line px-3 pt-3 text-[10px] text-muted">
             <span class="h-1.5 w-1.5 rounded-full bg-[#46a758]" />
@@ -126,7 +131,7 @@
           </template>
 
           <template v-else-if="activeSection === 'ai'">
-            <AiSettingsPanel />
+            <AiSettingsPanel ref="aiPanelRef" />
           </template>
 
           <template v-else-if="activeSection === 'changelog'">
@@ -205,7 +210,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { useSettings, type SettingsSection } from '../composables/useSettings'
 import { useUpdater } from '../composables/useUpdater'
@@ -222,11 +227,27 @@ import appIcon from '../../build/icons/256x256.png'
 import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
 import { overlayState } from '../modules/overlayState'
+import { useConfirmDialog } from '../composables/useConfirmDialog'
 
 const settingsOpen = overlayState.settingsOpen
 const settingsSection = overlayState.settingsSection
 
-const closeSettings = (): void => {
+const { requestConfirmation } = useConfirmDialog()
+
+// AI 分区是唯一需要显式保存的表单（其余分区即时生效），切走或关闭前检查脏状态。
+const aiPanelRef = ref<InstanceType<typeof AiSettingsPanel> | null>(null)
+
+const closeSettings = async (): Promise<void> => {
+  if (aiPanelRef.value?.isDirty) {
+    const confirmed = await requestConfirmation({
+      title: '放弃未保存的 AI 设置？',
+      message: 'AI 分区有尚未保存的更改，关闭后这些更改将被丢弃。',
+      confirmLabel: '放弃更改',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    aiPanelRef.value?.resetToSaved()
+  }
   settingsOpen.value = false
   settingsSection.value = 'general'
 }
@@ -277,6 +298,21 @@ watch(activeSection, (section) => {
     void loadUpdateLogs()
   }
 })
+
+// 离开 AI 分区前检查未保存的更改：确认放弃才真正切换，取消则停留在 AI。
+const tryChangeSection = async (section: SettingsSection): Promise<void> => {
+  if (activeSection.value === 'ai' && section !== 'ai' && aiPanelRef.value?.isDirty) {
+    const confirmed = await requestConfirmation({
+      title: '放弃未保存的 AI 设置？',
+      message: 'AI 分区有尚未保存的更改，离开后这些更改将被丢弃。',
+      confirmLabel: '放弃更改',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    aiPanelRef.value?.resetToSaved()
+  }
+  activeSection.value = section
+}
 const editorModeOptions = [
   { value: 'preview', label: 'MD 预览' },
   { value: 'source', label: '源码展示' },

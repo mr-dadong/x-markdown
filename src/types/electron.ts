@@ -37,7 +37,7 @@ export interface ApplicationMenuPosition {
 }
 
 export interface RendererDiagnosticEvent {
-  level: "error";
+  level: "error" | "info" | "warn";
   event: string;
   detail?: Record<string, string | number | boolean | null>;
 }

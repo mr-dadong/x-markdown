@@ -108,11 +108,31 @@ export interface AiFetchModelsResult {
   error?: string;
 }
 
+export interface AiTestConnectionResult {
+  ok: boolean;
+  provider: AiProvider;
+  model: string;
+  latencyMs?: number;
+  sampleTokenCount?: number;
+  error?: string;
+}
+
 export interface AiServiceApi {
   getSettings: () => Promise<AiPublicSettings>;
   saveSettings: (settings: AiSettingsInput) => Promise<AiPublicSettings>;
   getStatus: () => Promise<AiStatus>;
   fetchModels: () => Promise<AiFetchModelsResult>;
+  /**
+   * 使用当前表单草稿（未保存）获取模型列表，不会把草稿真正写入磁盘，
+   * 也不会触发缓存快照、选区工具栏状态同步等副作用。
+   */
+  fetchModelsWithDraft: (draft: AiSettingsInput) => Promise<AiFetchModelsResult>;
+  testConnection: () => Promise<AiTestConnectionResult>;
+  /**
+   * 使用当前表单草稿（未保存）跑一次 1 token 连通性测试，
+   * 不会把草稿落盘，确保「点测试」与「点保存再用」行为完全一致。
+   */
+  testConnectionWithDraft: (draft: AiSettingsInput) => Promise<AiTestConnectionResult>;
   invoke: (request: AiInvokeRequest) => Promise<{ requestId: string }>;
   cancel: (requestId: string) => void;
   onDelta: (callback: (event: AiDeltaEvent) => void) => () => void;

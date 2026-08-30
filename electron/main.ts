@@ -64,6 +64,46 @@ const installerExtensions = new Set([
 // 当前日志和上一份日志各限制为约 1 MB，总占用约不超过 2 MB。
 const diagnosticLogMaximumBytes = 1024 * 1024;
 let diagnosticWriteQueue: Promise<void> = Promise.resolve();
+const rendererBuildIdFileName = "build-id.txt";
+const installedRendererBuildIdFileName = "renderer-build-id.txt";
+
+// 渲染产物变化或安装包覆盖安装后，在窗口加载前清理 Chromium 渲染缓存。
+// 指纹文件不放在 LocalStorage 中，避免清缓存流程与用户设置相互影响。
+async function refreshRendererCacheWhenBuildChanges(): Promise<void> {
+  const packagedBuildIdPath = path.join(
+    __dirname,
+    "../renderer",
+    rendererBuildIdFileName,
+  );
+  const installedBuildIdPath = path.join(
+    app.getPath("userData"),
+    installedRendererBuildIdFileName,
+  );
+
+  const currentBuildId = await fs.promises
+    .readFile(packagedBuildIdPath, "utf8")
+    .then((value) => value.trim())
+    .catch((error: NodeJS.ErrnoException) => {
+      // 开发模式没有生产构建指纹，直接使用 Vite 开发服务器，不需要清理。
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+  if (!currentBuildId) return;
+
+  const previousBuildId = await fs.promises
+    .readFile(installedBuildIdPath, "utf8")
+    .then((value) => value.trim())
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+  if (previousBuildId === currentBuildId) return;
+
+  // cache 包含普通缓存、CacheStorage 与 Shader Cache；代码缓存需要单独清理。
+  await session.defaultSession.clearData({ dataTypes: ["cache"] });
+  await session.defaultSession.clearCodeCaches({ urls: [] });
+  await fs.promises.writeFile(installedBuildIdPath, `${currentBuildId}\n`, "utf8");
+}
 
 // 生产包无法直接查看 DevTools，关键交互写入用户数据目录便于定位首次启动问题。
 // 日志只接受结构化事件和基础类型字段，不接收文档正文、AI 内容或密钥。
@@ -416,12 +456,22 @@ ipcMain.on(IPC_CHANNELS.updateShortcuts, (_event, shortcuts: Record<string, stri
 ipcMain.on(
   IPC_CHANNELS.rendererDiagnostic,
   (_event, diagnosticEvent: RendererDiagnosticEvent) => {
-    if (diagnosticEvent.level !== "error") return;
-    diagnosticWriteQueue = diagnosticWriteQueue
-      .then(() => appendRendererDiagnostic(diagnosticEvent))
-      .catch((error) => {
-        console.error("写入渲染进程诊断日志失败:", error);
-      });
+    // error 走轮转日志，info/warn 直接打到主进程控制台，避免
+    // 1MB 日志配额被排查用的 info 事件快速占满，导致真正错误被覆盖。
+    if (diagnosticEvent.level === "error") {
+      diagnosticWriteQueue = diagnosticWriteQueue
+        .then(() => appendRendererDiagnostic(diagnosticEvent))
+        .catch((error) => {
+          console.error("写入渲染进程诊断日志失败:", error);
+        });
+    } else {
+      const tag = `[renderer:${diagnosticEvent.level ?? "info"}] ${diagnosticEvent.event}`;
+      if (diagnosticEvent.detail) {
+        console.log(tag, diagnosticEvent.detail);
+      } else {
+        console.log(tag);
+      }
+    }
   },
 );
 
@@ -1593,6 +1643,8 @@ app.whenReady().then(async () => {
     return createVideoResponse(request, authorizedPath);
   });
   if (!hasSingleInstanceLock) return;
+
+  await refreshRendererCacheWhenBuildChanges();
 
   queueFilesToOpen(await getFilePathsFromArguments(process.argv));
   createWindow();

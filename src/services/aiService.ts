@@ -11,6 +11,7 @@ import type {
   AiPublicSettings,
   AiSettingsInput,
   AiStatus,
+  AiTestConnectionResult,
 } from "../types/ai";
 
 export const aiService = {
@@ -19,6 +20,11 @@ export const aiService = {
     window.electronAPI.aiService.saveSettings(settings),
   getStatus: (): Promise<AiStatus> => window.electronAPI.aiService.getStatus(),
   fetchModels: (): Promise<AiFetchModelsResult> => window.electronAPI.aiService.fetchModels(),
+  fetchModelsWithDraft: (draft: AiSettingsInput): Promise<AiFetchModelsResult> =>
+    window.electronAPI.aiService.fetchModelsWithDraft(draft),
+  testConnection: (): Promise<AiTestConnectionResult> => window.electronAPI.aiService.testConnection(),
+  testConnectionWithDraft: (draft: AiSettingsInput): Promise<AiTestConnectionResult> =>
+    window.electronAPI.aiService.testConnectionWithDraft(draft),
   invoke: (request: AiInvokeRequest) => window.electronAPI.aiService.invoke(request),
   cancel: (requestId: string) => window.electronAPI.aiService.cancel(requestId),
   onDelta: (callback: (event: AiDeltaEvent) => void) => window.electronAPI.aiService.onDelta(callback),

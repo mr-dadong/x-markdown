@@ -11,9 +11,12 @@ import type {
   AiFetchModelsResult,
   AiInvokeRequest,
   AiModelInfo,
+  AiProvider,
+  AiProviderConfig,
+  AiSettings,
   AiSettingsInput,
 } from "../../../src/types/ai";
-import { getAiSettings, currentProviderConfig, saveAiSettings, toPublicSettings } from "../aiSettings";
+import { getAiSettings, currentProviderConfig, saveAiSettings, toPublicSettings, testAiConnection, resolveApiKey, normalizeSettings, isAiProvider } from "../aiSettings";
 import { getAiAgentStatus, getChatAgent, getWriterAgent } from "../mastra";
 import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
 
@@ -127,10 +130,18 @@ async function fetchAnthropicModels(): Promise<AiModelInfo[]> {
   ];
 }
 
-async function fetchModels(): Promise<AiFetchModelsResult> {
+async function fetchModels(settingsInput?: AiSettingsInput): Promise<AiFetchModelsResult> {
   try {
-    const settings = await getAiSettings();
+    const base = await getAiSettings();
+    const settings = settingsInput
+      ? normalizeSettings(
+          { ...settingsInput, providers: mergeDraftApiKeys(base, settingsInput) },
+          base,
+        )
+      : base;
     const config = currentProviderConfig(settings);
+    // config.apiKey 已含草稿 Key 或解密后的已存 Key；这里只是兜底再解析环境变量。
+    const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
     const baseUrl = resolveBaseUrl(settings.provider, config.baseUrl);
 
     let models: AiModelInfo[];
@@ -142,7 +153,7 @@ async function fetchModels(): Promise<AiFetchModelsResult> {
         models = await fetchAnthropicModels();
         break;
       default:
-        models = await fetchOpenAiModels(baseUrl, config.apiKey ?? undefined);
+        models = await fetchOpenAiModels(baseUrl, apiKey);
         break;
     }
 
@@ -150,6 +161,60 @@ async function fetchModels(): Promise<AiFetchModelsResult> {
   } catch (error) {
     return { models: [], error: errorMessage(error) };
   }
+}
+
+/**
+ * 草稿合并规则：
+ * - draft 中目标 provider 显式带 apiKey（用户输入了新 Key）→ 用草稿值。
+ * - draft 中目标 provider 没带 apiKey（留空 = 保留原值语义）→ 回退到 base 里
+ *   的已保存 Key（getAiSettings 已完成解密）。
+ * - 其它 provider 一律沿用 base 值，避免草稿误覆盖其它厂商的配置。
+ */
+function mergeDraftApiKeys(
+  base: AiSettings,
+  draft: AiSettingsInput,
+): AiSettings["providers"] {
+  const baseProviders = base.providers;
+  const draftProviders = draft.providers ?? {};
+  const merged: Record<string, AiProviderConfig> = { ...baseProviders };
+  const targetProvider = isAiProvider(draft.provider) ? draft.provider : base.provider;
+  for (const key of Object.keys({ ...baseProviders, ...draftProviders })) {
+    const draftCfg = draftProviders[key];
+    const baseCfg = baseProviders[key];
+    const fallback: AiProviderConfig = baseCfg ?? {
+      model: "",
+      baseUrl: undefined,
+      apiKey: undefined,
+      customModels: [],
+    };
+    if (!draftCfg) {
+      merged[key] = fallback;
+      continue;
+    }
+    const draftKey =
+      typeof draftCfg.apiKey === "string" && draftCfg.apiKey.trim()
+        ? draftCfg.apiKey.trim()
+        : undefined;
+    const resolvedKey =
+      key === targetProvider && draftKey ? draftKey : fallback.apiKey;
+    merged[key] = {
+      model:
+        typeof draftCfg.model === "string" && draftCfg.model.trim()
+          ? draftCfg.model.trim()
+          : fallback.model,
+      baseUrl:
+        typeof draftCfg.baseUrl === "string" && draftCfg.baseUrl.trim()
+          ? draftCfg.baseUrl.trim()
+          : fallback.baseUrl,
+      apiKey: resolvedKey,
+      customModels: Array.isArray(draftCfg.customModels)
+        ? draftCfg.customModels.filter(
+            (m): m is string => typeof m === "string" && m.trim().length > 0,
+          )
+        : (fallback.customModels ?? []),
+    };
+  }
+  return merged;
 }
 
 export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | null }): void {
@@ -186,6 +251,45 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     validateSender(event);
     return fetchModels();
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.aiFetchModelsWithDraft,
+    async (event, draft: AiSettingsInput) => {
+      validateSender(event);
+      return fetchModels(draft);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.aiTestConnection, async (event) => {
+    validateSender(event);
+    try {
+      return await testAiConnection();
+    } catch (error) {
+      return {
+        ok: false,
+        provider: 'openai' as AiProvider,
+        model: '',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.aiTestConnectionWithDraft,
+    async (event, draft: AiSettingsInput) => {
+      validateSender(event);
+      try {
+        return await testAiConnection(draft);
+      } catch (error) {
+        return {
+          ok: false,
+          provider: (draft?.provider ?? 'openai') as AiProvider,
+          model: String(draft?.providers?.[draft.provider ?? '']?.model ?? ''),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.aiInvoke, async (event, value: unknown) => {
     validateSender(event);

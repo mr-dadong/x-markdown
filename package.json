@@ -1,12 +1,12 @@
 {
   "name": "markdown-editor",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "desktopName": "com.xmd.markdown-editor.desktop",
   "description": "A Typora-like Markdown editor built with Electron + Vue 3 + TipTap",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && bun scripts/write-renderer-build-id.mjs",
     "dist:win": "bun run build && electron-builder --win nsis --x64 --publish never",
     "dist:mac": "bun run build && electron-builder --mac dmg --x64 --arm64 --publish never",
     "dist:mac:x64": "bun run build && electron-builder --mac dmg --x64 --publish never",

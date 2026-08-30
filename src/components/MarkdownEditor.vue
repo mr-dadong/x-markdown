@@ -29,40 +29,22 @@
 
     <!-- 选中文本时出现 AI 动作条，表格内选区由上方表格工具栏接管，此处不重复弹出。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowAiMenu"
-      :tippy-options="{ placement: 'top', maxWidth: 600 }">
+      :tippy-options="aiMenuTippyOptions">
       <!-- 内联 AI 处理中或有结果时显示 InlineAiBar -->
-      <InlineAiBar
-        v-if="inlineAiStreaming || inlineAiResult || inlineAiError"
-        :is-streaming="inlineAiStreaming"
-        :result="inlineAiResult"
-        :error="inlineAiError"
-        :current-action="inlineAiAction"
-        @accept="acceptInlineAiResult"
-        @reject="rejectInlineAiResult"
-        @cancel="cancelInlineAi"
-        @retry="retryInlineAi"
-      />
+      <InlineAiBar v-if="inlineAiStreaming || inlineAiResult || inlineAiError" :is-streaming="inlineAiStreaming"
+        :result="inlineAiResult" :error="inlineAiError" :current-action="inlineAiAction" @accept="acceptInlineAiResult"
+        @reject="rejectInlineAiResult" @cancel="cancelInlineAi" @retry="retryInlineAi" />
       <!-- 否则显示动作选择条 -->
-      <AiSelectionBar
-        v-else
-        @run="runInlineAiAction"
-        @add-to-selection="addToSelection"
-        @open-settings="emit('open-settings')"
-      />
+      <AiSelectionBar v-else @run="runInlineAiAction" @add-to-selection="addToSelection"
+        @open-settings="emit('open-settings')" />
     </bubble-menu>
 
     <!-- AI 实时编写状态框 - 固定在编辑器底部，单独占一行 -->
     <Transition name="inline-writer">
       <div v-if="inlineWriterStatus !== 'idle'" class="ai-writer-status-bar">
-        <InlineWriterBar
-          :status="inlineWriterStatus"
-          :error="inlineWriterError"
-          :current-action="inlineWriterAction"
-          @accept="acceptInlineWriterResult"
-          @reject="rejectInlineWriterResult"
-          @cancel="cancelInlineWriter"
-          @retry="retryInlineWriter"
-        />
+        <InlineWriterBar :status="inlineWriterStatus" :error="inlineWriterError" :current-action="inlineWriterAction"
+          @accept="acceptInlineWriterResult" @reject="rejectInlineWriterResult" @cancel="cancelInlineWriter"
+          @retry="retryInlineWriter" />
       </div>
     </Transition>
 
@@ -267,8 +249,9 @@
 
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
+import type { Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
-import { clampPanelLeft } from '../modules/panelPosition'
+import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
 import { buildWriterContext } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
@@ -407,10 +390,13 @@ const {
   () => props.currentFilePath,
   () => props.active,
   (range) => {
-    // 打开AI实时编写输入框，面板锚定在光标处，等渲染完成后按光标坐标定位。
+    // 打开AI实时编写输入框，面板锚定在光标处，等渲染完成后先腾出空间再按光标坐标定位。
     showAiWriterInput.value = true
     aiWriterRange.value = range
-    void nextTick(() => updateAiWriterPosition())
+    void nextTick(() => {
+      makeRoomBelowCursor()
+      updateAiWriterPosition()
+    })
   }
 )
 
@@ -479,6 +465,29 @@ const aiWriterPosition = ref({ left: 0, top: 0 })
 // 边界一律按编辑区（而非整个窗口）计算，避免盖住底部状态栏或飘出编辑区；
 // 下方放不下翻转到光标上方，光标滚出可视区则暂时隐藏，滚回再出现。
 const aiWriterPanelHidden = ref(false)
+
+// 打开面板前先把编辑区向下滚动，让光标下方空出面板的位置，避免面板压住正文。
+// 文档见底滚不动时交给 updateAiWriterPosition 的翻转/钳制逻辑兜底。
+const makeRoomBelowCursor = (): void => {
+  if (!editor.value || !aiWriterRange.value) return
+  const viewport = editor.value.view.dom.closest('.editor-scroll')
+  const shellRect = editorShell.value?.getBoundingClientRect()
+  if (!viewport || !shellRect) return
+
+  const cursor = editor.value.view.coordsAtPos(aiWriterRange.value.to)
+  // 面板刚渲染时测量高度；尚未布局完成则回退到默认高度。
+  const panelHeight = aiWriterPanelRef.value?.getBoundingClientRect().height || 180
+  // 剩余可滚动距离：已滚到文档末尾时为 0，不会产生无效滚动。
+  const maxScrollDelta = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+  const scrollDelta = scrollOffsetToMakeRoomBelow(cursor.bottom, panelHeight, {
+    shellBottom: shellRect.bottom,
+    panelGap: 8,
+    edgeGap: 12,
+    maxScrollDelta,
+  })
+  if (scrollDelta > 0) viewport.scrollTop += scrollDelta
+}
+
 const updateAiWriterPosition = (): void => {
   if (!showAiWriterInput.value || !aiWriterRange.value || !editor.value) return
   const cursor = editor.value.view.coordsAtPos(aiWriterRange.value.to)
@@ -602,6 +611,38 @@ const blockActions: BlockAction[] = [
 const blockActionSeparators = [2, 3, 5]
 
 const editorShell = ref<HTMLElement | null>(null)
+
+// AI 菜单默认显示在选区上方；顶部空间不足时，以编辑区为边界翻转到下方，避免被文档标签栏裁掉。
+const aiMenuTippyOptions: Partial<TippyProps> = {
+  placement: 'top',
+  maxWidth: 600,
+  onCreate: (instance) => {
+    const boundary = editorShell.value
+    if (!boundary) return
+
+    instance.setProps({
+      popperOptions: {
+        modifiers: [
+          {
+            name: 'flip',
+            options: {
+              boundary,
+              fallbackPlacements: ['bottom'],
+              padding: 8,
+            },
+          },
+          {
+            name: 'preventOverflow',
+            options: {
+              boundary,
+              padding: 8,
+            },
+          },
+        ],
+      },
+    })
+  },
+}
 const blockMenu = ref<HTMLElement | null>(null)
 
 // 编辑区滚动时同时刷新块控件、斜杠面板与 AI 输入框：
@@ -1008,6 +1049,7 @@ defineExpose<EditorHandle>({
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);

@@ -45,6 +45,17 @@ const electronAPI: ElectronAPI = {
     fetchModels: (): Promise<AiFetchModelsResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.aiFetchModels),
 
+    fetchModelsWithDraft: (draft: AiSettingsInput): Promise<AiFetchModelsResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiFetchModelsWithDraft, draft),
+
+    testConnection: (): Promise<import('../src/types/ai').AiTestConnectionResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiTestConnection),
+
+    testConnectionWithDraft: (
+      draft: AiSettingsInput,
+    ): Promise<import('../src/types/ai').AiTestConnectionResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.aiTestConnectionWithDraft, draft),
+
     invoke: (request: AiInvokeRequest) => ipcRenderer.invoke(IPC_CHANNELS.aiInvoke, request),
 
     cancel: (requestId: string): void => {
