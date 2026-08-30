@@ -1,6 +1,83 @@
 {
-  "latest": "1.2.1",
+  "latest": "1.2.2",
   "releases": [
+    {
+      "version": "1.2.2",
+      "date": "2026-08-30",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：AI 设置「测试连接」按钮，真实请求验证配置，显示延迟与失败原因，通过后自动保存生效",
+        "新增：AI 设置有未保存更改时，切换分区或关闭设置会提示确认，避免误丢配置",
+        "优化：API Key 已配置时显示掩码，输入新值即可替换，留空保持原 Key",
+        "优化：API 地址直接预填各厂商官方默认地址，可按需修改",
+        "优化：保存 AI 设置后立即生效，选区 AI 工具栏无需重启即可使用",
+        "优化：AI 实时编写面板打开时自动滚动腾出空间，避免面板压住正文",
+        "优化：刷新模型列表使用未保存草稿验证，不再误存未完成的改动",
+        "修复：API Key 加密保存后重启应用读取不到的问题",
+        "修复：升级或覆盖安装后可能因旧缓存导致斜杠菜单和选区 AI 工具栏不显示的问题"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.2-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.2/XMD-1.2.2-Windows-x64.exe",
+              "sha256": "5be3835a87b78577ee15bf89c6a28ab12832d9a4560a20d6ff5d2da9ca3d7da0"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.2-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.2/XMD-1.2.2-macOS-arm64.dmg",
+              "sha256": "88cc445eb2cc5f49472db09b9166d2d04cd831a5facb0d90c5c44cfe7e1ec5db"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.2-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.2/XMD-1.2.2-macOS-x64.dmg",
+              "sha256": "12ce7eba143015853f87ed6faa41461fe70162ab08c5a81e52331c0cc42216fc"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.2-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.2/XMD-1.2.2-Linux-x86_64.AppImage",
+              "sha256": "b61dcf4f506673e33cfbb286f966f8322149b52a88ec70c938c6b0431070f396"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.2-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.2/XMD-1.2.2-Linux-arm64.AppImage",
+              "sha256": "ec5065b19e1ad42beec17fd472c7610923799f571baf1c6548ad6a12f34157f3"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.2.1",
       "date": "2026-08-29",
