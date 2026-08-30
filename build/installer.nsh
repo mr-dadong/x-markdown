@@ -1,3 +1,24 @@
+; 覆盖 electron-builder 默认的进程处理：应用仍在运行时不强制结束进程，
+; 避免绕过 XMD 自己的未保存文档确认。用户正常退出后才能继续安装。
+!macro customCheckAppRunning
+  xmd_check_app_running:
+    ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
+    ${If} $R0 == 0
+      ; 应用内发起更新时会在打开安装器后立即正常退出，先给退出流程一点时间。
+      Sleep 1000
+      ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
+      ${If} $R0 == 0
+        MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "安装前需要先退出 XMD。请回到 XMD 保存或处理未保存的文档并完全退出，然后点击“重试”。" IDRETRY xmd_check_app_running IDCANCEL xmd_cancel_install
+      ${EndIf}
+    ${EndIf}
+    Goto xmd_app_closed
+
+  xmd_cancel_install:
+    Quit
+
+  xmd_app_closed:
+!macroend
+
 !macro customInstall
   ; 每次安装（包括同版本覆盖安装）都让应用在下次启动时重新校验并清理渲染缓存。
   ; 这里只删除构建指纹，不删除 LocalStorage、AI 设置或最近文件。
