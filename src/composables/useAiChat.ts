@@ -15,6 +15,8 @@ export interface AiChatOptions {
   replaceSelection: (text: string) => void;
   /** 当前文档文件路径，用于按文档隔离对话历史。 */
   filePath: () => string | null;
+  /** 获取侧栏选择的模型覆盖值（仅模型名）；返回空表示使用设置页当前模型。 */
+  getModelOverride?: () => string | null;
 }
 
 const MAX_MESSAGES = 100;
@@ -132,11 +134,14 @@ export const useAiChat = (options: AiChatOptions) => {
       .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     try {
+      // 侧栏选择的模型覆盖值，仅在非空时携带，避免写入 undefined
+      const modelOverride = options.getModelOverride?.();
       await aiService.chatInvoke({
         requestId,
         messages: chatMessages,
         documentContext: options.getDocumentContext(),
         selection: options.getSelection(),
+        ...(modelOverride ? { model: modelOverride } : {}),
       });
     } catch (invokeError) {
       if (status.value === "streaming") {

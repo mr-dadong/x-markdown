@@ -381,6 +381,10 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     if (!Array.isArray(request.messages) || request.messages.length === 0) {
       throw new Error("Chat 请求缺少消息列表");
     }
+    // 模型覆盖参数为可选；携带时必须是去除空白后非空的字符串
+    if (request.model !== undefined && (typeof request.model !== "string" || !request.model.trim())) {
+      throw new Error("Chat 请求的模型参数不正确");
+    }
   }
 
   ipcMain.handle(IPC_CHANNELS.aiChatInvoke, async (event, value: unknown) => {
@@ -416,7 +420,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     };
 
     try {
-      const agent = await getChatAgent();
+      const agent = await getChatAgent(request.model);
 
       // 系统提示通过 system 参数传入，消息列表只保留 user/assistant 对话历史
       const systemPrompt = buildChatSystemPrompt(request);

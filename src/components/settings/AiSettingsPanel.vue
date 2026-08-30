@@ -24,21 +24,32 @@
         @focus="onApiKeyFocus" @input="onApiKeyInput" @blur="onApiKeyBlur" />
     </SettingGroup>
 
-    <div class="flex flex-col gap-3">
-      <div class="flex items-center gap-3 border-b border-line py-4">
-        <label class="w-20 shrink-0 text-[13px] font-medium text-ink">温度</label>
-        <span class="flex-1 text-[12px] text-muted">0-2，越高越有创造性</span>
-        <input v-model.number="temperature" type="number" min="0" max="2" step="0.1" class="ai-control !w-28" />
+    <!-- 生成参数分组：三个数值参数收进一个圆角容器，与上方的连接配置在视觉上区分开 -->
+    <div class="flex flex-col rounded-lg border border-line bg-panel">
+      <div class="flex flex-col gap-1 px-5 pb-3 pt-4">
+        <h4 class="text-[13px] font-semibold text-ink">生成参数</h4>
+        <p class="text-[12px] text-muted">控制生成质量与稳定性，保存后对所有 AI 功能生效。</p>
       </div>
-      <div class="flex items-center gap-3 border-b border-line py-4">
-        <label class="w-20 shrink-0 text-[13px] font-medium text-ink">最大输出</label>
-        <span class="flex-1 text-[12px] text-muted">单次生成的最大 token 数</span>
-        <input v-model.number="maxTokens" type="number" min="256" max="32768" step="256" class="ai-control !w-28" />
+      <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <span class="text-[13px] font-medium text-ink">温度</span>
+          <span class="text-[12px] text-muted">0-2，数值越高生成结果越有创造性。</span>
+        </div>
+        <input v-model.number="temperature" type="number" min="0" max="2" step="0.1" class="ai-control !bg-paper" />
       </div>
-      <div class="flex items-center gap-3 border-b border-line py-4">
-        <label class="w-20 shrink-0 text-[13px] font-medium text-ink">超时时间</label>
-        <span class="flex-1 text-[12px] text-muted">单位：秒</span>
-        <input v-model.number="timeoutSeconds" type="number" min="5" max="300" step="5" class="ai-control !w-28" />
+      <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <span class="text-[13px] font-medium text-ink">最大输出</span>
+          <span class="text-[12px] text-muted">单次生成的最大 token 数，过小可能导致长内容被截断。</span>
+        </div>
+        <input v-model.number="maxTokens" type="number" min="256" max="32768" step="256" class="ai-control !bg-paper" />
+      </div>
+      <div class="flex items-center justify-between gap-8 px-5 py-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <span class="text-[13px] font-medium text-ink">超时时间</span>
+          <span class="text-[12px] text-muted">等待模型响应的最长时间，单位：秒。</span>
+        </div>
+        <input v-model.number="timeoutSeconds" type="number" min="5" max="300" step="5" class="ai-control !bg-paper" />
       </div>
     </div>
 
@@ -140,7 +151,7 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
 const enabled = ref(false)
 const provider = ref<AiProvider>('openai')
 const temperature = ref(0.7)
-const maxTokens = ref(2048)
+const maxTokens = ref(8192)
 const timeoutSeconds = ref(30)
 const saving = ref(false)
 const message = ref('')
@@ -326,7 +337,7 @@ const buildDraftPayload = (): AiSettingsInput => {
     provider: provider.value,
     providers: providersPayload,
     temperature: typeof temperature.value === 'number' ? temperature.value : 0.7,
-    maxTokens: typeof maxTokens.value === 'number' ? Math.max(1, Math.floor(maxTokens.value)) : 2048,
+    maxTokens: typeof maxTokens.value === 'number' ? Math.max(1, Math.floor(maxTokens.value)) : 8192,
     timeoutMs: typeof timeoutMs.value === 'number' ? Math.max(1, Math.floor(timeoutMs.value)) : 30000,
     allowLocalRequests: Boolean(allowLocalRequests.value),
   }

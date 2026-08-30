@@ -11,9 +11,11 @@ let chatAgent: Agent<string> | null = null;
 let writerSignature = "";
 let chatSignature = "";
 
-function buildModelConfig(settings: AiSettings): unknown {
+function buildModelConfig(settings: AiSettings, modelOverride?: string): unknown {
   const config = currentProviderConfig(settings);
-  const id = `${settings.provider}/${config.model}`;
+  // 侧栏选择的模型覆盖值优先；为空时回退设置页当前厂商的模型
+  const model = modelOverride?.trim() || config.model;
+  const id = `${settings.provider}/${model}`;
   const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
 
   // 为每个已知厂商提供默认 API 地址
@@ -72,12 +74,14 @@ export async function getWriterAgent(): Promise<Agent<string>> {
   return writerAgent;
 }
 
-export async function getChatAgent(): Promise<Agent<string>> {
+export async function getChatAgent(modelOverride?: string): Promise<Agent<string>> {
   const settings = await getAiSettings();
   const config = currentProviderConfig(settings);
+  // 覆盖后的生效模型参与缓存签名，切换覆盖模型时会重建 Agent
+  const effectiveModel = modelOverride?.trim() || config.model;
   const signature = [
     settings.provider,
-    config.model,
+    effectiveModel,
     config.baseUrl ?? "",
     (config.apiKey ?? resolveApiKey(settings, settings.provider))?.slice(-4) ?? "",
   ].join("|");
@@ -93,7 +97,7 @@ export async function getChatAgent(): Promise<Agent<string>> {
       "你是 XMD 的 Markdown 写作助手。用户会与你进行多轮对话，讨论和处理 Markdown 文档内容。" +
       "请根据对话上下文和文档内容提供帮助，返回 Markdown 格式的结果。" +
       "保持回答简洁专业，避免不必要的解释。",
-    model: buildModelConfig(settings) as ConstructorParameters<typeof Agent<string>>[0]["model"],
+    model: buildModelConfig(settings, modelOverride) as ConstructorParameters<typeof Agent<string>>[0]["model"],
     maxRetries: 1,
   });
 

@@ -1,4 +1,0 @@
-# 下面两个文件只供 Cloudflare 部署读取，不应作为网站静态文件公开。
-_headers
-.assetsignore
-README.md

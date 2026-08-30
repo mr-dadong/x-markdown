@@ -162,6 +162,8 @@ export interface AiChatRequest {
   messages: Array<{ role: AiChatRole; content: string }>
   documentContext?: string
   selection?: string
+  /** 仅模型名（不含厂商前缀）；缺省或空表示使用设置页当前厂商的模型 */
+  model?: string
   options?: {
     temperature?: number
     maxTokens?: number

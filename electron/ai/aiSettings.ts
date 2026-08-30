@@ -62,7 +62,7 @@ const defaultAiSettings = (): AiSettings => ({
     },
   },
   temperature: 0.7,
-  maxTokens: 2048,
+  maxTokens: 8192,
   timeoutMs: 30000,
   allowLocalRequests: false,
 });
@@ -260,7 +260,7 @@ async function readStoredSettings(): Promise<StoredAiSettings | null> {
             temperature:
               typeof config.temperature === "number" ? config.temperature : 0.7,
             maxTokens:
-              typeof config.maxTokens === "number" ? config.maxTokens : 2048,
+              typeof config.maxTokens === "number" ? config.maxTokens : 8192,
             timeoutMs:
               typeof config.timeoutMs === "number" ? config.timeoutMs : 30000,
             allowLocalRequests:

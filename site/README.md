@@ -18,8 +18,7 @@ site/
 ├─ changelog.html         # 更新日志
 ├─ favicon.png            # 网站图标
 ├─ _headers               # Cloudflare Pages 响应头和缓存规则
-├─ _routes.json           # 将 /api/* 交给 Pages Function
-└─ .assetsignore          # Workers 静态资源上传排除规则
+└─ _routes.json           # 将 /api/* 交给 Pages Function
 ```
 
 ## 版本信息和软件下载
@@ -30,9 +29,8 @@ site/
 /api/version
 ```
 
-Pages 部署时，该接口由仓库根目录的
-`functions/api/version.js` 提供；Workers 部署时，由仓库根目录的
-`worker/index.js` 提供。服务端会读取下面的 CNB 版本清单：
+该接口由仓库根目录的 `functions/api/version.js` 提供。服务端会读取下面
+的 CNB 版本清单：
 
 ```text
 https://cnb.cool/X-2026/x-markdown/-/git/raw/main/changelogs/version.json
@@ -68,16 +66,6 @@ npx wrangler pages deploy site --project-name xmd-site
 - Root directory：仓库根目录
 
 项目包含 Pages Functions，因此不能使用控制台拖放目录的方式部署。
-
-## 部署到 Cloudflare Workers
-
-仓库根目录已经提供 `wrangler.jsonc`，运行：
-
-```powershell
-npx wrangler deploy
-```
-
-Workers 会上传该目录中的网站资源，并通过 Worker 提供 `/api/version`。
 
 ## 修改约定
 

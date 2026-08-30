@@ -1,0 +1,76 @@
+{
+  "latest": "1.2.3",
+  "releases": [
+    {
+      "version": "1.2.3",
+      "date": "2026-08-30",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "优化：AI 设置的温度、最大输出、超时时间收进「生成参数」圆角分组容器，界面更整齐清晰",
+        "优化：AI 设置默认最大输出从 2048 提升到 8192，减少长内容生成被截断",
+        "优化：斜杠命令面板改为 macOS 毛玻璃质感，半透明模糊背景与柔和阴影，悬停选中更通透"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.3-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Windows-x64.exe",
+              "sha256": null
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.3-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-macOS-arm64.dmg",
+              "sha256": null
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.3-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-macOS-x64.dmg",
+              "sha256": null
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.3-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Linux-x86_64.AppImage",
+              "sha256": null
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.3-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Linux-arm64.AppImage",
+              "sha256": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

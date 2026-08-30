@@ -48,17 +48,22 @@
           </span>
           <p class="chat-sidebar__welcome-title">开始对话</p>
           <p class="chat-sidebar__welcome-desc">
-            输入问题或使用快捷动作，AI 将基于当前文档内容提供帮助。
+            输入问题或点击下方快捷动作，AI 将基于当前文档内容提供帮助。
           </p>
-          <div class="chat-sidebar__welcome-hints">
-            <div class="chat-sidebar__hint">
-              <Icon icon="lucide:file-text" :size="12" />
-              <span>AI 会基于当前文档内容回答</span>
-            </div>
-            <div class="chat-sidebar__hint">
-              <Icon icon="lucide:corner-down-left" :size="12" />
-              <span>Enter 发送，Shift+Enter 换行</span>
-            </div>
+          <!-- 快捷提问：点击直接发送，文档上下文由后端自动注入 -->
+          <div class="chat-sidebar__quick">
+            <button
+              v-for="action in quickActions"
+              :key="action.label"
+              type="button"
+              class="chat-sidebar__quick-item"
+              @click="handleQuickAction(action.prompt)"
+            >
+              <span class="chat-sidebar__quick-icon">
+                <Icon :icon="action.icon" :size="14" />
+              </span>
+              <span>{{ action.label }}</span>
+            </button>
           </div>
         </div>
 
@@ -112,7 +117,23 @@
         @cancel="cancel"
         @clear-pending-selections="emit('clear-pending-selections')"
         @remove-pending-selection="(i) => emit('remove-pending-selection', i)"
-      />
+      >
+        <!-- 模型选择器：仅影响 AI 对话，不改动全局设置 -->
+        <template #footer-left>
+          <AiChatModelSelector
+            :current="selectedModel"
+            :default-model="defaultModel"
+            :models="modelList"
+            :custom-models="customModelList"
+            :loading="modelsLoading"
+            :error="modelsError"
+            :disabled="isStreaming"
+            @select="handleModelSelect"
+            @refresh="fetchModelList"
+            @open="handleModelDropdownOpen"
+          />
+        </template>
+      </AiChatInput>
     </template>
   </aside>
 </template>
@@ -124,8 +145,11 @@ import MarkdownIt from 'markdown-it'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
 import { useAiChatContext } from '../../composables/useAiChatContext'
+import { aiService } from '../../services/aiService'
+import type { AiModelInfo } from '../../types/ai'
 import AiChatMessage from './AiChatMessage.vue'
 import AiChatInput from './AiChatInput.vue'
+import AiChatModelSelector from './AiChatModelSelector.vue'
 
 const props = defineProps<{
   documentOpen: boolean
@@ -165,8 +189,104 @@ md.renderer.rules.fence = (tokens, idx) => {
 }
 
 // AI 状态
-const { isConfigured } = useAiStatus()
+const { status, isConfigured } = useAiStatus()
 const aiReady = computed(() => isConfigured())
+
+// ─── 模型选择（仅影响 AI 对话，不改动全局设置） ───────────────────────
+
+// 按厂商记忆侧栏选择的模型，空字符串表示跟随设置页默认模型
+const MODEL_OVERRIDE_STORAGE_KEY = 'ai-chat-model-override'
+
+const readOverrideMap = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(MODEL_OVERRIDE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const result: Record<string, string> = {}
+    for (const [provider, model] of Object.entries(parsed)) {
+      if (typeof model === 'string') result[provider] = model
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
+const writeOverride = (provider: string, model: string): void => {
+  if (!provider) return
+  try {
+    const map = readOverrideMap()
+    map[provider] = model
+    localStorage.setItem(MODEL_OVERRIDE_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // localStorage 写入失败时静默忽略
+  }
+}
+
+const selectedModel = ref('')
+const defaultModel = computed(() => status.value?.model ?? '')
+const currentProvider = computed(() => status.value?.provider ?? '')
+
+const modelList = ref<AiModelInfo[]>([])
+const customModelList = ref<string[]>([])
+const modelsLoading = ref(false)
+const modelsError = ref('')
+// 按厂商缓存已拉取的模型列表，避免每次展开下拉都请求厂商接口
+const modelsCache = new Map<string, AiModelInfo[]>()
+
+// 厂商变化（含首次状态加载完成）时，恢复该厂商记住的选择并重置列表
+watch(
+  currentProvider,
+  (provider) => {
+    selectedModel.value = provider ? (readOverrideMap()[provider] ?? '') : ''
+    modelList.value = modelsCache.get(provider) ?? []
+    customModelList.value = []
+    modelsError.value = ''
+  },
+  { immediate: true },
+)
+
+const fetchModelList = async (): Promise<void> => {
+  const provider = currentProvider.value
+  if (!provider || modelsLoading.value) return
+  modelsLoading.value = true
+  modelsError.value = ''
+  try {
+    // 模型列表按已保存的设置拉取，与 chat agent 使用的配置保持一致
+    const [modelsResult, settings] = await Promise.all([aiService.fetchModels(), aiService.getSettings()])
+    modelsCache.set(provider, modelsResult.models)
+    modelList.value = modelsResult.models
+    customModelList.value = settings.providers[provider]?.customModels ?? []
+    modelsError.value = modelsResult.error ?? ''
+  } catch (fetchError) {
+    modelsError.value = fetchError instanceof Error ? fetchError.message : String(fetchError)
+  } finally {
+    modelsLoading.value = false
+  }
+}
+
+// 首次展开时懒加载模型列表；已有缓存时仅同步该厂商的自定义模型
+const handleModelDropdownOpen = (): void => {
+  const provider = currentProvider.value
+  if (!provider || modelsLoading.value) return
+  if (modelsCache.has(provider)) {
+    void aiService
+      .getSettings()
+      .then((settings) => {
+        if (currentProvider.value === provider) {
+          customModelList.value = settings.providers[provider]?.customModels ?? []
+        }
+      })
+      .catch(() => {})
+    return
+  }
+  void fetchModelList()
+}
+
+const handleModelSelect = (id: string): void => {
+  selectedModel.value = id
+  writeOverride(currentProvider.value, id)
+}
 
 // 文档上下文
 const { hasDocument, hasSelection, resolveReferences } = useAiChatContext({
@@ -191,6 +311,7 @@ const {
   insertAtCursor: props.insertAtCursor,
   replaceSelection: props.replaceSelection,
   filePath: props.getFilePath,
+  getModelOverride: () => selectedModel.value || null,
 })
 
 // 消息列表引用
@@ -217,6 +338,18 @@ const statusText = computed(() => {
 const sendMessage = (content: string): void => {
   const resolved = resolveReferences(content)
   void rawSendMessage(resolved.message)
+}
+
+// 空状态快捷提问：提示词均围绕当前文档，点击即发送
+const quickActions = [
+  { icon: 'lucide:file-text', label: '总结这篇文档', prompt: '请用简洁的几句话总结这篇文档的核心内容。' },
+  { icon: 'lucide:list-tree', label: '生成大纲', prompt: '请为这篇文档生成一份层级结构大纲。' },
+  { icon: 'lucide:spell-check', label: '校对错别字', prompt: '请检查这篇文档中的错别字和语句不通顺的地方，逐条列出。' },
+  { icon: 'lucide:lightbulb', label: '改进建议', prompt: '请指出这篇文档在结构或内容上可以改进的地方。' },
+]
+
+const handleQuickAction = (prompt: string): void => {
+  sendMessage(prompt)
 }
 
 // 清空对话
@@ -467,12 +600,13 @@ const startResize = (event: MouseEvent): void => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: var(--color-selected);
-  color: var(--color-accent);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-ink) 0%, var(--color-muted) 135%);
+  color: var(--color-inverse);
   margin-bottom: 16px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink) 22%, transparent);
 }
 
 .chat-sidebar__welcome-title {
@@ -490,26 +624,48 @@ const startResize = (event: MouseEvent): void => {
   max-width: 260px;
 }
 
-.chat-sidebar__welcome-hints {
+/* 快捷提问芯片 */
+.chat-sidebar__quick {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  max-width: 220px;
+  max-width: 240px;
+  margin-top: 4px;
 }
 
-.chat-sidebar__hint {
+.chat-sidebar__quick-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
-  color: var(--color-muted);
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-panel);
+  color: var(--color-secondary);
+  font-size: 12px;
+  cursor: pointer;
   text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
-.chat-sidebar__hint :deep(svg) {
+.chat-sidebar__quick-item:hover {
+  border-color: var(--color-accent);
+  background: var(--color-toolbar);
+  color: var(--color-ink);
+}
+
+.chat-sidebar__quick-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
   flex-shrink: 0;
-  opacity: 0.6;
+  transition: color 0.15s ease;
+}
+
+.chat-sidebar__quick-item:hover .chat-sidebar__quick-icon {
+  color: var(--color-accent);
 }
 
 /* 流式输出 */

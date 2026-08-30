@@ -170,10 +170,10 @@
       </div>
     </div>
 
-    <!-- 斜杠命令面板：浅色面板 + 每个命令专属色块，像一排打开的书写工具。
-     选中态只保留一处信号（浅灰底 + 色块描边），不再叠加图标变色和右侧指示条。 -->
+    <!-- 斜杠命令面板：与 AI 状态条同源的 macOS 毛玻璃材质（半透明底 + 模糊 + 多层柔和阴影），
+     行内保留命令专属色块；选中态只由半透明行背景承担，不叠加其他信号。 -->
     <div v-if="slashMenuVisible" ref="slashMenu"
-      class="slash-menu-enter fixed z-50 flex flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-lg shadow-black/10 dark:shadow-black/50"
+      class="slash-menu-enter slash-menu-glass fixed z-50 flex flex-col overflow-hidden rounded-xl"
       :class="settings.showSlashCommandDescriptions ? 'w-[272px]' : 'w-[236px]'" :style="slashMenuStyle"
       @mousedown.stop>
       <!-- 不设顶部搜索条：查询词已在正文光标处可见，面板只负责展示与选择。 -->
@@ -193,7 +193,7 @@
               <button v-for="command in group.commands" :key="command.item.id" type="button"
                 class="mx-1.5 flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-2 text-left transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
                 :data-slash-selected="command.index === selectedCommandIndex || undefined"
-                :class="command.index === selectedCommandIndex ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
+                :class="command.index === selectedCommandIndex ? 'slash-menu-item-active text-ink' : 'slash-menu-item text-secondary hover:text-ink'"
                 @mouseenter="selectedCommandIndex = command.index"
                 @mousedown.prevent="executeSlashCommand(command.item)">
                 <!-- 图标色块：使用命令自带的 iconClass 色调，选中信号只由行背景承担。 -->
@@ -1064,6 +1064,44 @@ defineExpose<EditorHandle>({
   .slash-menu-enter {
     animation: none;
   }
+}
+
+/* ===== 斜杠面板毛玻璃材质 =====
+ * 参数与 AI 状态条（InlineWriterBar）保持一致：半透明底 + 强模糊 + 发丝线边框 + 多层柔和阴影。
+ * 底色半透明会透出正文，所以行悬停/选中不能用实色灰，改用半透明黑白。 */
+.slash-menu-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+:root.dark .slash-menu-glass {
+  background: rgba(44, 44, 48, 0.66);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.slash-menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.035);
+}
+
+.slash-menu-item-active {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+:root.dark .slash-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+:root.dark .slash-menu-item-active {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 页脚键帽：迷你键位造型，提示可用的键盘操作。 */
