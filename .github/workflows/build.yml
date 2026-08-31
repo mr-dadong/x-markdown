@@ -315,6 +315,10 @@ jobs:
 
       - name: 提交带校验值的版本清单
         shell: bash
+        env:
+          # CNB 访问令牌需要同时具有仓库的 repo-release 与 repo-code 读写权限。
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          CNB_REPO: X-2026/x-markdown
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -327,3 +331,28 @@ jobs:
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
+
+          # CNB 上的 changelogs/version.json 是版本接口的数据源，同一个提交
+          # 也必须落到 CNB，否则每次发布都要手动从 GitHub 拉取再推送 CNB。
+          if [[ -z "$CNB_TOKEN" ]]; then
+            echo "::error::请先在 GitHub Actions Secrets 中配置 CNB_TOKEN"
+            exit 1
+          fi
+
+          # 认证令牌只出现在推送 URL 中，Actions 会自动遮蔽日志里的密文。
+          CNB_PUSH_URL="https://cnb:${CNB_TOKEN}@cnb.cool/${CNB_REPO}.git"
+          git remote add cnb "https://cnb.cool/${CNB_REPO}.git"
+          git fetch cnb main
+
+          if git merge-base --is-ancestor cnb/main HEAD; then
+            # CNB main 与 GitHub main 保持同步（或落后），直接快进推送。
+            git push "$CNB_PUSH_URL" HEAD:main
+          else
+            # CNB main 上存在 GitHub 没有的提交，把校验值提交重放到 CNB main
+            # 之上再推送，保证版本接口能立即拿到最新校验值。
+            echo "::warning::CNB main 与 GitHub main 存在分叉，请尽快手动对齐两个仓库"
+            git rebase --onto cnb/main HEAD~1
+            git push "$CNB_PUSH_URL" HEAD:main
+          fi
+
+          git remote remove cnb
