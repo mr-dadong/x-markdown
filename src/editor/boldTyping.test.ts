@@ -31,7 +31,7 @@ const typeText = (editor: Editor, text: string): void => {
     const view = editor.view;
     const { from, to } = view.state.selection;
     const handled = view.someProp("handleTextInput", (f) =>
-      f(view, from, to, ch),
+      f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)),
     );
     if (!handled) {
       view.dispatch(view.state.tr.insertText(ch, from, to));
