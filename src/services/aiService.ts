@@ -2,6 +2,7 @@ import type {
   AiChatDeltaEvent,
   AiChatDoneEvent,
   AiChatErrorEvent,
+  AiChatReasoningDeltaEvent,
   AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
@@ -34,6 +35,8 @@ export const aiService = {
   chatInvoke: (request: AiChatRequest) => window.electronAPI.aiService.chatInvoke(request),
   chatCancel: (requestId: string) => window.electronAPI.aiService.chatCancel(requestId),
   onChatDelta: (callback: (event: AiChatDeltaEvent) => void) => window.electronAPI.aiService.onChatDelta(callback),
+  onChatReasoningDelta: (callback: (event: AiChatReasoningDeltaEvent) => void) =>
+    window.electronAPI.aiService.onChatReasoningDelta(callback),
   onChatDone: (callback: (event: AiChatDoneEvent) => void) => window.electronAPI.aiService.onChatDone(callback),
   onChatError: (callback: (event: AiChatErrorEvent) => void) => window.electronAPI.aiService.onChatError(callback),
 };

@@ -134,6 +134,7 @@ import { documentService } from '../services/documentService'
 import { exportService } from '../services/exportService'
 import { fileSystemService } from '../services/fileSystemService'
 import { getFileName } from '../utils/file'
+import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { matchesShortcut } from '../utils/shortcuts'
 import { blockFractionToSourceLine, getTopLevelBlockRanges, mapBlockIndex, sourceLineToBlockFraction } from '../modules/viewSync'
 import type { EditorHandle, SourceEditorHandle } from '../types/editor'
@@ -158,8 +159,9 @@ const openGeneralSettings = (): void => {
     isSettingsOpen.value = true
 }
 
+// 点击右上角 AI 图标：开↔关切换，与快捷键 Ctrl+Shift+A 行为一致。
 const openAiChat = (): void => {
-    isAiChatOpen.value = true
+isAiChatOpen.value = !isAiChatOpen.value
 }
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
@@ -180,19 +182,22 @@ const getAiDocumentContext = (): string => currentContent.value
 const getAiFilePath = (): string | null => currentFilePath.value
 
 const insertAiAtCursor = (text: string): void => {
-    if (isSourceMode.value) {
-        sourceEditorRef.value?.insertAtCursor(text)
-        return
-    }
-    editorRef.value?.insertAtCursor(text)
+  // 聊天插入的 AI 内容先归一化过度转义，源码模式与富文本模式统一受益
+  const normalized = normalizeAiMarkdown(text)
+  if (isSourceMode.value) {
+    sourceEditorRef.value?.insertAtCursor(normalized)
+    return
+  }
+  editorRef.value?.insertAtCursor(normalized)
 }
 
 const replaceAiSelection = (text: string): void => {
-    if (isSourceMode.value) {
-        sourceEditorRef.value?.replaceSelection(text)
-        return
-    }
-    editorRef.value?.replaceSelection(text)
+  const normalized = normalizeAiMarkdown(text)
+  if (isSourceMode.value) {
+    sourceEditorRef.value?.replaceSelection(normalized)
+    return
+  }
+  editorRef.value?.replaceSelection(normalized)
 }
 
 // 选中文本后点击 AI 动作：打开 Chat 侧栏。

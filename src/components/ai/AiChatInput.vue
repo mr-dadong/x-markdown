@@ -1,19 +1,20 @@
 <template>
-  <div class="chat-input">
-    <!-- 输入卡片：macOS 风格圆角卡片，聚焦时显示柔和光环 -->
-    <div class="chat-input__composer">
-      <!-- 选区标签列表 -->
-      <div v-if="pendingSelections && pendingSelections.length > 0" class="chat-input__selection-tags">
+  <!-- 底部输入区 -->
+  <div class="shrink-0 px-3 pb-3 pt-2">
+    <!-- 输入卡片：圆角加发丝线边框，聚焦时描边变强调色 -->
+    <div class="flex flex-col rounded-2xl border border-line bg-panel focus-within:border-accent">
+      <!-- 待发送选区标签列表 -->
+      <div v-if="pendingSelections && pendingSelections.length > 0" class="flex flex-wrap gap-1 px-3 pt-2.5">
         <div
           v-for="(selection, index) in pendingSelections"
           :key="index"
-          class="chat-input__selection-tag"
+          class="flex max-w-fit items-center gap-1 rounded-md bg-selected py-0.5 pl-2 pr-1 text-[11px] text-secondary"
         >
           <Icon icon="lucide:quote" :size="10" />
-          <span class="chat-input__selection-label">{{ truncateText(selection) }}</span>
+          <span class="max-w-[120px] truncate">{{ truncateText(selection) }}</span>
           <button
             type="button"
-            class="chat-input__selection-remove"
+            class="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:bg-control-hover hover:text-ink"
             title="移除"
             @mousedown.prevent="$emit('remove-pending-selection', index)"
           >
@@ -26,7 +27,7 @@
       <textarea
         ref="inputRef"
         v-model="inputText"
-        class="chat-input__textarea"
+        class="min-h-14 w-full resize-none border-0 bg-transparent px-3.5 pb-1 pt-2.5 text-[13px] leading-5 text-ink outline-none placeholder:text-muted disabled:opacity-60"
         :placeholder="placeholder"
         :disabled="isStreaming"
         rows="1"
@@ -35,15 +36,15 @@
       />
 
       <!-- 底部工具行：左侧放模型选择等扩展内容，右侧为发送/停止按钮 -->
-      <div class="chat-input__footer">
-        <div class="chat-input__footer-left">
+      <div class="flex items-center justify-between gap-2 pb-2 pl-2.5 pr-2 pt-1">
+        <div class="flex min-w-0 flex-1 items-center">
           <slot name="footer-left" />
         </div>
-        <div class="chat-input__buttons">
+        <div class="flex shrink-0 items-center">
           <button
             v-if="isStreaming"
             type="button"
-            class="chat-input__btn chat-input__btn--stop"
+            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-danger text-inverse hover:opacity-80"
             title="停止生成"
             @mousedown.prevent="$emit('cancel')"
           >
@@ -52,7 +53,7 @@
           <button
             v-else
             type="button"
-            class="chat-input__btn chat-input__btn--send"
+            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-accent text-inverse hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!canSend"
             title="发送 (Enter)"
             @mousedown.prevent="handleSend"
@@ -139,165 +140,3 @@ const focus = (): void => {
 
 defineExpose({ focus })
 </script>
-
-<style scoped>
-.chat-input {
-  flex-shrink: 0;
-  padding: 10px 12px 8px;
-}
-
-/* 输入卡片：多层柔和阴影营造悬浮感，聚焦时加 accent 光环 */
-.chat-input__composer {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--color-line);
-  border-radius: 16px;
-  background: var(--color-panel);
-  box-shadow: 0 1px 2px rgba(15, 18, 22, 0.04), 0 4px 16px rgba(15, 18, 22, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.chat-input__composer:focus-within {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-line));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent),
-    0 1px 2px rgba(15, 18, 22, 0.04), 0 4px 16px rgba(15, 18, 22, 0.05);
-}
-
-:root.dark .chat-input__composer {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-:root.dark .chat-input__composer:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 28%, transparent),
-    0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-.chat-input__selection-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 10px 12px 0;
-}
-
-.chat-input__selection-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 8px;
-  background: var(--color-selected);
-  border-radius: 6px;
-  font-size: 11px;
-  color: var(--color-secondary);
-  max-width: fit-content;
-}
-
-.chat-input__selection-label {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-input__selection-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.chat-input__selection-remove:hover {
-  background: var(--color-control-hover);
-  color: var(--color-ink);
-}
-
-.chat-input__textarea {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 56px;
-  max-height: 180px;
-  border: none;
-  background: transparent;
-  color: var(--color-ink);
-  font-size: 13px;
-  line-height: 20px;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-  padding: 10px 14px 4px;
-  overflow-y: hidden;
-}
-
-.chat-input__textarea::placeholder {
-  color: var(--color-muted);
-}
-
-.chat-input__textarea:disabled {
-  opacity: 0.6;
-}
-
-.chat-input__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px 8px 10px;
-}
-
-.chat-input__footer-left {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1;
-}
-
-.chat-input__buttons {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.chat-input__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
-}
-
-.chat-input__btn--send {
-  background: var(--color-accent);
-  color: var(--color-inverse);
-}
-
-.chat-input__btn--send:hover:not(:disabled) {
-  background: var(--color-accent-strong);
-  transform: scale(1.05);
-}
-
-.chat-input__btn--send:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.chat-input__btn--stop {
-  background: #dc2626;
-  color: #ffffff;
-}
-
-.chat-input__btn--stop:hover {
-  background: #b91c1c;
-  transform: scale(1.05);
-}
-</style>

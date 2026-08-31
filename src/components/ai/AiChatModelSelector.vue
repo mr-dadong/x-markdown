@@ -1,9 +1,9 @@
 <template>
   <div ref="rootRef" class="relative min-w-0">
-    <!-- 触发按钮：模型芯片 -->
+    <!-- 触发按钮：带发丝线边框的模型芯片，类似 macOS 弹出按钮 -->
     <button
       type="button"
-      class="flex h-6 min-w-0 max-w-[180px] items-center gap-1 rounded-full px-2 text-[11px] font-medium text-muted hover:bg-toolbar hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+      class="flex h-6 min-w-0 max-w-[180px] cursor-pointer items-center gap-1 rounded-full border border-line bg-paper px-2 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
       :disabled="disabled"
       :title="buttonTitle"
       @click="toggleOpen"
@@ -199,11 +199,11 @@ const onDocumentKeydown = (event: KeyboardEvent): void => {
 </script>
 
 <style scoped>
-/* 向上弹出的毛玻璃面板：半透明材质 + 发丝线边框 + 多层柔和阴影 + 弹簧入场 */
+/* 向上弹出的毛玻璃面板：半透明材质加发丝线边框 */
 .chat-model-drop {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 8px);
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -215,25 +215,10 @@ const onDocumentKeydown = (event: KeyboardEvent): void => {
   background: color-mix(in srgb, var(--color-paper) 86%, transparent);
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  box-shadow: 0 2px 6px rgba(15, 18, 22, 0.06), 0 12px 32px rgba(15, 18, 22, 0.12);
-  transform-origin: 16px 100%;
-  animation: chat-model-drop-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root.dark .chat-model-drop {
   background: color-mix(in srgb, var(--color-paper) 78%, transparent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
-}
-
-@keyframes chat-model-drop-pop {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 /* 列表区专用细滚动条，避免使用主编辑区规格 */

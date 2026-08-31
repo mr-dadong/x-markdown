@@ -22,6 +22,7 @@ import type {
   AiChatDeltaEvent,
   AiChatDoneEvent,
   AiChatErrorEvent,
+  AiChatReasoningDeltaEvent,
   AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
@@ -92,6 +93,12 @@ const electronAPI: ElectronAPI = {
       const listener = (_event: Electron.IpcRendererEvent, payload: AiChatDeltaEvent): void => callback(payload)
       ipcRenderer.on(IPC_CHANNELS.aiChatStreamDelta, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.aiChatStreamDelta, listener)
+    },
+
+    onChatReasoningDelta: (callback: (event: AiChatReasoningDeltaEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiChatReasoningDeltaEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiChatStreamReasoningDelta, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiChatStreamReasoningDelta, listener)
     },
 
     onChatDone: (callback: (event: AiChatDoneEvent) => void): (() => void) => {

@@ -251,6 +251,7 @@
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
 import type { Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
+import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
 import { buildWriterContext } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
@@ -421,7 +422,9 @@ const {
   applyResult: (text: string) => {
     if (!editor.value) return
     const { from, to } = editor.value.state.selection
-    editor.value.chain().focus().deleteRange({ from, to }).insertContent(text).run()
+    // 先还原模型过度转义的 \*\* 等标记；insertContentAt 会被 tiptap-markdown
+    // 接管并按 Markdown 解析，所以还原后能正确渲染加粗等语法
+    editor.value.chain().focus().deleteRange({ from, to }).insertContentAt(from, normalizeAiMarkdown(text)).run()
   },
 })
 

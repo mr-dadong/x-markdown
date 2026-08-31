@@ -1,12 +1,29 @@
 <template>
-  <div class="msg-actions">
-    <button type="button" class="msg-actions__btn" title="复制" @mousedown.prevent="emit('copy')">
+  <!-- 消息操作栏：轻量小图标按钮，不再使用分隔线 -->
+  <div class="mt-2 flex items-center gap-0.5">
+    <button
+      type="button"
+      class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
+      title="复制"
+      @mousedown.prevent="emit('copy')"
+    >
       <Icon icon="lucide:copy" :size="12" />
     </button>
-    <button type="button" class="msg-actions__btn" title="插入" @mousedown.prevent="emit('insert')">
+    <button
+      type="button"
+      class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
+      title="插入"
+      @mousedown.prevent="emit('insert')"
+    >
       <Icon icon="lucide:corner-down-left" :size="12" />
     </button>
-    <button v-if="!isStreaming" type="button" class="msg-actions__btn" title="重新生成" @mousedown.prevent="emit('retry')">
+    <button
+      v-if="!isStreaming"
+      type="button"
+      class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
+      title="重新生成"
+      @mousedown.prevent="emit('retry')"
+    >
       <Icon icon="lucide:rotate-ccw" :size="12" />
     </button>
   </div>
@@ -26,37 +43,3 @@ const emit = defineEmits<{
   retry: []
 }>()
 </script>
-
-<style scoped>
-.msg-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-line);
-}
-
-.msg-actions__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.msg-actions__btn:hover {
-  background: var(--color-toolbar);
-  color: var(--color-ink);
-}
-
-.msg-actions__btn:active {
-  transform: scale(0.95);
-}
-</style>

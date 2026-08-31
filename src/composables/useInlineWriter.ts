@@ -1,5 +1,6 @@
 import { onUnmounted, ref } from "vue";
 import { aiService } from "../services/aiService";
+import { normalizeAiMarkdown } from "../utils/aiMarkdown";
 import type { AiEditAction } from "../types/ai";
 import type { Editor } from "@tiptap/vue-3";
 
@@ -44,22 +45,23 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
    * 因此表格、标题、代码块等语法一旦凑齐就会实时渲染，而不是显示为纯文本。
    * withCaret 为 true 时在内容末尾显示书写位置指示条（仅流式中使用）。
    */
-  const renderStreamedMarkdown = (withCaret = false): void => {
-    cancelPendingRender();
+const renderStreamedMarkdown = (withCaret = false): void => {
+  cancelPendingRender();
 
-    const editor = options.editor();
-    if (!editor || startPos.value === null || endPos.value === null || !ghostText.value) return;
+  const editor = options.editor();
+  if (!editor || startPos.value === null || endPos.value === null || !ghostText.value) return;
 
-    const from = startPos.value;
-    const to = Math.min(endPos.value, editor.state.doc.content.size);
+  const from = startPos.value;
+  const to = Math.min(endPos.value, editor.state.doc.content.size);
 
-    let mappedFrom = from;
-    let mappedTo = to;
+  let mappedFrom = from;
+  let mappedTo = to;
 
-    editor
-      .chain()
-      .focus()
-      .insertContentAt({ from, to }, ghostText.value)
+  editor
+    .chain()
+    .focus()
+    // 先还原模型过度转义的 \*\* 等标记，再交给 insertContentAt 按 Markdown 解析
+    .insertContentAt({ from, to }, normalizeAiMarkdown(ghostText.value))
       .command(({ tr }) => {
         // 流式写入每100ms发生一次，排除出撤销历史，
         // 否则按 Ctrl+Z 会逐条回退几十次渲染记录

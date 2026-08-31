@@ -142,6 +142,7 @@ export interface AiServiceApi {
   chatInvoke: (request: AiChatRequest) => Promise<{ requestId: string }>;
   chatCancel: (requestId: string) => void;
   onChatDelta: (callback: (event: AiChatDeltaEvent) => void) => () => void;
+  onChatReasoningDelta: (callback: (event: AiChatReasoningDeltaEvent) => void) => () => void;
   onChatDone: (callback: (event: AiChatDoneEvent) => void) => () => void;
   onChatError: (callback: (event: AiChatErrorEvent) => void) => () => void;
 }
@@ -154,6 +155,8 @@ export interface AiChatMessage {
   id: string
   role: AiChatRole
   content: string
+  /** 模型的思考过程（reasoning）；非思考模型或旧历史记录中不存在 */
+  reasoning?: string
   timestamp: number
 }
 
@@ -171,6 +174,11 @@ export interface AiChatRequest {
 }
 
 export interface AiChatDeltaEvent {
+  requestId: string
+  delta: string
+}
+
+export interface AiChatReasoningDeltaEvent {
   requestId: string
   delta: string
 }

@@ -1,8 +1,19 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { aiService } from "../services/aiService";
+import { normalizeAiMarkdown } from "../utils/aiMarkdown";
 import type { AiChatMessage, AiChatRole } from "../types/ai";
 
 export type AiChatStatus = "idle" | "streaming" | "done" | "error";
+
+/**
+ * 发送消息时可显式指定的上下文。
+ * 字段为 undefined 时回退到 options 中的默认取值；
+ * 显式传入空字符串则表示本次请求不携带该项内容（如仅 @选区 时不带文档）。
+ */
+export interface AiChatContextOverride {
+  documentContext?: string;
+  selection?: string;
+}
 
 export interface AiChatOptions {
   /** 获取当前文档内容，用于注入上下文。 */
@@ -61,6 +72,7 @@ export const useAiChat = (options: AiChatOptions) => {
   const messages = ref<AiChatMessage[]>([]);
   const isStreaming = ref(false);
   const streamingContent = ref("");
+  const streamingReasoning = ref("");
   const status = ref<AiChatStatus>("idle");
   const error = ref("");
   const activeRequestId = ref("");
@@ -91,11 +103,12 @@ export const useAiChat = (options: AiChatOptions) => {
     return msg;
   };
 
-  const addAssistantMessage = (content: string): AiChatMessage => {
+  const addAssistantMessage = (content: string, reasoning?: string): AiChatMessage => {
     const msg: AiChatMessage = {
       id: createMessageId(),
       role: "assistant",
       content,
+      ...(reasoning ? { reasoning } : {}),
       timestamp: Date.now(),
     };
     messages.value = [...messages.value, msg];
@@ -115,7 +128,10 @@ export const useAiChat = (options: AiChatOptions) => {
     return msg;
   };
 
-  const sendMessage = async (content: string): Promise<void> => {
+  const sendMessage = async (
+    content: string,
+    context?: AiChatContextOverride,
+  ): Promise<void> => {
     if (!content.trim() || isStreaming.value) return;
 
     addUserMessage(content.trim());
@@ -125,6 +141,7 @@ export const useAiChat = (options: AiChatOptions) => {
     activeRequestId.value = requestId;
     isStreaming.value = true;
     streamingContent.value = "";
+    streamingReasoning.value = "";
     status.value = "streaming";
     error.value = "";
 
@@ -136,11 +153,14 @@ export const useAiChat = (options: AiChatOptions) => {
     try {
       // 侧栏选择的模型覆盖值，仅在非空时携带，避免写入 undefined
       const modelOverride = options.getModelOverride?.();
+      // 显式传入的上下文优先（含空字符串，表示刻意不带）；否则回退到默认取值
+      const documentContext = context?.documentContext ?? options.getDocumentContext();
+      const selection = context?.selection ?? options.getSelection();
       await aiService.chatInvoke({
         requestId,
         messages: chatMessages,
-        documentContext: options.getDocumentContext(),
-        selection: options.getSelection(),
+        documentContext,
+        selection,
         ...(modelOverride ? { model: modelOverride } : {}),
       });
     } catch (invokeError) {
@@ -160,8 +180,9 @@ export const useAiChat = (options: AiChatOptions) => {
     status.value = "done";
     // 将已收到的流式内容保存为 assistant 消息
     if (streamingContent.value) {
-      addAssistantMessage(streamingContent.value);
+      addAssistantMessage(streamingContent.value, streamingReasoning.value || undefined);
       streamingContent.value = "";
+      streamingReasoning.value = "";
     }
   };
 
@@ -182,6 +203,7 @@ export const useAiChat = (options: AiChatOptions) => {
     messages.value = [];
     persistHistory();
     streamingContent.value = "";
+    streamingReasoning.value = "";
     error.value = "";
     status.value = "idle";
   };
@@ -189,14 +211,16 @@ export const useAiChat = (options: AiChatOptions) => {
   const insertMessageToCursor = (messageId: string): void => {
     const msg = messages.value.find((m) => m.id === messageId);
     if (!msg || msg.role !== "assistant") return;
-    
+
     // 智能判断：如果有选区则替换选区，否则插入到光标位置
+    // 插入前归一化，避免模型过度转义的 \*\* 以原始文本进入文档
+    const normalized = normalizeAiMarkdown(msg.content);
     const selection = options.getSelection();
     if (selection && selection.trim()) {
-      options.replaceSelection(msg.content);
+      options.replaceSelection(normalized);
       addSystemMessage("已替换选区");
     } else {
-      options.insertAtCursor(msg.content);
+      options.insertAtCursor(normalized);
       addSystemMessage("已插入到文档");
     }
   };
@@ -204,7 +228,8 @@ export const useAiChat = (options: AiChatOptions) => {
   const copyMessage = async (messageId: string): Promise<void> => {
     const msg = messages.value.find((m) => m.id === messageId);
     if (!msg) return;
-    await navigator.clipboard.writeText(msg.content);
+    // 复制归一化后的 Markdown，粘贴到别处不会带 \*\* 等转义符
+    await navigator.clipboard.writeText(normalizeAiMarkdown(msg.content));
   };
 
   // 监听流式事件
@@ -213,15 +238,24 @@ export const useAiChat = (options: AiChatOptions) => {
     streamingContent.value += event.delta;
   });
 
+  const offReasoningDelta = aiService.onChatReasoningDelta((event) => {
+    if (event.requestId !== activeRequestId.value) return;
+    streamingReasoning.value += event.delta;
+  });
+
   const offDone = aiService.onChatDone((event) => {
     if (event.requestId !== activeRequestId.value) return;
     isStreaming.value = false;
     status.value = "done";
-    // 将流式内容保存为 assistant 消息
+    // 将流式内容保存为 assistant 消息；
+    // 内容为空时兑底提示，避免“加载消失但无任何反馈”的静默失败
     if (streamingContent.value) {
-      addAssistantMessage(streamingContent.value);
+      addAssistantMessage(streamingContent.value, streamingReasoning.value || undefined);
+    } else {
+      addSystemMessage("AI 返回了空回复，请重试；若持续出现请检查网络与 AI 设置。");
     }
     streamingContent.value = "";
+    streamingReasoning.value = "";
     activeRequestId.value = "";
   });
 
@@ -232,12 +266,14 @@ export const useAiChat = (options: AiChatOptions) => {
     error.value = event.error;
     addSystemMessage(`错误：${event.error}`);
     streamingContent.value = "";
+    streamingReasoning.value = "";
     activeRequestId.value = "";
   });
 
   onUnmounted(() => {
     if (activeRequestId.value) aiService.chatCancel(activeRequestId.value);
     offDelta();
+    offReasoningDelta();
     offDone();
     offError();
   });
@@ -246,6 +282,7 @@ export const useAiChat = (options: AiChatOptions) => {
     messages,
     isStreaming,
     streamingContent,
+    streamingReasoning,
     status,
     error,
     sendMessage,

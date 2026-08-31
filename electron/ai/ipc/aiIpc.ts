@@ -4,6 +4,7 @@ import type {
   AiChatDeltaEvent,
   AiChatDoneEvent,
   AiChatErrorEvent,
+  AiChatReasoningDeltaEvent,
   AiChatRequest,
   AiDeltaEvent,
   AiDoneEvent,
@@ -65,7 +66,11 @@ function assertInvokeRequest(value: unknown): asserts value is AiInvokeRequest {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+return error instanceof Error ? error.message : String(error);
+}
+
+function timeoutMessage(timeoutMs: number): string {
+return `请求超时：AI 未在 ${Math.round(timeoutMs / 1000)} 秒内完成响应，可在 AI 设置中调大超时时间后重试`;
 }
 
 function resolveBaseUrl(provider: string, customBaseUrl?: string): string {
@@ -410,6 +415,10 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       const event: AiChatDeltaEvent = { requestId: request.requestId, delta };
       getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamDelta, event);
     };
+    const sendReasoningDelta = (delta: string): void => {
+      const event: AiChatReasoningDeltaEvent = { requestId: request.requestId, delta };
+      getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamReasoningDelta, event);
+    };
     const sendDone = (): void => {
       const event: AiChatDoneEvent = { requestId: request.requestId };
       getMainWindow()?.webContents.send(IPC_CHANNELS.aiChatStreamDone, event);
@@ -447,16 +456,33 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
         if (active.cancelled) break;
         if (chunk.type === "text-delta") {
           sendDelta(chunk.payload.text);
+        } else if (chunk.type === "reasoning-delta") {
+          // 思考模型的推理增量（如 DeepSeek-R1、o 系列、Claude thinking）
+          sendReasoningDelta(chunk.payload.text);
         } else if (chunk.type === "finish") {
           finished = true;
           sendDone();
         } else if (chunk.type === "error") {
           sendError(errorMessage(chunk.payload.error));
           finished = true;
+        } else if (chunk.type === "abort") {
+          // 流被 abortSignal 中断：用户主动取消时前端已自行收尾；
+          // 否则是超时触发，需显式告知前端，避免静默当作正常完成
+          if (!active.cancelled) {
+            sendError(timeoutMessage(settings.timeoutMs));
+            finished = true;
+          }
         }
       }
 
-      if (!finished && !active.cancelled) sendDone();
+      if (!finished && !active.cancelled) {
+        // 兑底：即使流未发出 abort chunk，只要信号已触发中断就报超时而非静默完成
+        if (controller.signal.aborted) {
+          sendError(timeoutMessage(settings.timeoutMs));
+        } else {
+          sendDone();
+        }
+      }
     } catch (error) {
       if (!active.cancelled) sendError(errorMessage(error));
     } finally {

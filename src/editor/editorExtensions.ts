@@ -50,6 +50,7 @@ import {
   SafeInlineCode,
 } from "./inlineCodeInputExtension";
 import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
+import { MarkdownEscapeRelaxer } from "./markdownEscapeRelaxer";
 import { mediaService } from "../services/mediaService";
 import {
   configureTyporaTableParsing,
@@ -273,6 +274,8 @@ export const createEditorExtensions = (options: {
       transformPastedText: true,
       transformCopiedText: true,
     }),
+    // 序列化输出前放宽惰性转义（Typora 风格：两侧皆空白的 \* 不再转义）
+    MarkdownEscapeRelaxer,
     LegacyMediaFilter,
     RawMarkdownBlock,
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。

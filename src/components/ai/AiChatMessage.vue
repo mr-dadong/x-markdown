@@ -1,19 +1,20 @@
 <template>
-  <div class="chat-msg" :class="`chat-msg--${message.role}`">
-    <!-- 用户消息 -->
-    <div v-if="message.role === 'user'" class="chat-msg__bubble chat-msg__bubble--user">
-      <div class="chat-msg__text">{{ message.content }}</div>
+  <!-- 消息行：用户消息右对齐，AI 与系统消息左对齐 -->
+  <div class="flex flex-col px-3" :class="message.role === 'user' ? 'items-end' : 'items-start'">
+    <!-- 用户消息：实心深色气泡，右下角留小圆角模拟消息指向 -->
+    <div v-if="message.role === 'user'" class="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2">
+      <div class="whitespace-pre-wrap text-[13px] leading-relaxed text-inverse">{{ message.content }}</div>
     </div>
 
-    <!-- AI 回复 -->
-    <div v-else-if="message.role === 'assistant'" class="chat-msg__bubble chat-msg__bubble--assistant">
-      <div class="chat-msg__header">
-        <span class="chat-msg__badge">
-          <Icon icon="lucide:sparkles" :size="11" />
-          <span>AI</span>
-        </span>
+    <!-- AI 回复：柔和灰底无边框气泡，内容更轻 -->
+    <div v-else-if="message.role === 'assistant'" class="w-full rounded-2xl rounded-bl-md bg-toolbar px-3.5 py-2.5">
+      <!-- AI 小标识：仅用图标加文字，避免灰块徽章的笨重感 -->
+      <div class="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted">
+        <Icon icon="lucide:sparkles" :size="12" class="text-accent" />
+        <span>AI</span>
       </div>
-      <div class="chat-msg__content markdown-body" v-html="renderedContent" />
+      <AiChatReasoning v-if="message.reasoning" :content="message.reasoning" />
+      <div class="ai-md markdown-body" v-html="renderedContent" />
       <AiChatMessageActions
         :message-id="message.id"
         :is-streaming="isStreaming"
@@ -23,10 +24,13 @@
       />
     </div>
 
-    <!-- 系统消息 -->
-    <div v-else-if="message.role === 'system'" class="chat-msg__bubble chat-msg__bubble--system">
-      <Icon icon="lucide:info" :size="12" class="chat-msg__system-icon" />
-      <span class="chat-msg__text">{{ message.content }}</span>
+    <!-- 系统消息：居中的弱化提示行 -->
+    <div
+      v-else-if="message.role === 'system'"
+      class="flex w-full items-center justify-center gap-1.5 py-1 text-[11px] text-muted"
+    >
+      <Icon icon="lucide:info" :size="12" class="shrink-0 opacity-60" />
+      <span>{{ message.content }}</span>
     </div>
   </div>
 </template>
@@ -35,8 +39,10 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import MarkdownIt from 'markdown-it'
+import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import type { AiChatMessage } from '../../types/ai'
 import AiChatMessageActions from './AiChatMessageActions.vue'
+import AiChatReasoning from './AiChatReasoning.vue'
 
 const props = defineProps<{
   message: AiChatMessage
@@ -68,148 +74,75 @@ md.renderer.rules.fence = (tokens, idx) => {
 
 const renderedContent = computed(() => {
   if (!props.message.content) return ''
-  return md.render(props.message.content)
+  // 先还原模型过度转义的 \*\* 等标记，再渲染，否则加粗等语法会以原始星号展示
+  return md.render(normalizeAiMarkdown(props.message.content))
 })
 </script>
 
 <style scoped>
-.chat-msg {
-  display: flex;
-  flex-direction: column;
-  padding: 0 12px;
-}
-
-.chat-msg--user {
-  align-items: flex-end;
-}
-
-.chat-msg--assistant,
-.chat-msg--system {
-  align-items: flex-start;
-}
-
-.chat-msg__bubble {
-  max-width: 100%;
-  border-radius: 10px;
-  word-break: break-word;
-}
-
-.chat-msg__bubble--user {
-  background: var(--color-accent);
-  color: var(--color-inverse);
-  padding: 8px 12px;
-  border-radius: 10px 10px 2px 10px;
-  max-width: 85%;
-}
-
-.chat-msg__bubble--assistant {
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
-  padding: 10px 12px;
-  border-radius: 10px 10px 10px 2px;
-  width: 100%;
-}
-
-.chat-msg__bubble--system {
-  background: transparent;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--color-muted);
-}
-
-.chat-msg__header {
-  margin-bottom: 6px;
-}
-
-.chat-msg__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-accent);
-  padding: 2px 6px;
-  background: var(--color-selected);
-  border-radius: 4px;
-}
-
-.chat-msg__text {
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.chat-msg__system-icon {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-/* Markdown 渲染样式 */
-.chat-msg__content.markdown-body {
+/* AI 回复里的 Markdown 正文排版（内容由 v-html 渲染，只能用深度选择器控制样式） */
+.ai-md {
   font-size: 13px;
   line-height: 1.7;
   color: var(--color-ink);
 }
 
 /* 标题 */
-.chat-msg__content :deep(h1),
-.chat-msg__content :deep(h2),
-.chat-msg__content :deep(h3),
-.chat-msg__content :deep(h4),
-.chat-msg__content :deep(h5),
-.chat-msg__content :deep(h6) {
+.ai-md :deep(h1),
+.ai-md :deep(h2),
+.ai-md :deep(h3),
+.ai-md :deep(h4),
+.ai-md :deep(h5),
+.ai-md :deep(h6) {
   margin-top: 16px;
   margin-bottom: 8px;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.chat-msg__content :deep(h1) { font-size: 18px; }
-.chat-msg__content :deep(h2) { font-size: 16px; }
-.chat-msg__content :deep(h3) { font-size: 14px; }
-.chat-msg__content :deep(h4) { font-size: 13px; }
+.ai-md :deep(h1) { font-size: 18px; }
+.ai-md :deep(h2) { font-size: 16px; }
+.ai-md :deep(h3) { font-size: 14px; }
+.ai-md :deep(h4) { font-size: 13px; }
 
-.chat-msg__content :deep(h1:first-child),
-.chat-msg__content :deep(h2:first-child),
-.chat-msg__content :deep(h3:first-child) {
+.ai-md :deep(h1:first-child),
+.ai-md :deep(h2:first-child),
+.ai-md :deep(h3:first-child) {
   margin-top: 0;
 }
 
 /* 段落 */
-.chat-msg__content :deep(p) {
+.ai-md :deep(p) {
   margin: 0 0 10px;
 }
 
-.chat-msg__content :deep(p:last-child) {
+.ai-md :deep(p:last-child) {
   margin-bottom: 0;
 }
 
 /* 列表 */
-.chat-msg__content :deep(ul),
-.chat-msg__content :deep(ol) {
+.ai-md :deep(ul),
+.ai-md :deep(ol) {
   margin: 8px 0;
   padding-left: 24px;
 }
 
-.chat-msg__content :deep(li) {
+.ai-md :deep(li) {
   margin: 4px 0;
 }
 
-.chat-msg__content :deep(li > ul),
-.chat-msg__content :deep(li > ol) {
+.ai-md :deep(li > ul),
+.ai-md :deep(li > ol) {
   margin: 2px 0;
 }
 
 /* 代码块 */
-.chat-msg__content :deep(.code-block-wrapper) {
+.ai-md :deep(.code-block-wrapper) {
   position: relative;
   margin: 10px 0;
 }
 
-.chat-msg__content :deep(.code-lang) {
+.ai-md :deep(.code-lang) {
   position: absolute;
   top: 6px;
   right: 10px;
@@ -220,7 +153,7 @@ const renderedContent = computed(() => {
   z-index: 1;
 }
 
-.chat-msg__content :deep(.code-block) {
+.ai-md :deep(.code-block) {
   background: var(--color-paper);
   border: 1px solid var(--color-line);
   border-radius: 8px;
@@ -232,7 +165,7 @@ const renderedContent = computed(() => {
   tab-size: 2;
 }
 
-.chat-msg__content :deep(code) {
+.ai-md :deep(code) {
   background: var(--color-selected);
   padding: 1px 5px;
   border-radius: 4px;
@@ -240,14 +173,14 @@ const renderedContent = computed(() => {
   font-size: 12px;
 }
 
-.chat-msg__content :deep(pre code) {
+.ai-md :deep(pre code) {
   background: transparent;
   padding: 0;
   border-radius: 0;
 }
 
 /* 引用块 */
-.chat-msg__content :deep(blockquote) {
+.ai-md :deep(blockquote) {
   margin: 10px 0;
   padding: 8px 12px;
   border-left: 3px solid var(--color-accent);
@@ -256,69 +189,69 @@ const renderedContent = computed(() => {
   color: var(--color-secondary);
 }
 
-.chat-msg__content :deep(blockquote p) {
+.ai-md :deep(blockquote p) {
   margin: 0;
 }
 
 /* 链接 */
-.chat-msg__content :deep(a) {
+.ai-md :deep(a) {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.chat-msg__content :deep(a:hover) {
+.ai-md :deep(a:hover) {
   color: var(--color-accent-strong);
 }
 
 /* 表格 */
-.chat-msg__content :deep(table) {
+.ai-md :deep(table) {
   border-collapse: collapse;
   margin: 10px 0;
   width: 100%;
   font-size: 12px;
 }
 
-.chat-msg__content :deep(th),
-.chat-msg__content :deep(td) {
+.ai-md :deep(th),
+.ai-md :deep(td) {
   border: 1px solid var(--color-line);
   padding: 6px 10px;
   text-align: left;
 }
 
-.chat-msg__content :deep(th) {
+.ai-md :deep(th) {
   background: var(--color-selected);
   font-weight: 600;
 }
 
-.chat-msg__content :deep(tr:nth-child(even)) {
+.ai-md :deep(tr:nth-child(even)) {
   background: var(--color-panel);
 }
 
 /* 分割线 */
-.chat-msg__content :deep(hr) {
+.ai-md :deep(hr) {
   border: none;
   border-top: 1px solid var(--color-line);
   margin: 16px 0;
 }
 
 /* 图片 */
-.chat-msg__content :deep(img) {
+.ai-md :deep(img) {
   max-width: 100%;
   border-radius: 6px;
 }
 
 /* 强调 */
-.chat-msg__content :deep(strong) {
+.ai-md :deep(strong) {
   font-weight: 600;
 }
 
-.chat-msg__content :deep(em) {
+.ai-md :deep(em) {
   font-style: italic;
 }
 
 /* 删除线 */
-.chat-msg__content :deep(del) {
+.ai-md :deep(del) {
   text-decoration: line-through;
   color: var(--color-muted);
 }

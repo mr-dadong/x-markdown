@@ -132,6 +132,112 @@ const isInsideRanges = (index: number, ranges: readonly MarkdownRange[]): boolea
   ranges.some((range) => index >= range.from && index < range.to);
 
 /**
+ * 仅当反斜杠前后都是空白、且同一行内前方已有正文时，转义才是惰性的。
+ *
+ * CommonMark 规定：左右皆空白的 `*` / `_` 既不能开启也不能闭合强调，
+ * 因此这类转义还原后永远不会被重新解析成斜体/加粗；
+ * 而行首（可能是列表标记）或紧贴文字（可能是定界符）的转义必须保留。
+ */
+const isInertEscapePosition = (line: string, backslashIndex: number): boolean => {
+  const previous = backslashIndex > 0 ? line[backslashIndex - 1] : "";
+  if (previous !== " " && previous !== "\t") return false;
+  // 向前跳过空白后必须仍是同一行内的正文，排除行首列表标记的位置
+  let probe = backslashIndex - 1;
+  while (probe >= 0 && (line[probe] === " " || line[probe] === "\t")) probe -= 1;
+  if (probe < 0) return false;
+  const next = line[backslashIndex + 2] ?? "";
+  return next === "" || next === " " || next === "\t";
+};
+
+/** 找出行内公式 `$...$` 的范围（块级 `$$` 由围栏状态机处理）。 */
+const findInlineMathRanges = (line: string): MarkdownRange[] =>
+  Array.from(line.matchAll(/\$[^$\n]+\$/gu), (match) => ({
+    from: match.index ?? 0,
+    to: (match.index ?? 0) + match[0].length,
+  }));
+
+/** 放宽单行文本中的惰性转义（行内代码与行内公式范围内不动）。 */
+const relaxEscapesInLine = (line: string): string => {
+  if (!line.includes("\\")) return line;
+  const protectedRanges = [
+    ...findInlineCodeRanges(line),
+    ...findInlineMathRanges(line),
+  ];
+  let result = "";
+  let index = 0;
+  while (index < line.length) {
+    const backslash = line.indexOf("\\", index);
+    if (backslash < 0 || backslash + 1 >= line.length) {
+      result += line.slice(index);
+      break;
+    }
+    const escaped = line[backslash + 1];
+    if (
+      (escaped === "*" || escaped === "_") &&
+      !isInsideRanges(backslash, protectedRanges) &&
+      isInertEscapePosition(line, backslash)
+    ) {
+      result += line.slice(index, backslash) + escaped;
+    } else {
+      result += line.slice(index, backslash + 2);
+    }
+    index = backslash + 2;
+  }
+  return result;
+};
+
+/**
+ * 放宽序列化器的保守转义，向 Typora 的最小转义风格看齐。
+ *
+ * prosemirror-markdown 会把正文里每个字面 `*` 都写成 `\*`，但 Typora
+ * 实测保存“重点 * 请注意”时并不加转义——因为两侧皆空白的分隔符
+ * 无法构成任何 Markdown 语法，保留转义纯属多余。本函数只还原这类
+ * 惰性转义：代码围栏、行内代码、行首标记、紧贴文字的转义一律保留。
+ *
+ * 幂等：还原后的文本不再含这些转义，重复调用结果不变。
+ */
+export const relaxMarkdownEscapes = (markdown: string): string => {
+  if (!markdown.includes("\\")) return markdown;
+  let openFence = "";
+  let inMathBlock = false;
+  return markdown
+    .split("\n")
+    .map((line) => {
+      if (inMathBlock) {
+        if (/^\$\$\s*$/u.test(line)) inMathBlock = false;
+        return line;
+      }
+      if (/^\$\$\s*$/u.test(line)) {
+        // `$$` 独占一行开启块级公式，表达式中的 \* \_ 属于 LaTeX 语法，不动
+        inMathBlock = true;
+        return line;
+      }
+      if (/^\$\$/u.test(line)) {
+        // 其他以 $$ 开头的行（如单行公式）保守起见整行不动
+        return line;
+      }
+      const fenceMarker = /^(`{3,}|~{3,})/.exec(line);
+      if (openFence) {
+        // 围栏内部原样保留；同字符且不短于开启长度的标记行关闭围栏
+        if (
+          fenceMarker &&
+          fenceMarker[1][0] === openFence[0] &&
+          fenceMarker[1].length >= openFence.length
+        ) {
+          openFence = "";
+        }
+        return line;
+      }
+      if (fenceMarker) {
+        openFence = fenceMarker[1];
+        return line;
+      }
+      return relaxEscapesInLine(line);
+    })
+    .join("\n");
+};
+
+/**
  * 表格普通文本中的裸竖线需要转义，避免被识别成下一列。
  * Typora 允许行内代码直接保留竖线，因此代码范围不写入额外反斜杠。
  */

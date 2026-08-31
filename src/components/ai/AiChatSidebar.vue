@@ -1,37 +1,58 @@
 <template>
-  <aside v-show="sidebarOpen" class="chat-sidebar" :class="{ 'chat-sidebar--resizing': isResizing }">
-    <!-- 拖拽调整宽度 -->
-    <div class="chat-sidebar__resize-handle" @mousedown="startResize" />
+  <!-- AI 聊天侧栏：macOS 风格，发丝线分隔加柔和圆角 -->
+  <aside
+    v-show="sidebarOpen"
+    class="relative flex h-full min-w-[320px] max-w-[560px] shrink-0 flex-col border-l border-line bg-paper select-none"
+    :class="{ 'pointer-events-none': isResizing }"
+    :style="{ width: sidebarWidth + 'px' }"
+  >
+    <!-- 拖拽调整宽度：左侧隐形窄条，悬停时高亮 -->
+    <div class="absolute -left-[3px] bottom-0 top-0 z-10 w-1.5 cursor-col-resize hover:bg-control-active" @mousedown="startResize" />
 
-    <!-- 头部 -->
-    <header class="chat-sidebar__header">
-      <div class="chat-sidebar__title">
-        <span class="chat-sidebar__icon">
+    <!-- 头部：图标 + 标题状态 + 操作按钮 -->
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+      <div class="flex min-w-0 items-center gap-2">
+        <!-- AI 图标：柔和圆角方块 -->
+        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-selected text-accent">
           <Icon icon="lucide:sparkles" :size="15" />
         </span>
-        <div class="chat-sidebar__title-text">
-          <h2>AI Chat</h2>
-          <span class="chat-sidebar__subtitle">{{ statusText }}</span>
+        <div class="min-w-0">
+          <h2 class="text-[13px] font-semibold leading-tight text-ink">AI Chat</h2>
+          <span class="text-[11px] leading-tight text-muted">{{ statusText }}</span>
         </div>
       </div>
-      <div class="chat-sidebar__header-actions">
-        <button type="button" class="chat-sidebar__header-btn" title="清空对话" @mousedown.prevent="handleClear">
+      <div class="flex items-center gap-0.5">
+        <button
+          type="button"
+          class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
+          title="清空对话"
+          @mousedown.prevent="handleClear"
+        >
           <Icon icon="lucide:trash-2" :size="14" />
         </button>
-        <button type="button" class="chat-sidebar__header-btn" title="关闭" @mousedown.prevent="emit('close')">
+        <button
+          type="button"
+          class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
+          title="关闭"
+          @mousedown.prevent="emit('close')"
+        >
           <Icon icon="lucide:x" :size="16" />
         </button>
       </div>
     </header>
 
     <!-- AI 未配置 -->
-    <div v-if="!aiReady" class="chat-sidebar__empty">
-      <span class="chat-sidebar__empty-icon">
+    <div v-if="!aiReady" class="flex flex-1 flex-col items-center justify-center p-6 text-center">
+      <span class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-selected text-muted">
         <Icon icon="lucide:sparkles" :size="28" />
       </span>
-      <p class="chat-sidebar__empty-title">尚未配置 AI</p>
-      <p class="chat-sidebar__empty-desc">需要先设置模型提供方和 API Key，才能使用 AI Chat。</p>
-      <button type="button" class="chat-sidebar__setup-btn" @mousedown.prevent="emit('open-settings')">
+      <p class="mb-1.5 text-[14px] font-semibold text-ink">尚未配置 AI</p>
+      <p class="mb-4 text-[12px] leading-relaxed text-secondary">需要先设置模型提供方和 API Key，才能使用 AI Chat。</p>
+      <button
+        type="button"
+        class="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong"
+        @mousedown.prevent="emit('open-settings')"
+      >
         <Icon icon="lucide:settings" :size="15" />
         <span>前往设置</span>
       </button>
@@ -39,27 +60,28 @@
 
     <!-- 对话区域 -->
     <template v-else>
-      <!-- 消息列表 -->
-      <div ref="messagesRef" class="chat-sidebar__messages">
-        <!-- 空状态 -->
-        <div v-if="displayMessages.length === 0" class="chat-sidebar__welcome">
-          <span class="chat-sidebar__welcome-icon">
-            <Icon icon="lucide:sparkles" :size="32" />
+      <!-- 消息列表：select-text 放行文本选择，避免被根节点的 select-none 连带禁用 -->
+      <div ref="messagesRef" class="editor-scroll flex flex-1 select-text flex-col gap-4 overflow-y-auto py-4">
+        <!-- 空状态：欢迎页 + 快捷提问 -->
+        <div v-if="displayMessages.length === 0" class="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
+          <!-- AI 图标：深色实心圆，作为整页视觉焦点 -->
+          <span class="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-accent text-inverse">
+            <Icon icon="lucide:sparkles" :size="30" />
           </span>
-          <p class="chat-sidebar__welcome-title">开始对话</p>
-          <p class="chat-sidebar__welcome-desc">
+          <p class="mb-1.5 text-[16px] font-semibold text-ink">开始对话</p>
+          <p class="mb-5 max-w-[240px] text-[12px] leading-relaxed text-secondary">
             输入问题或点击下方快捷动作，AI 将基于当前文档内容提供帮助。
           </p>
-          <!-- 快捷提问：点击直接发送，文档上下文由后端自动注入 -->
-          <div class="chat-sidebar__quick">
+          <!-- 快捷提问：单列卡片更舒展，点击直接发送，文档上下文由后端自动注入 -->
+          <div class="flex w-full max-w-[260px] flex-col gap-2">
             <button
               v-for="action in quickActions"
               :key="action.label"
               type="button"
-              class="chat-sidebar__quick-item"
+              class="group flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5 text-left text-[12px] text-secondary hover:bg-toolbar hover:text-ink"
               @click="handleQuickAction(action.prompt)"
             >
-              <span class="chat-sidebar__quick-icon">
+              <span class="shrink-0 text-muted group-hover:text-accent">
                 <Icon :icon="action.icon" :size="14" />
               </span>
               <span>{{ action.label }}</span>
@@ -78,28 +100,36 @@
           @retry="retry"
         />
 
-        <!-- AI 思考中指示器 -->
-        <div v-if="isStreaming && !streamingContent" class="chat-thinking">
-          <div class="chat-thinking__bubble">
-            <span class="chat-thinking__dot" />
-            <span class="chat-thinking__dot" />
-            <span class="chat-thinking__dot" />
+        <!-- AI 思考中指示器：未收到任何思考/正文内容前的等待提示 -->
+        <div v-if="isStreaming && !streamingContent && !streamingReasoning" class="flex flex-col items-start px-3">
+          <div class="flex items-center gap-2 rounded-2xl rounded-bl-md bg-toolbar px-3.5 py-2.5 text-[12px] text-muted">
+            <Icon icon="lucide:sparkles" :size="13" class="text-accent" />
+            <span>正在思考…</span>
           </div>
         </div>
 
         <!-- 流式输出中的临时消息 -->
-        <div v-if="isStreaming && streamingContent" class="chat-msg chat-msg--assistant" style="padding: 0 12px;">
-          <div class="chat-msg__bubble chat-msg__bubble--assistant">
-            <div class="chat-msg__header">
-              <span class="chat-msg__badge">
-                <Icon icon="lucide:sparkles" :size="11" />
-                <span>AI</span>
-              </span>
+        <div v-if="isStreaming && (streamingContent || streamingReasoning)" class="flex flex-col items-start px-3">
+          <div class="w-full rounded-2xl rounded-bl-md bg-toolbar px-3.5 py-2.5">
+            <!-- AI 小标识 -->
+            <div class="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted">
+              <Icon icon="lucide:sparkles" :size="12" class="text-accent" />
+              <span>AI</span>
             </div>
-            <div class="chat-msg__content markdown-body" v-html="renderedStreamingContent" />
-            <div class="chat-sidebar__streaming-indicator">
-              <span class="chat-sidebar__typing-cursor" />
-              <button type="button" class="chat-sidebar__stop-btn" title="停止" @mousedown.prevent="cancel">
+            <AiChatReasoning
+              v-if="streamingReasoning"
+              :content="streamingReasoning"
+              :streaming="!streamingContent"
+            />
+            <div v-if="streamingContent" class="ai-md markdown-body" v-html="renderedStreamingContent" />
+            <!-- 流式中右下角停止按钮 -->
+            <div class="mt-2 flex justify-end">
+              <button
+                type="button"
+                class="flex h-6 cursor-pointer items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted hover:bg-danger hover:text-inverse"
+                title="停止"
+                @mousedown.prevent="cancel"
+              >
                 <Icon icon="lucide:square" :size="10" />
                 <span>停止</span>
               </button>
@@ -142,12 +172,14 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import MarkdownIt from 'markdown-it'
+import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
 import { useAiChatContext } from '../../composables/useAiChatContext'
 import { aiService } from '../../services/aiService'
 import type { AiModelInfo } from '../../types/ai'
 import AiChatMessage from './AiChatMessage.vue'
+import AiChatReasoning from './AiChatReasoning.vue'
 import AiChatInput from './AiChatInput.vue'
 import AiChatModelSelector from './AiChatModelSelector.vue'
 
@@ -299,6 +331,7 @@ const {
   messages,
   isStreaming,
   streamingContent,
+  streamingReasoning,
   sendMessage: rawSendMessage,
   cancel,
   retry,
@@ -321,15 +354,15 @@ const inputRef = ref<InstanceType<typeof AiChatInput> | null>(null)
 // 显示的消息（排除流式中的临时内容）
 const displayMessages = computed(() => messages.value)
 
-// 流式内容的 Markdown 渲染
+// 流式内容的 Markdown 渲染（流式期间先归一化过度转义，避免 \*\* 闪现原始星号）
 const renderedStreamingContent = computed(() => {
   if (!streamingContent.value) return ''
-  return md.render(streamingContent.value)
+  return md.render(normalizeAiMarkdown(streamingContent.value))
 })
 
 // 状态文本
 const statusText = computed(() => {
-  if (isStreaming.value) return '正在生成…'
+  if (isStreaming.value) return streamingContent.value || !streamingReasoning.value ? '正在生成…' : '正在思考…'
   if (displayMessages.value.length === 0) return ''
   return `${displayMessages.value.filter((m) => m.role !== 'system').length} 条消息`
 })
@@ -337,7 +370,12 @@ const statusText = computed(() => {
 // 发送消息（处理 @引用）
 const sendMessage = (content: string): void => {
   const resolved = resolveReferences(content)
-  void rawSendMessage(resolved.message)
+  // 文档上下文始终显式传递（可能为空字符串，表示仅 @选区 时刻意不带文档）；
+  // 选区仅在用户显式 @选区 时传递，否则回退到 useAiChat 内部取当前选区的默认行为
+  void rawSendMessage(resolved.message, {
+    documentContext: resolved.documentContext,
+    ...(resolved.selection ? { selection: resolved.selection } : {}),
+  })
 }
 
 // 空状态快捷提问：提示词均围绕当前文档，点击即发送
@@ -367,7 +405,7 @@ const scrollToBottom = (): void => {
 }
 
 watch(
-  () => [messages.value.length, streamingContent.value],
+  () => [messages.value.length, streamingContent.value, streamingReasoning.value],
   () => scrollToBottom(),
 )
 
@@ -412,458 +450,61 @@ const startResize = (event: MouseEvent): void => {
 </script>
 
 <style scoped>
-.chat-sidebar {
-  display: flex;
-  flex-direction: column;
-  width: v-bind(sidebarWidth + 'px');
-  min-width: 320px;
-  max-width: 560px;
-  height: 100%;
-  flex-shrink: 0;
-  background: var(--color-paper);
-  border-left: 1px solid var(--color-line);
-  position: relative;
-  user-select: none;
-}
-
-.chat-sidebar--resizing {
-  user-select: none;
-  pointer-events: none;
-}
-
-.chat-sidebar__resize-handle {
-  position: absolute;
-  left: -3px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-  z-index: 10;
-}
-
-.chat-sidebar__resize-handle:hover {
-  background: var(--color-accent);
-  opacity: 0.3;
-}
-
-/* 头部 */
-.chat-sidebar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 48px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--color-line);
-  flex-shrink: 0;
-}
-
-.chat-sidebar__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.chat-sidebar__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--color-selected);
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.chat-sidebar__title-text {
-  min-width: 0;
-}
-
-.chat-sidebar__title-text h2 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin: 0;
-  line-height: 1.2;
-}
-
-.chat-sidebar__subtitle {
-  font-size: 10px;
-  color: var(--color-muted);
-}
-
-.chat-sidebar__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.chat-sidebar__header-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.chat-sidebar__header-btn:hover {
-  background: var(--color-toolbar);
-  color: var(--color-ink);
-}
-
-/* 空状态 */
-.chat-sidebar__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 24px;
-  text-align: center;
-}
-
-.chat-sidebar__empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: var(--color-selected);
-  color: var(--color-muted);
-  margin-bottom: 16px;
-}
-
-.chat-sidebar__empty-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin: 0 0 6px;
-}
-
-.chat-sidebar__empty-desc {
-  font-size: 12px;
-  color: var(--color-secondary);
-  line-height: 1.5;
-  margin: 0 0 16px;
-}
-
-.chat-sidebar__setup-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 8px;
-  border: none;
-  background: var(--color-accent);
-  color: var(--color-inverse);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.chat-sidebar__setup-btn:hover {
-  background: var(--color-accent-strong);
-}
-
-/* 消息列表 */
-.chat-sidebar__messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* 欢迎页 */
-.chat-sidebar__welcome {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 32px 24px;
-  text-align: center;
-}
-
-.chat-sidebar__welcome-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-ink) 0%, var(--color-muted) 135%);
-  color: var(--color-inverse);
-  margin-bottom: 16px;
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink) 22%, transparent);
-}
-
-.chat-sidebar__welcome-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-ink);
-  margin: 0 0 6px;
-}
-
-.chat-sidebar__welcome-desc {
-  font-size: 12px;
-  color: var(--color-secondary);
-  line-height: 1.5;
-  margin: 0 0 20px;
-  max-width: 260px;
-}
-
-/* 快捷提问芯片 */
-.chat-sidebar__quick {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  max-width: 240px;
-  margin-top: 4px;
-}
-
-.chat-sidebar__quick-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-  background: var(--color-panel);
-  color: var(--color-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-}
-
-.chat-sidebar__quick-item:hover {
-  border-color: var(--color-accent);
-  background: var(--color-toolbar);
-  color: var(--color-ink);
-}
-
-.chat-sidebar__quick-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-muted);
-  flex-shrink: 0;
-  transition: color 0.15s ease;
-}
-
-.chat-sidebar__quick-item:hover .chat-sidebar__quick-icon {
-  color: var(--color-accent);
-}
-
-/* 流式输出 */
-.chat-sidebar__streaming-indicator {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-line);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.chat-sidebar__typing-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: var(--color-accent);
-  animation: blink 1s infinite;
-  border-radius: 1px;
-}
-
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-.chat-sidebar__stop-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.chat-sidebar__stop-btn:hover {
-  background: #dc2626;
-  color: #ffffff;
-}
-
-/* AI 思考中动画 */
-.chat-thinking {
-  padding: 0 12px;
-  display: flex;
-  align-items: flex-start;
-}
-
-.chat-thinking__bubble {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 14px;
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
-  border-radius: 10px 10px 10px 2px;
-}
-
-.chat-thinking__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-muted);
-  animation: thinking 1.4s infinite;
-}
-
-.chat-thinking__dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.chat-thinking__dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes thinking {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-4px);
-    opacity: 1;
-  }
-}
-
-/* 消息入场动画 */
-.chat-msg {
-  animation: msgSlideIn 0.2s ease-out;
-}
-
-@keyframes msgSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 复用消息样式 */
-.chat-msg {
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-msg--assistant {
-  align-items: flex-start;
-}
-
-.chat-msg__bubble {
-  max-width: 100%;
-  border-radius: 10px;
-  word-break: break-word;
-}
-
-.chat-msg__bubble--assistant {
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
-  padding: 10px 12px;
-  border-radius: 10px 10px 10px 2px;
-  width: 100%;
-}
-
-.chat-msg__header {
-  margin-bottom: 6px;
-}
-
-.chat-msg__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-accent);
-  padding: 2px 6px;
-  background: var(--color-selected);
-  border-radius: 4px;
-}
-
-.chat-msg__content {
+/* 流式临时消息里的 Markdown 正文排版（内容由 v-html 渲染，只能用深度选择器控制样式） */
+.ai-md {
   font-size: 13px;
   line-height: 1.7;
   color: var(--color-ink);
 }
 
-/* Markdown 渲染样式 */
-.chat-msg__content :deep(h1),
-.chat-msg__content :deep(h2),
-.chat-msg__content :deep(h3),
-.chat-msg__content :deep(h4) {
+/* 标题 */
+.ai-md :deep(h1),
+.ai-md :deep(h2),
+.ai-md :deep(h3),
+.ai-md :deep(h4) {
   margin-top: 14px;
   margin-bottom: 6px;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.chat-msg__content :deep(h1) { font-size: 18px; }
-.chat-msg__content :deep(h2) { font-size: 16px; }
-.chat-msg__content :deep(h3) { font-size: 14px; }
+.ai-md :deep(h1) { font-size: 18px; }
+.ai-md :deep(h2) { font-size: 16px; }
+.ai-md :deep(h3) { font-size: 14px; }
 
-.chat-msg__content :deep(h1:first-child),
-.chat-msg__content :deep(h2:first-child),
-.chat-msg__content :deep(h3:first-child) {
+.ai-md :deep(h1:first-child),
+.ai-md :deep(h2:first-child),
+.ai-md :deep(h3:first-child) {
   margin-top: 0;
 }
 
-.chat-msg__content :deep(p) {
+/* 段落 */
+.ai-md :deep(p) {
   margin: 0 0 8px;
 }
 
-.chat-msg__content :deep(p:last-child) {
+.ai-md :deep(p:last-child) {
   margin-bottom: 0;
 }
 
-.chat-msg__content :deep(ul),
-.chat-msg__content :deep(ol) {
+/* 列表 */
+.ai-md :deep(ul),
+.ai-md :deep(ol) {
   margin: 6px 0;
   padding-left: 22px;
 }
 
-.chat-msg__content :deep(li) {
+.ai-md :deep(li) {
   margin: 3px 0;
 }
 
-.chat-msg__content :deep(.code-block-wrapper) {
+/* 代码块 */
+.ai-md :deep(.code-block-wrapper) {
   position: relative;
   margin: 8px 0;
 }
 
-.chat-msg__content :deep(.code-lang) {
+.ai-md :deep(.code-lang) {
   position: absolute;
   top: 6px;
   right: 10px;
@@ -874,7 +515,7 @@ const startResize = (event: MouseEvent): void => {
   z-index: 1;
 }
 
-.chat-msg__content :deep(.code-block) {
+.ai-md :deep(.code-block) {
   background: var(--color-paper);
   border: 1px solid var(--color-line);
   border-radius: 8px;
@@ -885,7 +526,7 @@ const startResize = (event: MouseEvent): void => {
   line-height: 1.6;
 }
 
-.chat-msg__content :deep(code) {
+.ai-md :deep(code) {
   background: var(--color-selected);
   padding: 1px 5px;
   border-radius: 4px;
@@ -893,12 +534,13 @@ const startResize = (event: MouseEvent): void => {
   font-size: 12px;
 }
 
-.chat-msg__content :deep(pre code) {
+.ai-md :deep(pre code) {
   background: transparent;
   padding: 0;
 }
 
-.chat-msg__content :deep(blockquote) {
+/* 引用块 */
+.ai-md :deep(blockquote) {
   margin: 8px 0;
   padding: 6px 10px;
   border-left: 3px solid var(--color-accent);
@@ -906,42 +548,46 @@ const startResize = (event: MouseEvent): void => {
   border-radius: 0 6px 6px 0;
 }
 
-.chat-msg__content :deep(blockquote p) {
+.ai-md :deep(blockquote p) {
   margin: 0;
 }
 
-.chat-msg__content :deep(a) {
+/* 链接 */
+.ai-md :deep(a) {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.chat-msg__content :deep(table) {
+/* 表格 */
+.ai-md :deep(table) {
   border-collapse: collapse;
   margin: 8px 0;
   width: 100%;
   font-size: 12px;
 }
 
-.chat-msg__content :deep(th),
-.chat-msg__content :deep(td) {
+.ai-md :deep(th),
+.ai-md :deep(td) {
   border: 1px solid var(--color-line);
   padding: 5px 8px;
   text-align: left;
 }
 
-.chat-msg__content :deep(th) {
+.ai-md :deep(th) {
   background: var(--color-selected);
   font-weight: 600;
 }
 
-.chat-msg__content :deep(hr) {
+/* 分割线 */
+.ai-md :deep(hr) {
   border: none;
   border-top: 1px solid var(--color-line);
   margin: 12px 0;
 }
 
-.chat-msg__content :deep(strong) {
+/* 强调 */
+.ai-md :deep(strong) {
   font-weight: 600;
 }
 </style>
