@@ -1,6 +1,84 @@
 {
-  "latest": "1.2.2",
+  "latest": "1.2.3",
   "releases": [
+    {
+      "version": "1.2.3",
+      "date": "2026-08-30",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "优化：AI 设置的温度、最大输出、超时时间收进「生成参数」圆角分组容器，界面更整齐清晰",
+        "优化：AI 设置默认最大输出从 2048 提升到 8192，减少长内容生成被截断",
+        "优化：斜杠命令面板改为 macOS 毛玻璃质感，半透明模糊背景与柔和阴影，悬停选中更通透",
+        "新增：AI Chat 支持展示思考模型的推理过程，回答前实时显示「思考中…」，可折叠查看思考内容，回答结束后自动收起",
+        "优化：AI 请求默认超时时间从 30 秒提升到 120 秒，超时不再静默结束，而是明确提示可在 AI 设置中调大超时后重试",
+        "修复：AI 回复中的过度转义（如 \\*\\*加粗\\*\\*）不再以原始星号显示，插入文档、复制与流式输出均已自动还原，加粗、斜体等语法正确生效",
+        "优化：编辑器保存与复制时对两侧空白的字面星号不再强制转义为 \\*，源码风格更贴近 Typora，存盘文本更干净",
+        "优化：AI Chat 界面全面焕新：用户消息改为右对齐实心气泡、AI 回复与系统提示更轻量，欢迎页快捷提问、输入区和模型选择器样式同步更新",
+        "修复：AI 返回空回复时给出明确提示，不再出现加载消失却无任何反馈的情况",
+        "优化：点击右上角 AI 图标即可在打开与关闭之间切换"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.3-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Windows-x64.exe",
+              "sha256": "30d5fb689000c1f53abbb0ada335c7c31a0d899a6f831823a74e676cbb07efd2"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.3-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-macOS-arm64.dmg",
+              "sha256": "1c8a345c30db34ff8ef55fad0b8488003fde492a2a68fbcfd5a6e8a17f212a5a"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.3-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-macOS-x64.dmg",
+              "sha256": "09b102ba1e026c2b9d1d48003bafae36a13fc2726a676b1a05e652520839d809"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.3-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Linux-x86_64.AppImage",
+              "sha256": "9428de55f6647bc715a6335339263df431de0ddb981452f1f97197a48f868dd7"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.3-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.3/XMD-1.2.3-Linux-arm64.AppImage",
+              "sha256": "ecd6d5ae287a73ef262696853e8092ed2a5f84d891ba918bab26f850f91fd0aa"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.2.2",
       "date": "2026-08-30",
