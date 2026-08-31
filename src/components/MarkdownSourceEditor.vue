@@ -276,8 +276,14 @@ watch(
 const getViewportSourceLine = (): number | null => {
   const sourceView = view.value
   if (!sourceView || sourceView.state.doc.length === 0) return null
+  // viewport 是“可见区 + 上下各约 1000px 预渲染边距”的绘制范围；无折叠装饰时
+  // visibleRanges 与 viewport 相同，也都包含边距，不能直接当视口顶部用。
+  // 这里改用几何换算：滚动容器可见顶部相对文档顶部的距离，交给 lineBlockAtHeight
+  // 换算成真实可见首行；滚到底部留白时该方法会钳制到最后一行。
+  const visibleTop = sourceView.scrollDOM.getBoundingClientRect().top + 1 - sourceView.documentTop
+  const topBlock = sourceView.lineBlockAtHeight(Math.max(0, visibleTop))
   // CodeMirror 行号 1 起始，减 1 换算为 0 起始。
-  return sourceView.state.doc.lineAt(sourceView.viewport.from).number - 1
+  return sourceView.state.doc.lineAt(topBlock.from).number - 1
 }
 
 // 把指定行（0 起始，允许小数，向下取整）滚动到视口顶部，不改动光标与选区。

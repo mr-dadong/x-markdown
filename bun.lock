@@ -7,7 +7,10 @@
       "dependencies": {
         "@mastra/core": "1.61.0",
         "@mastra/rag": "2.6.0",
+        "@tiptap/extension-subscript": "2.27.2",
+        "@tiptap/extension-superscript": "2.27.2",
         "chokidar": "^4.0.3",
+        "markdown-it-mark": "4.0.0",
         "openai": "7.5.0",
       },
       "devDependencies": {
@@ -19,6 +22,7 @@
         "@tiptap/extension-code": "2.27.2",
         "@tiptap/extension-code-block-lowlight": "^2.1.12",
         "@tiptap/extension-color": "^2.1.12",
+        "@tiptap/extension-hard-break": "2.27.2",
         "@tiptap/extension-highlight": "^2.1.12",
         "@tiptap/extension-image": "^2.1.12",
         "@tiptap/extension-link": "^2.1.12",
@@ -518,6 +522,10 @@
     "@tiptap/extension-placeholder": ["@tiptap/extension-placeholder@2.27.2", "https://registry.npmmirror.com/@tiptap/extension-placeholder/-/extension-placeholder-2.27.2.tgz", { "peerDependencies": { "@tiptap/core": "^2.7.0", "@tiptap/pm": "^2.7.0" } }, "sha512-IjsgSVYJRjpAKmIoapU0E2R4E2FPY3kpvU7/1i7PUYisylqejSJxmtJPGYw0FOMQY9oxnEEvfZHMBA610tqKpg=="],
 
     "@tiptap/extension-strike": ["@tiptap/extension-strike@2.27.2", "https://registry.npmmirror.com/@tiptap/extension-strike/-/extension-strike-2.27.2.tgz", { "peerDependencies": { "@tiptap/core": "^2.7.0" } }, "sha512-HHIjhafLhS2lHgfAsCwC1okqMsQzR4/mkGDm4M583Yftyjri1TNA7lzhzXWRFWiiMfJxKtdjHjUAQaHuteRTZw=="],
+
+    "@tiptap/extension-subscript": ["@tiptap/extension-subscript@2.27.2", "https://registry.npmmirror.com/@tiptap/extension-subscript/-/extension-subscript-2.27.2.tgz", { "peerDependencies": { "@tiptap/core": "^2.7.0" } }, "sha512-x2Oz7hrI4KvzzB9pWChFRm6JnKdYAUQDyrlSROngtzXT7VpNQNoD5s8OlICzDeNsaRKzhR8omIz2z17S1VB48g=="],
+
+    "@tiptap/extension-superscript": ["@tiptap/extension-superscript@2.27.2", "https://registry.npmmirror.com/@tiptap/extension-superscript/-/extension-superscript-2.27.2.tgz", { "peerDependencies": { "@tiptap/core": "^2.7.0" } }, "sha512-VTGJDuNqdesibSVW94Q71VaGVGr/bwBppdaNLn7k6beOegALfIH7ncArlkD/eihOlJ2qaWiT7FoWNLTb/Fdv1w=="],
 
     "@tiptap/extension-table": ["@tiptap/extension-table@2.27.2", "https://registry.npmmirror.com/@tiptap/extension-table/-/extension-table-2.27.2.tgz", { "peerDependencies": { "@tiptap/core": "^2.7.0", "@tiptap/pm": "^2.7.0" } }, "sha512-pDbhOpT5phZkcsyPjGBQlXv0+0hmdrvqHJ+dJjkGcCtlfy2pHiEIhmIItOFagc7wXy8G9iUFZ9Jie4zvDf+brg=="],
 
@@ -1284,6 +1292,8 @@
     "magic-string": ["magic-string@0.30.21", "https://registry.npmmirror.com/magic-string/-/magic-string-0.30.21.tgz", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
     "markdown-it": ["markdown-it@14.3.0", "https://registry.npmmirror.com/markdown-it/-/markdown-it-14.3.0.tgz", { "dependencies": { "argparse": "^2.0.1", "entities": "^4.5.0", "linkify-it": "^5.0.2", "mdurl": "^2.0.0", "punycode.js": "^2.3.1", "uc.micro": "^2.1.0" }, "bin": { "markdown-it": "bin/markdown-it.mjs" } }, "sha512-RCEsPjR+sr0x+AuYp601tKTkgFG4YEPLCzHST3cQ/fhlJkqAkz1L2/Qbp1j9qw5SBwQHFBoW8+hoN5xssOF0Tw=="],
+
+    "markdown-it-mark": ["markdown-it-mark@4.0.0", "https://registry.npmmirror.com/markdown-it-mark/-/markdown-it-mark-4.0.0.tgz", {}, "sha512-YLhzaOsU9THO/cal0lUjfMjrqSMPjjyjChYM7oyj4DnyaXEzA8gnW6cVJeyCrCVeyesrY2PlEdUYJSPFYL4Nkg=="],
 
     "markdown-it-task-lists": ["markdown-it-task-lists@2.1.1", "https://registry.npmmirror.com/markdown-it-task-lists/-/markdown-it-task-lists-2.1.1.tgz", {}, "sha512-TxFAc76Jnhb2OUu+n3yz9RMu4CwGfaT788br6HhEDlvWfdeJcLUsxk1Hgw2yJio0OXsxv7pyIPmvECY7bMbluA=="],
 

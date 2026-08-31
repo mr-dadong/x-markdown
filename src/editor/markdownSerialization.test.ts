@@ -13,6 +13,7 @@ import {
   escapeTablePipes,
   hasEscapedCodePipes,
   getTableCodePipeStyles,
+  getTableDelimiterWidths,
   parseTableAlignment,
   protectTableCodePipesForParsing,
   renderMarkdownTable,
@@ -58,6 +59,19 @@ describe("Markdown 表格序列化边界", () => {
     );
   });
 
+  test("记录原分隔行每列的连字符数量", () => {
+    assert.deepEqual(
+      getTableDelimiterWidths([
+        "| A | B | C |",
+        "| :----: | --- | ------: |",
+      ].join("\n")),
+      [4, 3, 6],
+    );
+    // 没有分隔行或列数不足时返回空记录，序列化时回退到列宽
+    assert.deepEqual(getTableDelimiterWidths("| A |"), []);
+    assert.deepEqual(getTableDelimiterWidths("| A |\n| --- |"), [3]);
+  });
+
   test("重新生成表格时仅移除孤立反引号的转义", () => {
     assert.equal(restoreTableBackticks("b\\`"), "b`");
     assert.equal(restoreTableBackticks("b\\``"), "b``");
@@ -89,6 +103,29 @@ describe("Markdown 表格序列化边界", () => {
         "| --------- | ---------- | --- |",
         "| `a \\ | b` |            |     |",
         "| b`        |            |     |",
+      ].join("\n"),
+    );
+  });
+
+  test("提供原始宽度时分隔行按原样输出，不再拉伸到列宽", () => {
+    assert.equal(
+      renderMarkdownTable(
+        [
+          [
+            { content: "名称", alignment: "center" },
+            { content: "数量", alignment: "right" },
+          ],
+          [
+            { content: "苹果", alignment: "center" },
+            { content: "1", alignment: "right" },
+          ],
+        ],
+        [4, 4],
+      ),
+      [
+        "| 名称 | 数量 |",
+        "| :----: | ----: |",
+        "| 苹果 | 1    |",
       ].join("\n"),
     );
   });

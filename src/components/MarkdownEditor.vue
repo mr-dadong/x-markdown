@@ -249,6 +249,7 @@
 
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
+import { NodeSelection } from '@tiptap/pm/state'
 import type { Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
@@ -581,6 +582,9 @@ const shouldShowAiMenu = (): boolean => {
   const { selection } = editor.value?.state ?? {}
   if (!selection || selection.empty) return false
   if (isTableSelection(selection)) return false
+  // 点击公式、Mermaid、图片等原子节点会形成 NodeSelection（整节点选中而非文本选区），
+  // AI 润色/重写等动作对它们无意义，不弹出动作条。
+  if (selection instanceof NodeSelection) return false
   return true
 }
 
@@ -1199,6 +1203,18 @@ defineExpose<EditorHandle>({
   font-size: 1.05em;
   font-weight: 600;
   margin: 1.1em 0 0.3em;
+}
+
+.tiptap h5 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 1em 0 0.3em;
+}
+
+.tiptap h6 {
+  font-size: 0.95em;
+  font-weight: 600;
+  margin: 1em 0 0.3em;
 }
 
 /* 折叠属于编辑视图状态，隐藏章节节点时不会改写或删除 Markdown 内容。 */

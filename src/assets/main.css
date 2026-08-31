@@ -28,6 +28,7 @@
     --color-code-bg: #f5f5f5;
     --color-code-block-bg: #fafafa;
     --color-code-text: #d44a4a;
+    --color-code-value: #2f8f46;
     --color-mark-bg: #fef3cd;
     --color-placeholder: #a0a0a0;
     --color-scrollbar: rgba(0, 0, 0, 0.15);
@@ -60,6 +61,7 @@
     --color-code-bg: #303137;
     --color-code-block-bg: #26272b;
     --color-code-text: #ff8a8a;
+    --color-code-value: #73c991;
     --color-mark-bg: #66591f;
     --color-placeholder: #747780;
     --color-scrollbar: rgba(255, 255, 255, 0.16);

@@ -86,8 +86,14 @@ const getMarkdownDisplayWidth = (value: string): number =>
 /**
  * 按 TipTap 官方 Markdown 表格渲染方式先计算整列宽度，再一次性输出表格。
  * 这避免逐个单元格直接写入共享序列化状态造成标记串列或内容重复。
+ *
+ * delimiterWidths 是解析时记录的原始分隔行每列 `-` 数量；提供时分隔行
+ * 按原始宽度输出，未提供（新建表格或列数超出记录）时回退到列宽。
  */
-export const renderMarkdownTable = (rows: readonly MarkdownTableCell[][]): string => {
+export const renderMarkdownTable = (
+  rows: readonly MarkdownTableCell[][],
+  delimiterWidths?: readonly number[],
+): string => {
   const columnCount = rows.reduce(
     (maximum, row) => Math.max(maximum, row.length),
     0,
@@ -112,7 +118,11 @@ export const renderMarkdownTable = (rows: readonly MarkdownTableCell[][]): strin
       padCell(row[columnIndex]?.content ?? "", columnIndex)
     ).join(" | ")} |`;
   const renderDelimiter = (alignment: TableAlignment, columnIndex: number): string => {
-    const width = columnWidths[columnIndex];
+    const originalWidth = delimiterWidths?.[columnIndex];
+    const width =
+      typeof originalWidth === "number" && Number.isFinite(originalWidth) && originalWidth >= 3
+        ? Math.floor(originalWidth)
+        : columnWidths[columnIndex];
     if (alignment === "left") return `:${"-".repeat(width)}`;
     if (alignment === "right") return `${"-".repeat(width)}:`;
     if (alignment === "center") return `:${"-".repeat(width)}:`;
@@ -326,6 +336,22 @@ export const getTableCodePipeStyles = (markdown: string): boolean[][] => {
 };
 
 /**
+ * 记录原始分隔行每列的 `-` 数量，保存时原样还原。
+ * GFM 中 `-` 数量没有语义（只有冒号位置决定对齐），但使用者手写的
+ * `| :----: |` 与列宽无关，不应在保存时被改写成 `| :------: |`。
+ */
+export const getTableDelimiterWidths = (markdown: string): number[] => {
+  const delimiterLine = markdown.split("\n")[1];
+  if (delimiterLine === undefined || !delimiterLine.includes("-")) return [];
+
+  const cells = delimiterLine.split("|");
+  if (delimiterLine.trimStart().startsWith("|")) cells.shift();
+  if (delimiterLine.trimEnd().endsWith("|")) cells.pop();
+
+  return cells.map((cell) => Math.max(3, (cell.match(/-/gu) ?? []).length));
+};
+
+/**
  * ProseMirror 会给普通文本反引号补转义。孤立反引号不会形成 Markdown 代码，
  * 可以按 Typora 风格去掉转义；成对反引号必须保留，否则普通文本会被误存成行内代码。
  */
@@ -471,6 +497,10 @@ export const configureTyporaTableParsing = (markdown: MarkdownIt): void => {
           "data-xmd-code-pipe-styles",
           encodeURIComponent(JSON.stringify(codePipeStyles)),
         );
+        token.attrSet(
+          "data-xmd-delimiter-widths",
+          encodeURIComponent(JSON.stringify(getTableDelimiterWidths(tableMarkdown))),
+        );
       });
     },
   );
@@ -490,6 +520,7 @@ export const serializeMarkdownTableNode = (
   tableState.inTable = true;
   const rows: MarkdownTableCell[][] = [];
   const codePipeStyles = node.attrs.codePipeStyles as boolean[][];
+  const delimiterWidths = node.attrs.delimiterWidths as number[] | undefined;
 
   node.forEach((row, _rowOffset, rowIndex) => {
     const cells: MarkdownTableCell[] = [];
@@ -513,7 +544,7 @@ export const serializeMarkdownTableNode = (
     rows.push(cells);
   });
 
-  state.write(renderMarkdownTable(rows));
+  state.write(renderMarkdownTable(rows, delimiterWidths));
   state.closeBlock(node);
   tableState.inTable = false;
 };

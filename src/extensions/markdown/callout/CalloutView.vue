@@ -1,12 +1,11 @@
 <template>
-  <NodeViewWrapper class="relative my-[0.8em] flex w-full" data-xmd-callout-view>
+  <NodeViewWrapper class="relative my-[0.8em] flex w-full flex-col" data-xmd-callout-view>
     <div
-      ref="anchorElement"
       class="relative flex w-full items-start gap-3 rounded-lg border border-l-[3px] px-3.5 py-3"
       :class="[typeStyle.surface, props.selected ? 'outline outline-1 outline-accent/30' : '']"
       contenteditable="false"
-      title="双击编辑提示块"
-      @dblclick.stop="startEditing"
+      title="点击编辑提示块"
+      @click.stop="startEditing"
     >
       <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" :class="typeStyle.iconSurface">
         <Icon :icon="typeIcon" :size="14" :class="typeStyle.icon" />
@@ -26,15 +25,6 @@
             >
               <Icon :icon="collapsed ? 'lucide:chevron-right' : 'lucide:chevron-down'" :size="14" />
             </button>
-            <button
-              v-if="props.selected && !editing"
-              type="button"
-              title="编辑提示块"
-              class="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-              @click.stop="startEditing"
-            >
-              <Icon icon="lucide:pen-line" :size="14" />
-            </button>
           </div>
         </div>
 
@@ -48,11 +38,8 @@
 
     <MarkdownModulePopover
       v-if="editing"
-      title="编辑提示块"
-      :icon="draftTypeIcon"
-      description="设置提示类型、标题和正文内容"
-      :position="popoverPosition"
       :width="420"
+      full-width
       @cancel="cancelEditing"
       @submit="saveEditing"
     >
@@ -107,7 +94,6 @@ import { computed, ref, watch } from 'vue'
 import MarkdownModulePopover from '../shared/MarkdownModulePopover.vue'
 import ModuleSelect from '../shared/ModuleSelect.vue'
 import type { ModuleSelectOption } from '../shared/ModuleSelect.vue'
-import { getNodeViewPopoverPosition } from '../shared/nodeViewPopover'
 import { renderSafeMarkdown } from '../shared/safeMarkdown'
 
 const props = defineProps<NodeViewProps>()
@@ -126,8 +112,6 @@ const foldOptions: ModuleSelectOption[] = [
   { value: '-', label: '默认折叠', description: '打开时隐藏内容', icon: 'lucide:chevron-right' },
 ]
 
-const anchorElement = ref<HTMLElement | null>(null)
-const popoverPosition = ref<Record<string, string>>({ left: '12px', top: '12px' })
 const editing = ref(false)
 const collapsed = ref(String(props.node.attrs.fold) === '-')
 const draftType = ref(String(props.node.attrs.calloutType))
@@ -147,7 +131,6 @@ const foldable = computed(() => ['+', '-'].includes(String(props.node.attrs.fold
 const hasBody = computed(() => String(props.node.attrs.body).trim().length > 0)
 const renderedBody = computed(() => renderSafeMarkdown(String(props.node.attrs.body)))
 const typeIcon = computed(() => supportedTypes.find((type) => type.value === calloutType.value)?.icon ?? 'lucide:info')
-const draftTypeIcon = computed(() => supportedTypes.find((type) => type.value === draftType.value)?.icon ?? 'lucide:info')
 
 const getTypeStyle = (type: string): { surface: string; iconSurface: string; icon: string } => {
   // 每种提示只改变语义色，卡片结构保持一致，切换类型时界面不会跳动。
@@ -174,8 +157,11 @@ const saveDraft = (): void => {
 }
 
 const startEditing = (): void => {
-  if (!anchorElement.value) return
-  popoverPosition.value = getNodeViewPopoverPosition(anchorElement.value, 460, 390)
+  if (editing.value) return
+  draftType.value = String(props.node.attrs.calloutType)
+  draftTitle.value = String(props.node.attrs.title)
+  draftFold.value = String(props.node.attrs.fold)
+  draftBody.value = String(props.node.attrs.body)
   editing.value = true
 }
 

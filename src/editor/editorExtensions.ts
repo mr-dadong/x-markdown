@@ -2,6 +2,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import type MarkdownIt from "markdown-it";
 import StarterKit from "@tiptap/starter-kit";
+import { markInputRule } from "@tiptap/core";
 import { Markdown } from "tiptap-markdown";
 import Image from "@tiptap/extension-image";
 import Table from "@tiptap/extension-table";
@@ -9,9 +10,26 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import Highlight from "@tiptap/extension-highlight";
+import markdownItMark from "markdown-it-mark";
 import Typography from "@tiptap/extension-typography";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+
+// 脚注引用渲染为 <sup data-xmd-footnote-reference>，若不排除，
+// Subscript/Superscript 会抢占该元素的解析，导致脚注引用丢失。
+const PlainSubscript = Subscript.extend({
+  parseHTML() {
+    return [{ tag: "sub:not([data-xmd-footnote-reference])" }];
+  },
+});
+
+const PlainSuperscript = Superscript.extend({
+  parseHTML() {
+    return [{ tag: "sup:not([data-xmd-footnote-reference])" }];
+  },
+});
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Color from "@tiptap/extension-color";
@@ -51,6 +69,7 @@ import {
 } from "./inlineCodeInputExtension";
 import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { MarkdownEscapeRelaxer } from "./markdownEscapeRelaxer";
+import { LiteralHardBreak } from "./hardBreakSerialization";
 import { mediaService } from "../services/mediaService";
 import {
   configureTyporaTableParsing,
@@ -79,6 +98,62 @@ const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
 const AlignedTableCell = createAlignedTableCell(TableCell);
 const AlignedTableHeader = createAlignedTableCell(TableHeader);
 
+// TipTap 官方 Link 扩展未定义 title 属性，带标题的链接在解析时会丢失标题。
+// 补上 title 后，序列化仍走 tiptap-markdown 复用的 prosemirror-markdown
+// 默认 link 输出，其本身已支持 `[文字](地址 "标题")` 格式。
+const LinkWithTitle = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      title: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("title"),
+        renderHTML: (attributes) =>
+          attributes.title ? { title: attributes.title } : {},
+      },
+    };
+  },
+});
+
+// ==文字== 不是 CommonMark 语法，markdown-it 默认不识别；借助 markdown-it-mark
+// 提供解析。序列化时无颜色的高亮输出 ==，带颜色的高亮无法用 == 表达，
+// 回退为 <mark style> HTML 标签。配置用 WeakSet 防止重复挂载。
+const configuredMarkParsers = new WeakSet<MarkdownIt>();
+
+const SerializableHighlight = Highlight.extend({
+  addInputRules() {
+    return [
+      // 输入 ==文字== 的最后一个 = 时立即转换为高亮，符合所见即所得的使用习惯。
+      markInputRule({
+        find: /(?:^|[^=])(==(?!\s)([^=]+)==)$/u,
+        type: this.type,
+      }),
+    ];
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize: {
+          open: (_state: unknown, mark: { attrs: { color?: string | null } }) =>
+            mark.attrs.color
+              ? `<mark style="background-color: ${mark.attrs.color}">`
+              : "==",
+          close: (_state: unknown, mark: { attrs: { color?: string | null } }) =>
+            (mark.attrs.color ? "</mark>" : "=="),
+        },
+        parse: {
+          setup(markdown: MarkdownIt) {
+            if (configuredMarkParsers.has(markdown)) return;
+            configuredMarkParsers.add(markdown);
+            markdown.use(markdownItMark);
+          },
+        },
+      },
+    };
+  },
+});
+
 // markdown-it 会把“普通项目 + 任务项目”组成的整个列表识别为 taskList。
 // 默认扩展只允许 taskItem，会在普通项目的位置补出空任务；这里明确允许两种
 // 列表项共存，保证从 Typora 等编辑器打开混合列表后不会污染原文。
@@ -94,6 +169,15 @@ const SerializableTable = Table.extend({
         default: [],
         parseHTML: (element) => {
           const value = element.getAttribute("data-xmd-code-pipe-styles");
+          return value === null ? [] : JSON.parse(decodeURIComponent(value));
+        },
+        // 仅作为 Markdown 往返风格标记，不输出到编辑器 DOM。
+        renderHTML: () => ({}),
+      },
+      delimiterWidths: {
+        default: [],
+        parseHTML: (element) => {
+          const value = element.getAttribute("data-xmd-delimiter-widths");
           return value === null ? [] : JSON.parse(decodeURIComponent(value));
         },
         // 仅作为 Markdown 往返风格标记，不输出到编辑器 DOM。
@@ -264,7 +348,9 @@ export const createEditorExtensions = (options: {
     StarterKit.configure({
       codeBlock: false, // 使用 CodeBlockLowlight 替代
       code: false, // 使用不会误删反引号前普通字符的行内代码扩展
+      hardBreak: false, // 使用保留源码写法的硬换行扩展
     }),
+    LiteralHardBreak,
     SafeInlineCode,
     InlineCodeOpeningBacktick,
     Markdown.configure({
@@ -306,7 +392,7 @@ export const createEditorExtensions = (options: {
     TrailingParagraph,
     ReadableGapCursor,
     ClickableBlockGap,
-    Highlight.configure({
+    SerializableHighlight.configure({
       multicolor: true,
     }),
     Typography,
@@ -314,10 +400,12 @@ export const createEditorExtensions = (options: {
       placeholder: "开始写作...",
     }),
     Underline,
+    PlainSubscript,
+    PlainSuperscript,
     TextAlign.configure({
       types: ["heading", "paragraph"],
     }),
-    Link.configure({
+    LinkWithTitle.configure({
       openOnClick: false,
     }),
     Color,

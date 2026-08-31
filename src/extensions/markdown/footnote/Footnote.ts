@@ -6,6 +6,7 @@ import type StateInline from "markdown-it/lib/rules_inline/state_inline";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import FootnoteDefinitionView from "./FootnoteDefinitionView.vue";
+import FootnoteReferenceView from "./FootnoteReferenceView.vue";
 import {
   escapeMarkdownAttribute,
   getMarkdownLine,
@@ -123,11 +124,15 @@ export const FootnoteReference = Node.create({
       mergeAttributes(HTMLAttributes, {
         "data-xmd-footnote-reference": "",
         "data-identifier": identifier,
-        class: "mx-0.5 inline-flex cursor-default items-center rounded bg-selected px-1 font-mono text-[10px] font-semibold text-link",
+        class: "mx-0.5 inline cursor-pointer font-mono text-[10px] font-semibold text-link",
         title: `脚注 ${identifier}`,
       }),
       `[${identifier}]`,
     ];
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(FootnoteReferenceView);
   },
 
   addStorage() {

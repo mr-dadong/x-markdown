@@ -81,6 +81,7 @@ import alignCenterIcon from '@iconify-icons/lucide/align-center'
 import alignRightIcon from '@iconify-icons/lucide/align-right'
 import textSelectIcon from '@iconify-icons/lucide/text-select'
 import messageSquarePlusIcon from '@iconify-icons/lucide/message-square-plus'
+import wrapTextIcon from '@iconify-icons/lucide/wrap-text'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -171,6 +172,7 @@ addIcon('lucide:align-center', alignCenterIcon)
 addIcon('lucide:align-right', alignRightIcon)
 addIcon('lucide:text-select', textSelectIcon)
 addIcon('lucide:message-square-plus', messageSquarePlusIcon)
+addIcon('lucide:wrap-text', wrapTextIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

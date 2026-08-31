@@ -42,13 +42,13 @@ const fixtures: MarkdownFixture[] = [
     markdown: [
       "# 一级标题",
       "",
-      "正文包含 **粗体**、*斜体*、~~删除线~~、`行内代码` 和 [链接](https://example.com \"示例\")。",
+      "正文包含 **粗体**、*斜体*、~~删除线~~、==高亮==、`行内代码` 和 [链接](https://example.com \"示例\")。",
       "",
       "> 引用内容",
       "",
       "---",
     ].join("\n"),
-    expectedFragments: ["# 一级标题", "**粗体**", "~~删除线~~", "`行内代码`", "https://example.com", "> 引用内容"],
+    expectedFragments: ["# 一级标题", "**粗体**", "~~删除线~~", "==高亮==", "`行内代码`", "[链接](https://example.com \"示例\")", "> 引用内容"],
   },
   {
     name: "嵌套列表、任务列表和硬换行",
@@ -78,6 +78,19 @@ const fixtures: MarkdownFixture[] = [
     expectedFragments: ["| 名称", "`a | b`", "````typescript", "const fence = ```;"],
   },
   {
+    name: "表格分隔行宽度保存后不被改写",
+    markdown: [
+      "| 名称 | 数量 |",
+      "| :----: | -----: |",
+      "| 苹果 | 1 |",
+      "",
+      "| A | B |",
+      "| ------ | :----: |",
+      "| 内容更长一些 | b |",
+    ].join("\n"),
+    expectedFragments: ["| :----: | -----: |", "| ------ | :----: |"],
+  },
+  {
     name: "公式、Mermaid、脚注和目录",
     markdown: [
       "[TOC]",
@@ -97,7 +110,7 @@ const fixtures: MarkdownFixture[] = [
       "",
       "[^note]: 脚注内容",
     ].join("\n"),
-    expectedFragments: ["[TOC]", "$E = mc^2$", "\\int_0^1 x^2 dx", "```mermaid", "[^note]", "[^note]: 脚注内容"],
+    expectedFragments: ["[TOC]", "$E = mc^2$", "\\int_0^1 x^2 dx", "```mermaid", "带脚注的文字[^note]。", "[^note]: 脚注内容"],
   },
   {
     name: "Callout、HTML 和图片尺寸",
@@ -111,6 +124,13 @@ const fixtures: MarkdownFixture[] = [
       '<img src="./images/demo.png" alt="示例" title="图片" width="320">',
     ].join("\n"),
     expectedFragments: ["[!NOTE]- 标题", "第一行", "<section", "HTML 内容", "./images/demo.png", 'width="320"'],
+  },
+  {
+    name: "下标和上标",
+    markdown: [
+      "水的化学式是 H<sub>2</sub>O，质能方程是 E = mc<sup>2</sup>。",
+    ].join("\n"),
+    expectedFragments: ["H<sub>2</sub>O", "E = mc<sup>2</sup>"],
   },
   {
     name: "YAML Front Matter 和未知扩展原样保存",

@@ -104,6 +104,8 @@ const renderedContent = computed(() => {
 .ai-md :deep(h2) { font-size: 16px; }
 .ai-md :deep(h3) { font-size: 14px; }
 .ai-md :deep(h4) { font-size: 13px; }
+.ai-md :deep(h5) { font-size: 13px; }
+.ai-md :deep(h6) { font-size: 12px; }
 
 .ai-md :deep(h1:first-child),
 .ai-md :deep(h2:first-child),
