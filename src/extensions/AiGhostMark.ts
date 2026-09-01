@@ -22,6 +22,10 @@ declare module "@tiptap/core" {
        */
       markAsAiGenerated: (from: number, to: number, withCaret?: boolean) => ReturnType;
       /**
+       * 在正文写入点显示等待提示，并标出稍后会被替换的原文范围。
+       */
+      markAiWritingTarget: (from: number, to: number, label: string) => ReturnType;
+      /**
        * 清除AI生成标记
        */
       clearAiGhostMarks: () => ReturnType;
@@ -36,13 +40,77 @@ const buildDecorations = (
   doc: ProseMirrorNode,
   range: { from: number; to: number },
   withCaret: boolean,
-  options: AiGhostMarkOptions
+  options: AiGhostMarkOptions,
+  placeholder = "",
 ): DecorationSet => {
-  const decorations: Decoration[] = [
-    Decoration.inline(range.from, range.to, {
-      class: options.ghostClass || "ai-ghost-content",
-    }),
-  ];
+  const decorations: Decoration[] = [];
+
+  if (range.from < range.to) {
+    decorations.push(
+      Decoration.inline(range.from, range.to, {
+        class: placeholder ? "ai-writing-target" : options.ghostClass || "ai-ghost-content",
+      }),
+    );
+  }
+
+  if (placeholder) {
+    decorations.push(
+      Decoration.widget(
+        range.to,
+        () => {
+          const span = document.createElement("span");
+          span.className = "ai-writing-placeholder";
+
+          const reasoningPrefix = "AI 思考：";
+          const isReasoning = placeholder.startsWith(reasoningPrefix);
+          if (isReasoning) span.classList.add("ai-writing-placeholder-reasoning");
+
+          // 使用真实子节点拆分状态、正文与快捷键，便于稳定控制流式思考的显示宽度。
+          const statusDot = document.createElement("span");
+          statusDot.className = "ai-writing-placeholder-dot";
+          span.append(statusDot);
+
+          if (isReasoning) {
+            const label = document.createElement("span");
+            label.className = "ai-writing-placeholder-label";
+            label.textContent = "思考";
+            span.append(label);
+
+            const separator = document.createElement("span");
+            separator.className = "ai-writing-placeholder-separator";
+            span.append(separator);
+          }
+
+          const [message, shortcutHint] = placeholder.split("，Esc ");
+          const messageSpan = document.createElement("span");
+          messageSpan.className = "ai-writing-placeholder-text";
+          messageSpan.textContent = isReasoning ? message.slice(reasoningPrefix.length) : message;
+          span.append(messageSpan);
+
+          if (isReasoning) {
+            // 与 deepseek-harness 一致：摘要视口保持固定宽度，并持续跟随当前思考行末尾。
+            requestAnimationFrame(() => {
+              messageSpan.scrollLeft = messageSpan.scrollWidth - messageSpan.clientWidth;
+            });
+          }
+
+          if (shortcutHint) {
+            const shortcut = document.createElement("kbd");
+            shortcut.className = "ai-writing-placeholder-key";
+            shortcut.textContent = "Esc";
+            span.append(shortcut);
+
+            const hint = document.createElement("span");
+            hint.className = "ai-writing-placeholder-hint";
+            hint.textContent = shortcutHint;
+            span.append(hint);
+          }
+          return span;
+        },
+        { side: 1 },
+      ),
+    );
+  }
 
   if (withCaret) {
     decorations.push(
@@ -66,6 +134,7 @@ const emptyState = {
   decorations: DecorationSet.empty,
   range: null as { from: number; to: number } | null,
   caret: false,
+  placeholder: "",
 };
 
 export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
@@ -89,6 +158,21 @@ export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
               from,
               to,
               caret: withCaret,
+            });
+            dispatch(tr);
+          }
+          return true;
+        },
+
+      markAiWritingTarget:
+        (from: number, to: number, label: string) =>
+        ({ tr, dispatch }) => {
+          if (dispatch) {
+            tr.setMeta(aiGhostMarkKey, {
+              type: "target",
+              from,
+              to,
+              label,
             });
             dispatch(tr);
           }
@@ -131,6 +215,17 @@ export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
                   decorations: buildDecorations(tr.doc, range, meta.caret, options),
                   range,
                   caret: meta.caret,
+                  placeholder: "",
+                };
+              }
+
+              if (meta.type === "target") {
+                const range = { from: meta.from, to: meta.to };
+                return {
+                  decorations: buildDecorations(tr.doc, range, false, options, meta.label),
+                  range,
+                  caret: false,
+                  placeholder: meta.label,
                 };
               }
 
@@ -144,15 +239,22 @@ export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
               const from = tr.mapping.map(value.range.from);
               const to = tr.mapping.map(value.range.to);
 
-              if (from >= to) {
+              if (from > to || (from === to && !value.placeholder)) {
                 return { ...emptyState };
               }
 
               const range = { from, to };
               return {
-                decorations: buildDecorations(tr.doc, range, value.caret, options),
+                decorations: buildDecorations(
+                  tr.doc,
+                  range,
+                  value.caret,
+                  options,
+                  value.placeholder,
+                ),
                 range,
                 caret: value.caret,
+                placeholder: value.placeholder,
               };
             }
 

@@ -11,6 +11,7 @@ import type {
   AiErrorEvent,
   AiFetchModelsResult,
   AiInvokeRequest,
+  AiReasoningDeltaEvent,
   AiModelInfo,
   AiProvider,
   AiProviderConfig,
@@ -26,6 +27,25 @@ interface ActiveAiRequest {
   timeout: ReturnType<typeof setTimeout>;
   cancelled: boolean;
 }
+
+// Mastra 还包含处理器专用状态，这里统一转换为渲染层认识的结束原因。
+const normalizeFinishReason = (reason: string): AiDoneEvent["finishReason"] => {
+  switch (reason) {
+    case "stop":
+    case "length":
+    case "content-filter":
+    case "tool-calls":
+    case "error":
+    case "other":
+    case "unknown":
+      return reason;
+    case "tripwire":
+      return "error";
+    case "retry":
+      return "other";
+  }
+  return "unknown";
+};
 
 const activeRequests = new Map<string, ActiveAiRequest>();
 
@@ -319,8 +339,12 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       const event: AiDeltaEvent = { requestId: request.requestId, delta };
       getMainWindow()?.webContents.send(IPC_CHANNELS.aiStreamDelta, event);
     };
-    const sendDone = (): void => {
-      const event: AiDoneEvent = { requestId: request.requestId };
+    const sendReasoningDelta = (delta: string): void => {
+      const event: AiReasoningDeltaEvent = { requestId: request.requestId, delta };
+      getMainWindow()?.webContents.send(IPC_CHANNELS.aiStreamReasoningDelta, event);
+    };
+    const sendDone = (finishReason: AiDoneEvent["finishReason"], completionTokens?: number): void => {
+      const event: AiDoneEvent = { requestId: request.requestId, finishReason, completionTokens };
       getMainWindow()?.webContents.send(IPC_CHANNELS.aiStreamDone, event);
     };
     const sendError = (message: string): void => {
@@ -343,9 +367,16 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
         if (active.cancelled) break;
         if (chunk.type === "text-delta") {
           sendDelta(chunk.payload.text);
+        } else if (chunk.type === "reasoning-delta") {
+          // 推理内容只发送给临时状态视图，正文写入链路不会消费这部分文本。
+          sendReasoningDelta(chunk.payload.text);
         } else if (chunk.type === "finish") {
           finished = true;
-          sendDone();
+          // Mastra 的完成原因和用量位于结构化结果中，不是 finish payload 的顶层字段。
+          sendDone(
+            normalizeFinishReason(chunk.payload.stepResult.reason),
+            chunk.payload.output.usage.outputTokens,
+          );
         } else if (chunk.type === "error") {
           console.error('[aiIpc] error:', chunk.payload.error);
           sendError(errorMessage(chunk.payload.error));
@@ -354,7 +385,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       }
 
       if (!finished && !active.cancelled) {
-        sendDone();
+        // 流在没有 finish 事件时关闭，不能宣称模型正常完成。
+        sendDone("unknown");
       }
     } catch (error) {
       console.error('[aiIpc] catch error:', error);

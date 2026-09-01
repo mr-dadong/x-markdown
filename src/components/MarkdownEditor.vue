@@ -40,13 +40,13 @@
     </bubble-menu>
 
     <!-- AI 实时编写状态框 - 固定在编辑器底部，单独占一行 -->
-    <Transition name="inline-writer">
-      <div v-if="inlineWriterStatus !== 'idle'" class="ai-writer-status-bar">
+    <div v-if="inlineWriterStatus !== 'idle'" class="ai-writer-status-bar">
         <InlineWriterBar :status="inlineWriterStatus" :error="inlineWriterError" :current-action="inlineWriterAction"
+          :has-output="Boolean(inlineWriterGhostText)" :finish-reason="inlineWriterFinishReason"
+          :completion-tokens="inlineWriterCompletionTokens"
           @accept="acceptInlineWriterResult" @reject="rejectInlineWriterResult" @cancel="cancelInlineWriter"
           @retry="retryInlineWriter" />
-      </div>
-    </Transition>
+    </div>
 
     <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
     <div v-if="blockControlVisible && activeBlock" data-block-control
@@ -434,6 +434,8 @@ const {
   status: inlineWriterStatus,
   ghostText: inlineWriterGhostText,
   error: inlineWriterError,
+  finishReason: inlineWriterFinishReason,
+  completionTokens: inlineWriterCompletionTokens,
   currentAction: inlineWriterAction,
   startWriting: rawStartInlineWriting,
   acceptResult: acceptInlineWriterResult,
@@ -850,7 +852,12 @@ const handleEditorContentClick = async (event: MouseEvent): Promise<void> => {
 
 const handleAttachmentKeydown = async (event: KeyboardEvent): Promise<void> => {
   // 处理 AI 实时编写的快捷键
-  if (inlineWriterStatus.value === 'streaming' || inlineWriterStatus.value === 'done') {
+  if (inlineWriterStatus.value === 'streaming' && event.key === 'Escape') {
+    event.preventDefault()
+    cancelInlineWriter()
+    return
+  }
+  if (inlineWriterStatus.value === 'done') {
     if (event.key === 'Tab') {
       event.preventDefault()
       acceptInlineWriterResult()
@@ -1545,23 +1552,45 @@ defineExpose<EditorHandle>({
   vertical-align: text-bottom;
 }
 
-/* InlineWriterBar 出入场：弹簧曲线，从下方轻盈浮起 */
-.inline-writer-enter-active {
-  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* 首个正文增量到达前保留目标原文，并在原位置明确展示当前阶段。 */
+.ai-writing-target {
+  @apply rounded-sm bg-selected outline outline-1 outline-offset-1 outline-accent;
 }
 
-.inline-writer-leave-active {
-  transition: all 0.18s ease-in;
+.ai-writing-placeholder {
+  @apply ml-2 inline-flex h-6 max-w-[680px] items-center gap-1.5 align-middle text-[11px] leading-5 text-muted;
 }
 
-.inline-writer-enter-from {
-  opacity: 0;
-  transform: translateY(14px) scale(0.9);
+.ai-writing-placeholder-reasoning {
+  @apply h-7 w-[560px] max-w-[calc(100vw-96px)] text-[14px] leading-6;
 }
 
-.inline-writer-leave-to {
-  opacity: 0;
-  transform: translateY(8px) scale(0.95);
+.ai-writing-placeholder-dot {
+  @apply flex h-1.5 w-1.5 shrink-0 rounded-full bg-muted;
+}
+
+.ai-writing-placeholder-label {
+  @apply flex shrink-0 font-medium text-muted;
+}
+
+.ai-writing-placeholder-separator {
+  @apply mx-0.5 flex h-0.5 w-0.5 shrink-0 rounded-full bg-muted;
+}
+
+.ai-writing-placeholder-text {
+  @apply flex min-w-0 whitespace-nowrap font-normal text-muted;
+}
+
+.ai-writing-placeholder-reasoning .ai-writing-placeholder-text {
+  @apply flex-1 overflow-hidden;
+}
+
+.ai-writing-placeholder-key {
+  @apply ml-0.5 flex h-4 min-w-7 items-center justify-center rounded border border-line bg-toolbar px-1 font-mono text-[9px] leading-none text-secondary;
+}
+
+.ai-writing-placeholder-hint {
+  @apply flex whitespace-nowrap text-[10px] text-muted;
 }
 
 /* AI 实时编写状态栏：悬浮居中的胶囊容器，不拦截内容区域的交互 */

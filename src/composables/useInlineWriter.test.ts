@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Window } from "happy-dom";
 import { installDomEnvironment } from "../test/domEnvironment";
-import type { AiDeltaEvent, AiDoneEvent, AiErrorEvent } from "../types/ai";
+import type { AiDeltaEvent, AiDoneEvent, AiErrorEvent, AiReasoningDeltaEvent } from "../types/ai";
 
 let browserWindow: Window;
 let createEditorExtensions: typeof import("../editor/editorExtensions").createEditorExtensions;
@@ -10,11 +10,13 @@ let EditorConstructor: typeof import("@tiptap/vue-3").Editor;
 let useInlineWriter: typeof import("./useInlineWriter").useInlineWriter;
 
 type DeltaListener = (event: AiDeltaEvent) => void;
+type ReasoningDeltaListener = (event: AiReasoningDeltaEvent) => void;
 type DoneListener = (event: AiDoneEvent) => void;
 type ErrorListener = (event: AiErrorEvent) => void;
 
 // 模拟渲染进程的 electronAPI：捕获流式回调，测试里手动按 requestId 触发
 const deltaListeners: DeltaListener[] = [];
+const reasoningDeltaListeners: ReasoningDeltaListener[] = [];
 const doneListeners: DoneListener[] = [];
 const errorListeners: ErrorListener[] = [];
 const startedRequests: string[] = [];
@@ -23,8 +25,12 @@ const emitDelta = (requestId: string, delta: string): void => {
     for (const listener of deltaListeners) listener({ requestId, delta });
 };
 
-const emitDone = (requestId: string): void => {
-    for (const listener of doneListeners) listener({ requestId });
+const emitReasoningDelta = (requestId: string, delta: string): void => {
+    for (const listener of reasoningDeltaListeners) listener({ requestId, delta });
+};
+
+const emitDone = (requestId: string, finishReason?: AiDoneEvent["finishReason"], completionTokens?: number): void => {
+    for (const listener of doneListeners) listener({ requestId, finishReason, completionTokens });
 };
 
 const emitError = (requestId: string, error: string): void => {
@@ -62,6 +68,10 @@ before(async () => {
                 deltaListeners.push(callback);
                 return () => { };
             },
+            onReasoningDelta: (callback: ReasoningDeltaListener) => {
+                reasoningDeltaListeners.push(callback);
+                return () => { };
+            },
             onDone: (callback: DoneListener) => {
                 doneListeners.push(callback);
                 return () => { };
@@ -81,6 +91,77 @@ after(async () => {
 });
 
 describe("内联 AI 实时编写流式渲染", () => {
+    test("模型推理增量只临时展示，不写入 Markdown 正文", async () => {
+        const editor = new EditorConstructor({
+            extensions: createEditorExtensions(),
+            content: "正文起点",
+        });
+
+        const writer = useInlineWriter({
+            editor: () => editor,
+            getSelection: () => "",
+            getDocumentContext: () => "正文起点",
+        });
+
+        try {
+            await writer.startWriting("ai-write", "继续写作");
+            const requestId = lastRequestId();
+            emitReasoningDelta(requestId, "先理解上下文，再组织正文结构。");
+            await sleep(160);
+
+            const placeholder = editor.view.dom.querySelector(".ai-writing-placeholder");
+            assert.match(placeholder?.textContent ?? "", /思考.*先理解上下文/u);
+            assert.doesNotMatch(editor.state.doc.textContent, /先理解上下文/u);
+
+            emitDelta(requestId, "这是最终正文");
+            emitDone(requestId, "length", 9168);
+            await sleep(60);
+            assert.equal(writer.finishReason.value, "length");
+            assert.equal(writer.completionTokens.value, 9168);
+            assert.match(editor.state.doc.textContent, /这是最终正文/u);
+            assert.doesNotMatch(editor.state.doc.textContent, /先理解上下文/u);
+        } finally {
+            writer.clearGhost();
+            editor.destroy();
+        }
+    });
+
+    test("等待首个增量时保留原文、显示就地反馈并锁定冲突编辑", async () => {
+        const editor = new EditorConstructor({
+            extensions: createEditorExtensions(),
+            content: "不能提前消失的原文",
+        });
+        editor.commands.setTextSelection({ from: 1, to: editor.state.doc.content.size - 1 });
+
+        const writer = useInlineWriter({
+            editor: () => editor,
+            getSelection: () => "不能提前消失的原文",
+            getDocumentContext: () => "",
+        });
+
+        try {
+            await writer.startWriting("ai-write", "改写这段内容");
+
+            assert.match(editor.state.doc.textContent, /不能提前消失的原文/u);
+            assert.equal(editor.isEditable, false, "等待和生成期间正文应只读，避免坐标错位");
+            assert.ok(
+                editor.view.dom.querySelector(".ai-writing-placeholder"),
+                "写入点应展示正在准备内容的反馈",
+            );
+
+            const requestId = lastRequestId();
+            emitDelta(requestId, "新的内容");
+            emitDone(requestId);
+            await sleep(50);
+            writer.rejectResult();
+
+            assert.match(editor.state.doc.textContent, /不能提前消失的原文/u);
+            assert.equal(editor.isEditable, true, "放弃变更后应恢复正文编辑");
+        } finally {
+            editor.destroy();
+        }
+    });
+
     test("流式输出表格时编辑器实时渲染为表格节点", async () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
@@ -331,7 +412,7 @@ describe("AI 幽灵标记显示与撤销行为", () => {
         }
     });
 
-    test("拒绝后可通过撤销找回被删除的AI内容", async () => {
+    test("拒绝后移除AI内容并恢复正文编辑", async () => {
         const { editor, writer } = await createWriterAtDocEnd();
 
         try {
@@ -344,13 +425,7 @@ describe("AI 幽灵标记显示与撤销行为", () => {
 
             writer.rejectResult();
             assert.doesNotMatch(editor.state.doc.textContent, /续写/, "拒绝后应删除AI内容");
-
-            editor.commands.undo();
-            assert.match(
-                editor.state.doc.textContent,
-                /AI 续写的内容/,
-                "拒绝的删除动作可被撤销找回",
-            );
+            assert.equal(editor.isEditable, true, "拒绝后应立即恢复正文编辑");
         } finally {
             editor.destroy();
         }

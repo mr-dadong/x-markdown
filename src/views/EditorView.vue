@@ -30,7 +30,8 @@
                          配合外层 overflow-y-auto 可完整滚动，避免居中溢出把顶部品牌区裁掉。 -->
                     <div class="m-auto flex w-full max-w-[460px] flex-col items-center text-center">
                         <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
-                        <img :src="appIcon" alt="XMD" class="h-20 w-20 rounded-[22px]" />
+                        <!-- 图片元素默认允许原生拖拽，显式关闭以免拖出品牌图标的半透明预览。 -->
+                        <img :src="appIcon" alt="XMD" draggable="false" class="h-20 w-20 rounded-[22px]" />
                         <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">开始编辑</p>
                         <p class="mt-1.5 text-[13px] leading-5 text-muted">新建一份 Markdown 文稿，或继续编辑本地文档</p>
                         <div class="mt-6 flex items-center gap-3">

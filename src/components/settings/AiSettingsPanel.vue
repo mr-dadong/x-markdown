@@ -84,7 +84,7 @@
     </div>
 
     <!-- 测试结果面板：成功显示延迟和模型，失败显示具体的错误与排查建议。 -->
-    <div v-if="testResult" class="flex flex-col gap-1.5 rounded-lg border px-4 py-3"
+    <div v-if="testResult" ref="testResultRef" class="flex flex-col gap-1.5 rounded-lg border px-4 py-3"
       :class="testResult.ok ? 'border-[#46a758]/40 bg-[#46a758]/5' : 'border-danger/40 bg-danger/5'">
       <div class="flex items-center gap-2">
         <Icon :icon="testResult.ok ? 'lucide:check-circle-2' : 'lucide:x-circle'" :size="16"
@@ -160,8 +160,17 @@ const hasError = ref(false)
 // 「测试连接」状态：testing 表示请求进行中，testResult 保留最后一次结果供展示。
 const testing = ref(false)
 const testResult = ref<AiTestConnectionResult | null>(null)
+const testResultRef = ref<HTMLElement | null>(null)
 // 测试成功后关于保存状态的说明（自动保存结果 / 已是保存状态）。
 const testSaveNote = ref('')
+
+// 测试结果位于设置页底部，渲染完成后主动滚动弹窗内部容器，确保完整结果立即可见。
+watch(testResult, (result) => {
+  if (!result) return
+  void nextTick(() => {
+    testResultRef.value?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  })
+})
 
 // 保存/还原流程会用服务端返回值整体刷新表单，这不算用户修改，不应清掉刚显示的测试结果。
 let suppressTestReset = false

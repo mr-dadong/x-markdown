@@ -91,6 +91,15 @@ export interface AiDeltaEvent {
 
 export interface AiDoneEvent {
   requestId: string;
+  finishReason?: AiFinishReason;
+  completionTokens?: number;
+}
+
+export type AiFinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other' | 'unknown';
+
+export interface AiReasoningDeltaEvent {
+  requestId: string;
+  delta: string;
 }
 
 export interface AiErrorEvent {
@@ -136,6 +145,7 @@ export interface AiServiceApi {
   invoke: (request: AiInvokeRequest) => Promise<{ requestId: string }>;
   cancel: (requestId: string) => void;
   onDelta: (callback: (event: AiDeltaEvent) => void) => () => void;
+  onReasoningDelta: (callback: (event: AiReasoningDeltaEvent) => void) => () => void;
   onDone: (callback: (event: AiDoneEvent) => void) => () => void;
   onError: (callback: (event: AiErrorEvent) => void) => () => void;
   // Chat 多轮对话

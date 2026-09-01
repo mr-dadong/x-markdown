@@ -232,14 +232,22 @@ export const useMarkdownEditor = (
   // （如“AI 实时编写”定义在命令数组末尾、却属于“扩展内容”组），
   // 因此按分组顺序排序，保证键盘选中顺序与视觉顺序一致。
   // 先复制一份再排序：空查询时 filterSlashCommands 返回的是源数组引用。
-  const filteredCommands = computed(() =>
-    [...filterSlashCommands(slashQuery.value)].sort(
+  const filteredCommands = computed(() => {
+    const commands = [...filterSlashCommands(slashQuery.value)];
+    if (slashQuery.value.trim()) return commands;
+    return commands.sort(
       (a, b) => slashCommandGroups.indexOf(a.group) - slashCommandGroups.indexOf(b.group),
-    ),
-  );
+    );
+  });
+
+  // 搜索时按匹配结果首次出现的分组排列，避免分组顺序破坏相关度排序。
+  const visibleCommandGroups = computed(() => {
+    if (!slashQuery.value.trim()) return slashCommandGroups;
+    return [...new Set(filteredCommands.value.map((command) => command.group))];
+  });
 
   const commandGroups = computed(() =>
-    slashCommandGroups.map((name) => ({
+    visibleCommandGroups.value.map((name) => ({
       name,
       commands: filteredCommands.value
         .map((item, index) => ({ item, index }))

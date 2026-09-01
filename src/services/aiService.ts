@@ -9,6 +9,7 @@ import type {
   AiErrorEvent,
   AiFetchModelsResult,
   AiInvokeRequest,
+  AiReasoningDeltaEvent,
   AiPublicSettings,
   AiSettingsInput,
   AiStatus,
@@ -29,6 +30,8 @@ export const aiService = {
   invoke: (request: AiInvokeRequest) => window.electronAPI.aiService.invoke(request),
   cancel: (requestId: string) => window.electronAPI.aiService.cancel(requestId),
   onDelta: (callback: (event: AiDeltaEvent) => void) => window.electronAPI.aiService.onDelta(callback),
+  onReasoningDelta: (callback: (event: AiReasoningDeltaEvent) => void) =>
+    window.electronAPI.aiService.onReasoningDelta(callback),
   onDone: (callback: (event: AiDoneEvent) => void) => window.electronAPI.aiService.onDone(callback),
   onError: (callback: (event: AiErrorEvent) => void) => window.electronAPI.aiService.onError(callback),
   // Chat 多轮对话

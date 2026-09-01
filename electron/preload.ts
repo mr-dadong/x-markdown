@@ -29,6 +29,7 @@ import type {
   AiErrorEvent,
   AiFetchModelsResult,
   AiInvokeRequest,
+  AiReasoningDeltaEvent,
   AiSettingsInput,
 } from '../src/types/ai'
 import { IPC_CHANNELS } from '../src/constants/ipcChannels'
@@ -67,6 +68,12 @@ const electronAPI: ElectronAPI = {
       const listener = (_event: Electron.IpcRendererEvent, payload: AiDeltaEvent): void => callback(payload)
       ipcRenderer.on(IPC_CHANNELS.aiStreamDelta, listener)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamDelta, listener)
+    },
+
+    onReasoningDelta: (callback: (event: AiReasoningDeltaEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: AiReasoningDeltaEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.aiStreamReasoningDelta, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.aiStreamReasoningDelta, listener)
     },
 
     onDone: (callback: (event: AiDoneEvent) => void): (() => void) => {

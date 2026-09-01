@@ -46,6 +46,7 @@ import keyboardIcon from '@iconify-icons/lucide/keyboard'
 import paletteIcon from '@iconify-icons/lucide/palette'
 import typeIcon from '@iconify-icons/lucide/type'
 import refreshCwIcon from '@iconify-icons/lucide/refresh-cw'
+import loader2Icon from '@iconify-icons/lucide/loader-2'
 import slidersHorizontalIcon from '@iconify-icons/lucide/sliders-horizontal'
 import historyIcon from '@iconify-icons/lucide/history'
 import downloadIcon from '@iconify-icons/lucide/download'
@@ -72,6 +73,7 @@ import arrowUpIcon from '@iconify-icons/lucide/arrow-up'
 import arrowDownIcon from '@iconify-icons/lucide/arrow-down'
 import copyPlusIcon from '@iconify-icons/lucide/copy-plus'
 import alertTriangleIcon from '@iconify-icons/lucide/alert-triangle'
+import alertCircleIcon from '@iconify-icons/lucide/alert-circle'
 import fileWarningIcon from '@iconify-icons/lucide/file-warning'
 import saveIcon from '@iconify-icons/lucide/save'
 import replaceIcon from '@iconify-icons/lucide/replace'
@@ -137,6 +139,7 @@ addIcon('lucide:keyboard', keyboardIcon)
 addIcon('lucide:palette', paletteIcon)
 addIcon('lucide:type', typeIcon)
 addIcon('lucide:refresh-cw', refreshCwIcon)
+addIcon('lucide:loader-2', loader2Icon)
 addIcon('lucide:sliders-horizontal', slidersHorizontalIcon)
 addIcon('lucide:history', historyIcon)
 addIcon('lucide:download', downloadIcon)
@@ -163,6 +166,7 @@ addIcon('lucide:arrow-up', arrowUpIcon)
 addIcon('lucide:arrow-down', arrowDownIcon)
 addIcon('lucide:copy-plus', copyPlusIcon)
 addIcon('lucide:alert-triangle', alertTriangleIcon)
+addIcon('lucide:alert-circle', alertCircleIcon)
 addIcon('lucide:file-warning', fileWarningIcon)
 addIcon('lucide:save', saveIcon)
 addIcon('lucide:replace', replaceIcon)

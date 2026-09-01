@@ -477,9 +477,18 @@ export const filterSlashCommands = (query: string): SlashCommand[] => {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return slashCommands;
 
-  return slashCommands.filter((command) =>
-    [command.label, command.description, ...command.keywords].some((keyword) =>
-      keyword.toLocaleLowerCase().includes(normalizedQuery),
-    ),
-  );
+  return slashCommands
+    .map((command, index) => {
+      const searchableTexts = [command.label, command.description, ...command.keywords]
+        .map((text) => text.toLocaleLowerCase());
+      const exactMatch = searchableTexts.some((text) => text === normalizedQuery);
+      const prefixMatch = searchableTexts.some((text) => text.startsWith(normalizedQuery));
+      const partialMatch = searchableTexts.some((text) => text.includes(normalizedQuery));
+      // 完整关键词最能表达用户意图，例如 /ai 应优先命中关键词正好为 AI 的实时编写。
+      const score = exactMatch ? 0 : prefixMatch ? 1 : partialMatch ? 2 : 3;
+      return { command, index, score };
+    })
+    .filter(({ score }) => score < 3)
+    .sort((a, b) => a.score - b.score || a.index - b.index)
+    .map(({ command }) => command);
 };
