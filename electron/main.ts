@@ -48,6 +48,7 @@ let closeApproved = false;
 let selectedUpdate: SelectedUpdate | null = null;
 let verifiedUpdate: { filePath: string; sha256: string } | null = null;
 let updateDownloadInProgress = false;
+let updateInstallInProgress = false;
 const pendingFilePaths: string[] = [];
 const supportedFileExtensions = new Set([".md", ".markdown", ".txt"]);
 const updateManifestUrl =
@@ -617,31 +618,39 @@ ipcMain.handle(
 );
 
 ipcMain.handle(IPC_CHANNELS.installUpdate, async () => {
-  if (!verifiedUpdate) throw new Error("没有已通过校验的安装包");
-  const resolvedPath = path.resolve(verifiedUpdate.filePath);
-  const tempDirectory = path.resolve(app.getPath("temp"));
-  if (
-    !resolvedPath.startsWith(`${tempDirectory}${path.sep}`) ||
-    !installerExtensions.has(path.extname(resolvedPath).toLowerCase())
-  ) {
-    throw new Error("安装包路径无效");
-  }
-  const installerExists = await fs.promises
-    .stat(resolvedPath)
-    .then((stats) => stats.isFile())
-    .catch(() => false);
-  if (!installerExists) throw new Error("安装包不存在，请重新下载");
+  if (updateInstallInProgress) throw new Error("安装程序正在启动");
+  updateInstallInProgress = true;
 
-  const actualSha256 = await calculateFileSha256(resolvedPath);
-  if (actualSha256 !== verifiedUpdate.sha256) {
-    verifiedUpdate = null;
-    await fs.promises.rm(resolvedPath, { force: true });
-    throw new Error("安装包在下载后发生变化，已阻止执行");
-  }
+  try {
+    if (!verifiedUpdate) throw new Error("没有已通过校验的安装包");
+    const resolvedPath = path.resolve(verifiedUpdate.filePath);
+    const tempDirectory = path.resolve(app.getPath("temp"));
+    if (
+      !resolvedPath.startsWith(`${tempDirectory}${path.sep}`) ||
+      !installerExtensions.has(path.extname(resolvedPath).toLowerCase())
+    ) {
+      throw new Error("安装包路径无效");
+    }
+    const installerExists = await fs.promises
+      .stat(resolvedPath)
+      .then((stats) => stats.isFile())
+      .catch(() => false);
+    if (!installerExists) throw new Error("安装包不存在，请重新下载");
 
-  const errorMessage = await shell.openPath(resolvedPath);
-  if (errorMessage) throw new Error(errorMessage);
-  app.quit();
+    // 安装前再次校验文件，等待期间渲染进程会显示明确的准备状态。
+    const actualSha256 = await calculateFileSha256(resolvedPath);
+    if (actualSha256 !== verifiedUpdate.sha256) {
+      verifiedUpdate = null;
+      await fs.promises.rm(resolvedPath, { force: true });
+      throw new Error("安装包在下载后发生变化，已阻止执行");
+    }
+
+    const errorMessage = await shell.openPath(resolvedPath);
+    if (errorMessage) throw new Error(errorMessage);
+    app.quit();
+  } finally {
+    updateInstallInProgress = false;
+  }
 });
 
 // IPC 通信处理

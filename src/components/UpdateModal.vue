@@ -13,7 +13,7 @@
             <time>{{ formattedReleaseDate }}</time>
           </div>
         </div>
-        <button type="button" title="关闭更新窗口" class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink" @click="closeUpdateModal">
+        <button type="button" title="关闭更新窗口" class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60" :disabled="isInstalling" @click="closeUpdateModal">
           <Icon icon="lucide:x" :size="18" />
         </button>
       </header>
@@ -46,12 +46,15 @@
       <p v-if="downloadMessage" class="flex border-t border-line bg-panel px-6 py-3 text-[12px] leading-5 text-secondary">{{ downloadMessage }}</p>
 
       <footer class="flex items-center justify-end gap-3 border-t border-line px-6 py-4">
-        <button type="button" class="flex h-9 items-center rounded-md border border-line px-4 text-[13px] text-secondary hover:bg-control-hover hover:text-ink" :disabled="isDownloading" @click="closeUpdateModal">稍后更新</button>
+        <button type="button" class="flex h-9 items-center rounded-md border border-line px-4 text-[13px] text-secondary hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60" :disabled="isDownloading || isInstalling" @click="closeUpdateModal">稍后更新</button>
         <button v-if="!downloadedFilePath" type="button" class="flex h-9 items-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse disabled:cursor-not-allowed disabled:opacity-60" :disabled="isDownloading" @click="downloadUpdate">
           <Icon icon="lucide:download" :size="15" />
           {{ isDownloading ? '下载中…' : '下载更新' }}
         </button>
-        <button v-else type="button" class="flex h-9 items-center rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse" @click="installUpdate">立即安装</button>
+        <button v-else type="button" class="flex h-9 items-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse disabled:cursor-not-allowed disabled:opacity-60" :disabled="isInstalling" @click="installUpdate">
+          <Icon v-if="isInstalling" icon="lucide:loader-circle" :size="15" />
+          {{ isInstalling ? '正在准备安装…' : '立即安装' }}
+        </button>
       </footer>
     </section>
   </div>
@@ -62,7 +65,7 @@ import { Icon } from '@iconify/vue/offline'
 import { computed } from 'vue'
 import { useUpdater } from '../composables/useUpdater'
 
-const { updateInfo, isUpdateModalOpen, isDownloading, downloadProgress, downloadedFilePath, downloadMessage, closeUpdateModal, downloadUpdate, installUpdate } = useUpdater()
+const { updateInfo, isUpdateModalOpen, isDownloading, isInstalling, downloadProgress, downloadedFilePath, downloadMessage, closeUpdateModal, downloadUpdate, installUpdate } = useUpdater()
 
 // 下载事件提供的是字节数，界面统一换算成 MB 并保留两位小数。
 const bytesToMb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(2)

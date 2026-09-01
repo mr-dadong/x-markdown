@@ -7,6 +7,7 @@ const isUpdateModalOpen = ref(false)
 const isChecking = ref(false)
 const checkMessage = ref('')
 const isDownloading = ref(false)
+const isInstalling = ref(false)
 const downloadProgress = ref<UpdateDownloadProgress>({ percent: 0, receivedBytes: 0, totalBytes: 0 })
 const downloadedFilePath = ref<string | null>(null)
 const downloadMessage = ref('')
@@ -40,7 +41,7 @@ export function useUpdater() {
   }
 
   const closeUpdateModal = (): void => {
-    if (!isDownloading.value) isUpdateModalOpen.value = false
+    if (!isDownloading.value && !isInstalling.value) isUpdateModalOpen.value = false
   }
 
   const downloadUpdate = async (): Promise<void> => {
@@ -63,7 +64,17 @@ export function useUpdater() {
   }
 
   const installUpdate = async (): Promise<void> => {
-    if (downloadedFilePath.value) await updateService.install()
+    if (!downloadedFilePath.value || isInstalling.value) return
+    isInstalling.value = true
+    downloadMessage.value = ''
+
+    try {
+      // 安装前主进程需要再次校验安装包，界面在此期间保持明确反馈。
+      await updateService.install()
+    } catch (error) {
+      downloadMessage.value = error instanceof Error ? error.message : '安装程序启动失败，请稍后重试'
+      isInstalling.value = false
+    }
   }
 
   if (!progressListenerRegistered) {
@@ -80,6 +91,7 @@ export function useUpdater() {
     isChecking,
     checkMessage,
     isDownloading,
+    isInstalling,
     downloadProgress,
     downloadedFilePath,
     downloadMessage,
