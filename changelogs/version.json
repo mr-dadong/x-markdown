@@ -1,6 +1,85 @@
 {
-  "latest": "1.2.3",
+  "latest": "1.2.4",
   "releases": [
+    {
+      "version": "1.2.4",
+      "date": "2026-09-01",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：脚注引用支持悬停预览对应的脚注定义，未找到定义时给出提示",
+        "新增：公式、Mermaid 源码编辑换用带语法高亮的深色代码编辑器，Mermaid 支持自动换行开关",
+        "优化：公式、Mermaid、HTML、脚注、提示块的编辑面板改为原位展开，单击即可编辑，点击外部自动保存",
+        "新增：输入 ==文字== 即转为高亮样式，保存时还原为 == 语法",
+        "新增：支持上下标（sub/sup）语法",
+        "修复：保存时硬换行按原写法（行尾两空格或反斜杠）还原，不再被统一改写",
+        "修复：链接标题、表格分隔行保存时不再丢失或被改写",
+        "优化：选中公式、图片等整体节点时不再弹出 AI 动作条",
+        "修复：源码模式滚动同步定位不准的问题",
+        "优化：补充 H5/H6 标题样式，编辑器与 AI 消息中显示层级更清晰",
+        "优化：更新应用、安装包及各平台图标资源"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.4-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.4/XMD-1.2.4-Windows-x64.exe",
+              "sha256": "a65d3da1aa985db076be2a06d489b57d488853be9ebcbc4876429b334acaaf6a"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.4-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.4/XMD-1.2.4-macOS-arm64.dmg",
+              "sha256": "feafadbb8e75166508f5f28fdb70d7378fa6b8c9edab7871325af0d12bbfe464"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.4-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.4/XMD-1.2.4-macOS-x64.dmg",
+              "sha256": "d671c1b98e63850885b2301df087866802690c271509c99e846de5667d9c196f"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.4-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.4/XMD-1.2.4-Linux-x86_64.AppImage",
+              "sha256": "0f3823d9ca6d46ea1b9d6390591132ed6f1b8c61371a040b3b2da8b28aa7b98d"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.4-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.4/XMD-1.2.4-Linux-arm64.AppImage",
+              "sha256": "47a3a0f6bb7d4cdce8d152d9d94415029cf39b75d132891232e5b03fcba4113f"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.2.3",
       "date": "2026-08-30",
