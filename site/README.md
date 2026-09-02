@@ -23,18 +23,13 @@ site/
 
 ## 版本信息和软件下载
 
-页面中的 `assets/js/releases.js` 请求同源接口：
+页面中的 `assets/js/releases.js` 请求同源接口：首页和下载页读取
+`/api/version`（只含最新版的小清单），changelog 页读取 `/api/history`
+（全量历史）。
 
-```text
-/api/version
-```
-
-该接口由仓库根目录的 `functions/api/version.js` 提供。服务端会读取下面
-的 CNB 版本清单：
-
-```text
-https://cnb.cool/X-2026/x-markdown/-/git/raw/main/changelogs/version.json
-```
+该接口由仓库根目录的 `functions/api/version.js` 和 `functions/api/history.js`
+提供。两个接口分别读取 Cloudflare KV 中的 `manifest` 和 `history` key，
+首次配置方法见仓库根目录 `CLOUDFLARE.md` 的“版本清单 KV 存储”章节。
 
 安装包不会经过 Cloudflare 代理。页面会读取版本清单中的下载地址，让用户
 直接前往 CNB 下载。
@@ -73,6 +68,8 @@ npx wrangler pages deploy site --project-name xmd-site
 - 新增通用交互时写入 `assets/js/main.js`。
 - 公共导航统一在 `index.html` 的“公共导航”区域维护，修改后运行
   `bun run site:sync-nav`，不要分别修改其他页面的导航。
-- 版本、发布日期、更新内容和安装包地址统一维护在 CNB 的
-  `version.json`，不要在 HTML 中重复维护。
+- 版本、发布日期、更新内容和安装包地址统一维护在仓库的
+  `changelogs/v*.json`，运行 `make changelog-sync` 会同步生成小清单
+  `latest.json` 和全量历史 `version.json`，发布时由 CI 自动上传到
+  Cloudflare KV，不要在 HTML 中重复维护。
 - 新增依赖 Pages Function 的接口时，需要同步调整 `_routes.json`。

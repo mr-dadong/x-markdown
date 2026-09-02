@@ -1,0 +1,10 @@
+# Cloudflare Pages 项目配置：官网静态资源、Pages Function 和 KV 绑定都在这里声明。
+name = "xmd-site"
+pages_build_output_dir = "site"
+compatibility_date = "2026-01-01"
+
+# 版本清单 KV 存储。执行 `npx wrangler kv namespace create VERSION_MANIFEST`
+# 后，把输出的 id 填到下面，官网接口和客户端更新检测都读取这份 KV 数据。
+[[kv_namespaces]]
+binding = "VERSION_MANIFEST"
+id = "e7835826a5c44bcca647bba8e6a7c815"

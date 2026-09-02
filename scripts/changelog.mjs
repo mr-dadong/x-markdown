@@ -202,12 +202,21 @@ async function syncChangelogs() {
   releases.push(release);
 
   releases.sort((left, right) => compareVersions(left.version, right.version));
+
+  const latest = releases[0];
   await writeJson(manifestFile, {
-    latest: releases[0].version,
+    latest: latest.version,
     releases,
   });
 
-  console.log(`已更新 changelogs/version.json，最新版本为 ${releases[0].version}`);
+  // 同步生成只含最新版的小清单，供客户端更新检测和官网首页使用，
+  // 体积恒定且不随历史版本增长，历史清单仅在需要时通过 history 接口读取。
+  await writeJson(path.join(changelogDirectory, "latest.json"), {
+    latest: latest.version,
+    releases: [latest],
+  });
+
+  console.log(`已更新 changelogs/version.json 和 changelogs/latest.json，最新版本为 ${latest.version}`);
 }
 
 async function fillReleaseHashes() {

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev typecheck build preview site deploy changelog-new changelog-sync dist-all dist-win dist-mac dist-mac-x64 dist-mac-arm64 dist-linux dist-linux-x64 dist-linux-arm64
+.PHONY: help install dev typecheck build preview site deploy changelog-new changelog-sync manifest-upload dist-all dist-win dist-mac dist-mac-x64 dist-mac-arm64 dist-linux dist-linux-x64 dist-linux-arm64
 
 # 展示项目中常用的开发和打包命令。
 help:
@@ -14,6 +14,7 @@ help:
 	@echo   make deploy     部署网站到 xmd-site 项目
 	@echo   make changelog-new   按 package.json 版本生成更新记录模板
 	@echo   make changelog-sync  汇总版本记录并更新 version.json
+	@echo   make manifest-upload 将 version.json 上传到 Cloudflare KV
 	@echo   make dist-all   依次生成 Windows、macOS 双架构和 Linux 双架构安装包
 	@echo   make dist-win   生成 Windows 安装包
 	@echo   make dist-mac         生成 macOS x64 和 arm64 DMG 安装包（需要在 macOS 执行）
@@ -55,6 +56,12 @@ changelog-new:
 # 填写完版本内容后，重新生成供客户端和网站读取的总清单。
 changelog-sync:
 	bun run changelog:sync
+
+# 把本地生成的版本清单上传到 Cloudflare KV：manifest 只含最新版，history 存全量历史。
+# wrangler 4 默认写入本地模拟环境，必须加 --remote 才会真正上传到线上 KV。
+manifest-upload:
+	npx wrangler kv key put manifest --path changelogs/latest.json --binding VERSION_MANIFEST --remote
+	npx wrangler kv key put history --path changelogs/version.json --binding VERSION_MANIFEST --remote
 
 # 依次打包所有平台；执行环境需要具备各平台对应的打包及签名工具。
 dist-all: dist-win dist-mac dist-linux

@@ -1,7 +1,9 @@
 // 官网与客户端共用同一份发布清单，避免重复维护版本号和下载地址。
 (function () {
   // 通过同源 Pages Function 获取版本清单，避免浏览器被 CNB 的跨域策略拦截。
+  // 小清单只含最新版，体积恒定；全量历史仅在 changelog 页或指定历史版本下载时才拉取。
   var manifestUrl = '/api/version';
+  var historyUrl = '/api/history';
 
   function validateManifest(manifest) {
     if (!manifest || typeof manifest.latest !== 'string' || !Array.isArray(manifest.releases)) {
@@ -198,19 +200,40 @@
     });
   }
 
-  fetch(manifestUrl)
-    .then(function (response) {
+  function fetchJson(url) {
+    return fetch(url).then(function (response) {
       if (!response.ok) throw new Error('读取版本信息失败（' + response.status + '）');
       return response.json();
-    })
+    });
+  }
+
+  fetch(manifestUrl)
     .then(function (manifest) {
       var latestRelease = validateManifest(manifest);
-      var downloadRelease = selectDownloadRelease(manifest, latestRelease);
-      setLatestVersion(downloadRelease.version);
-      renderDownloadPage(downloadRelease);
-      renderChangelogPage(manifest, latestRelease);
+      var requestedVersion = new URLSearchParams(window.location.search).get('version');
+
+      // changelog 页需要完整历史；下载页指定了历史版本时也需要历史数据。
+      var needsHistory = Boolean(document.querySelector('[data-release-timeline]')) ||
+        (requestedVersion && requestedVersion !== manifest.latest);
+      if (!needsHistory) {
+        return render(manifest, latestRelease);
+      }
+
+      return fetchJson(historyUrl).then(function (history) {
+        if (!history || !Array.isArray(history.releases)) {
+          throw new Error('版本历史格式不正确');
+        }
+        return render(history, latestRelease);
+      });
     })
     .catch(function (error) {
       showLoadError(error instanceof Error ? error.message : '读取版本信息失败');
     });
+
+  function render(manifest, latestRelease) {
+    var downloadRelease = selectDownloadRelease(manifest, latestRelease);
+    setLatestVersion(downloadRelease.version);
+    renderDownloadPage(downloadRelease);
+    renderChangelogPage(manifest, latestRelease);
+  }
 })();

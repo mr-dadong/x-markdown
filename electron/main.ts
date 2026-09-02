@@ -51,8 +51,10 @@ let updateDownloadInProgress = false;
 let updateInstallInProgress = false;
 const pendingFilePaths: string[] = [];
 const supportedFileExtensions = new Set([".md", ".markdown", ".txt"]);
-const updateManifestUrl =
-  "https://cnb.cool/X-2026/x-markdown/-/git/raw/main/changelogs/version.json";
+// 更新检测和官网共用最新版小清单（体积恒定）；更新日志另读全量历史接口，
+// 两份数据由同一个发布流程生成，不会出现版本信息不一致。
+const updateManifestUrl = "https://www.x-markdown.com/api/version";
+const updateHistoryUrl = "https://www.x-markdown.com/api/history";
 const installerExtensions = new Set([
   ".exe",
   ".msi",
@@ -231,10 +233,10 @@ function isUpdateManifest(value: unknown): value is UpdateManifest {
   });
 }
 
-// 更新检测和更新日志统一读取同一份版本清单，避免两份发布信息出现差异。
-async function fetchUpdateManifest(): Promise<UpdateManifest> {
-  const requestUrl = new URL(updateManifestUrl);
-  // 主分支清单地址固定不变，附加时间戳可绕过客户端与 CDN 的历史缓存，确保跨版本更新时拿到真正的最新版本。
+// 更新检测读取小清单即可判断新版本并拿到下载地址，避免历史数据拖慢启动。
+async function fetchUpdateManifest(url: string): Promise<UpdateManifest> {
+  const requestUrl = new URL(url);
+  // 清单地址固定不变，附加时间戳可绕过客户端与 CDN 的历史缓存，确保跨版本更新时拿到真正的最新版本。
   requestUrl.searchParams.set("timestamp", Date.now().toString());
   const response = await net.fetch(requestUrl.toString());
   if (!response.ok) throw new Error(`获取版本信息失败（${response.status}）`);
@@ -478,7 +480,7 @@ ipcMain.on(
 
 // 更新清单由主进程读取，避免网页跨域策略影响检测结果。
 ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
-  const manifest = await fetchUpdateManifest();
+  const manifest = await fetchUpdateManifest(updateManifestUrl);
 
   const currentVersion = app.getVersion();
   const hasUpdate = compareVersions(manifest.latest, currentVersion) > 0;
@@ -1030,10 +1032,10 @@ ipcMain.handle(IPC_CHANNELS.saveRecoveryDrafts, async (_event, drafts: Array<{
   await writeTextFileAtomically(draftPath, JSON.stringify(drafts));
 });
 
-// 更新日志直接使用版本清单中的 releases，客户端只需维护一个远程数据源。
+// 更新日志使用全量历史清单，用户打开日志页时才会请求。
 ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
   try {
-    const manifest = await fetchUpdateManifest();
+    const manifest = await fetchUpdateManifest(updateHistoryUrl);
     return { success: true, releases: manifest.releases };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -1228,9 +1230,9 @@ function resolveEditorFilePath(
   const resolvedPath = url.startsWith("file:")
     ? fileURLToPath(url)
     : path.resolve(
-        currentDocumentPath ? path.dirname(currentDocumentPath) : process.cwd(),
-        decodeURIComponent(url),
-      );
+      currentDocumentPath ? path.dirname(currentDocumentPath) : process.cwd(),
+      decodeURIComponent(url),
+    );
   return assertAuthorizedPath(resolvedPath);
 }
 

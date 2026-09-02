@@ -1,0 +1,84 @@
+{
+  "latest": "1.2.5",
+  "releases": [
+    {
+      "version": "1.2.5",
+      "date": "2026-09-01",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：AI 实时编写等待阶段显示请求进度，模型思考过程实时展示",
+        "新增：AI 编写完成显示输出 tokens 统计，输出被截断或被内容过滤终止时给出明确提示",
+        "新增：HTML 块改为沙箱隔离预览，内嵌样式不再污染文档，并阻止脚本与外部资源",
+        "优化：AI 改写选区时原文保留至模型开始输出，放弃生成可完整恢复原文",
+        "优化：AI 流式写入期间正文暂时锁定，可随时按 Esc 停止，写入位置自动滚动跟随",
+        "优化：流式渲染按内容长度自适应节流，长文生成更流畅，状态栏改为信息更丰富的状态卡片",
+        "优化：HTML 块新增模块标题栏，点击即可编辑源码，预览高度自适应内容",
+        "优化：斜杠命令搜索按匹配程度排序，/ai 可直接命中 AI 实时编写",
+        "优化：AI 设置测试连接结果自动滚动至可见位置",
+        "修复：Mermaid 语法错误不再额外渲染整张错误图，并清理渲染异常残留的临时节点",
+        "修复：欢迎页应用图标不再被拖拽出半透明预览"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.5-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Windows-x64.exe",
+              "sha256": "7288865e549d557c9a1990144516e87f19ece8befba19f9020ab75cab779e090"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.5-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-macOS-arm64.dmg",
+              "sha256": "deb303465fa6ce112b48bf832552484ba51b9463eaf612840194e4db78619d62"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.5-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-macOS-x64.dmg",
+              "sha256": "28d5913f00d6976a39f4bf0853ee8495b14b85a75ac6ec2bd2895f25bf9785c7"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.5-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Linux-x86_64.AppImage",
+              "sha256": "4d185eda14dd390d479eb1c50a257ec5e12bc17804b0908941db2f46cdb401ff"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.5-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Linux-arm64.AppImage",
+              "sha256": "5b6b4991fede5fc77dd81c1088c3e403cb9a8a46115b53490882ef0370eed641"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
