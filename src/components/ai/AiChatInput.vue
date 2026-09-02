@@ -118,7 +118,7 @@ const handleSend = (): void => {
 
 const handleKeydown = (event: KeyboardEvent): void => {
   // Enter 发送，Shift+Enter 换行
-  if (event.key === 'Enter' && !event.shiftKey) {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault()
     handleSend()
   }
