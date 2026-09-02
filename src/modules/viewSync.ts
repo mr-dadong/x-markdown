@@ -7,17 +7,30 @@ export interface BlockRange {
 }
 
 /**
+ * 抽取顶层块所需的最小 token 结构。markdown-it 的 Token 天然满足，
+ * 因此配置化实例与纯 markdown-it 实例产出的 token 流都能直接传入。
+ */
+export interface BlockTokenLike {
+  nesting: number;
+  map: [number, number] | null;
+}
+
+/**
  * 只用于块结构分析的解析器：顶层块数量由 Markdown 的块级结构决定，
  * 与编辑器注册了哪些自定义解析规则无关，因此不需要挂载扩展规则。
  */
 const blockStructureParser = new MarkdownIt({ html: true });
 
 /**
- * 解析 Markdown 并返回每个顶层块（标题、段落、列表、表格、代码块等）
- * 在源码中的行范围，用于源码视图与渲染视图之间的位置映射。
+ * 从 markdown-it token 流中抽取每个顶层块（标题、段落、列表、表格、代码块等）
+ * 的源码行范围。引用块、列表内部的块不单独计数。
+ *
+ * 视图同步与块级源码映射增量保存共用这一份 nesting 逻辑，避免两处实现漂移；
+ * 调用方自行决定传入纯 markdown-it 还是挂载了全部扩展规则的配置化实例的 token。
  */
-export const getTopLevelBlockRanges = (markdown: string): BlockRange[] => {
-  const tokens = blockStructureParser.parse(markdown, {});
+export const topLevelRangesFromTokens = (
+  tokens: readonly BlockTokenLike[],
+): BlockRange[] => {
   const ranges: BlockRange[] = [];
   let depth = 0;
 
@@ -42,6 +55,13 @@ export const getTopLevelBlockRanges = (markdown: string): BlockRange[] => {
 
   return ranges;
 };
+
+/**
+ * 解析 Markdown 并返回每个顶层块在源码中的行范围，
+ * 用于源码视图与渲染视图之间的位置映射。
+ */
+export const getTopLevelBlockRanges = (markdown: string): BlockRange[] =>
+  topLevelRangesFromTokens(blockStructureParser.parse(markdown, {}));
 
 /**
  * 两种视图的顶层块基本一一对应，数量差异通常只来自渲染视图结尾自动补充的

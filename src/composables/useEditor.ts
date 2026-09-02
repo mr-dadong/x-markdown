@@ -16,6 +16,11 @@ import {
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
+import {
+  captureBaseline,
+  serializePreservingSource,
+  type Baseline,
+} from "../editor/sourcePreservingSerializer";
 import { mediaService } from "../services/mediaService";
 import {
   filterSlashCommands,
@@ -64,6 +69,9 @@ export const useMarkdownEditor = (
   const editorRenderVersion = ref(0);
   let lastEmittedMarkdown: string | null = null;
   let renderedDocumentPath = getCurrentDocumentPath?.() ?? null;
+  // 最近一次从外部载入的原文基准；只在 onCreate 与 watch 的 setContent 后重建，
+  // 用户输入与保存期间保持不变，使多次编辑都能对齐最初原文、累积正确。
+  let baseline: Baseline | null = null;
   const linkInsertVisible = ref(false);
   const linkInsertUrl = ref("");
   const linkInsertLabel = ref("");
@@ -123,56 +131,56 @@ export const useMarkdownEditor = (
       // 粘贴与拖入附件复用斜杠菜单相同的进度事件，避免后台复制时界面没有反馈。
       const removeProgressListener = requestId
         ? mediaService.onAttachmentCopyProgress((progress) => {
-            if (progress.requestId !== requestId || !editor.value) return;
-            if (!transferInserted) {
-              transferInserted = true;
-              editor.value.chain().focus().insertContentAt(insertPosition, [
-                {
-                  type: "attachmentTransfer",
-                  attrs: {
-                    requestId,
-                    fileName: progress.fileName,
-                    copiedBytes: progress.copiedBytes,
-                    totalBytes: progress.totalBytes,
-                    bytesPerSecond: progress.bytesPerSecond,
-                    status: progress.status,
-                    error: progress.error ?? "",
-                  },
+          if (progress.requestId !== requestId || !editor.value) return;
+          if (!transferInserted) {
+            transferInserted = true;
+            editor.value.chain().focus().insertContentAt(insertPosition, [
+              {
+                type: "attachmentTransfer",
+                attrs: {
+                  requestId,
+                  fileName: progress.fileName,
+                  copiedBytes: progress.copiedBytes,
+                  totalBytes: progress.totalBytes,
+                  bytesPerSecond: progress.bytesPerSecond,
+                  status: progress.status,
+                  error: progress.error ?? "",
                 },
-                { type: "paragraph" },
-              ]).run();
-              return;
-            }
+              },
+              { type: "paragraph" },
+            ]).run();
+            return;
+          }
 
-            const position = findTransferPosition();
-            if (position === null) return;
-            editor.value.view.dispatch(
-              editor.value.state.tr.setNodeMarkup(position, undefined, {
-                ...editor.value.state.doc.nodeAt(position)?.attrs,
-                copiedBytes: progress.copiedBytes,
-                totalBytes: progress.totalBytes,
-                bytesPerSecond: progress.bytesPerSecond,
-                status: progress.status,
-                error: progress.error ?? "",
-              }),
-            );
-          })
+          const position = findTransferPosition();
+          if (position === null) return;
+          editor.value.view.dispatch(
+            editor.value.state.tr.setNodeMarkup(position, undefined, {
+              ...editor.value.state.doc.nodeAt(position)?.attrs,
+              copiedBytes: progress.copiedBytes,
+              totalBytes: progress.totalBytes,
+              bytesPerSecond: progress.bytesPerSecond,
+              status: progress.status,
+              error: progress.error ?? "",
+            }),
+          );
+        })
         : null;
       try {
         const imported = nativePath
           ? await mediaService.importFile({
-              filePath: nativePath,
-              kind,
-              currentDocumentPath: getCurrentDocumentPath?.() ?? null,
-              attachmentHandling: settings.attachmentHandling,
-              requestId,
-            })
+            filePath: nativePath,
+            kind,
+            currentDocumentPath: getCurrentDocumentPath?.() ?? null,
+            attachmentHandling: settings.attachmentHandling,
+            requestId,
+          })
           : kind === "image"
             ? await mediaService.saveImage(
-                new Uint8Array(await file.arrayBuffer()),
-                file.type,
-                getCurrentDocumentPath?.() ?? null,
-              )
+              new Uint8Array(await file.arrayBuffer()),
+              file.type,
+              getCurrentDocumentPath?.() ?? null,
+            )
             : null;
         if (!imported) continue;
 
@@ -916,7 +924,7 @@ export const useMarkdownEditor = (
     event.dataTransfer.setData(
       "text/plain",
       editor.value.state.doc.nodeAt(activeBlock.value.position)?.textContent ??
-        "",
+      "",
     );
   };
 
@@ -1109,8 +1117,9 @@ export const useMarkdownEditor = (
   };
 
   // 编辑器实例
+  const initialContent = getContent();
   const editor = useTiptapEditor({
-    content: getContent(),
+    content: initialContent,
     // 扩展配置与导出渲染共用同一份定义，避免导出结果和编辑视图行为不一致。
     extensions: createEditorExtensions({ getCurrentDocumentPath }),
     editorProps: {
@@ -1227,6 +1236,10 @@ export const useMarkdownEditor = (
         },
       },
     },
+    onCreate: ({ editor }) => {
+      // 初始内容与文档在此刻一致，据此建立原文基准。
+      baseline = captureBaseline(editor, initialContent);
+    },
     onUpdate: ({ editor, transaction }) => {
       /*
        * 斜杠菜单和 Emoji 菜单属于编辑器界面状态，必须在每次正文变化后刷新。
@@ -1242,8 +1255,10 @@ export const useMarkdownEditor = (
        */
       if (!shouldEmitMarkdownUpdate(transaction, editor.isFocused)) return;
 
-      // 获取 Markdown 内容
-      const markdown = editor.storage.markdown.getMarkdown();
+      // 只重新序列化改动过的顶层块，未改动块保持磁盘原文字节。
+      const markdown = baseline
+        ? serializePreservingSource(editor, baseline)
+        : editor.storage.markdown.getMarkdown();
       lastEmittedMarkdown = markdown;
       if (emit) {
         emit("update:content", markdown);
@@ -1292,6 +1307,8 @@ export const useMarkdownEditor = (
 
       // 外部载入文档或切换文件目录时不触发编辑事件，避免文档被误标记为已修改。
       editor.value.commands.setContent(newContent, false);
+      // setContent 之后文档与 newContent 一致，重建原文基准。
+      baseline = captureBaseline(editor.value, newContent);
     },
   );
 
