@@ -1,23 +1,17 @@
 {
-  "latest": "1.2.5",
+  "latest": "1.2.6",
   "releases": [
     {
-      "version": "1.2.5",
-      "date": "2026-09-01",
+      "version": "1.2.6",
+      "date": "2026-09-02",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：AI 实时编写等待阶段显示请求进度，模型思考过程实时展示",
-        "新增：AI 编写完成显示输出 tokens 统计，输出被截断或被内容过滤终止时给出明确提示",
-        "新增：HTML 块改为沙箱隔离预览，内嵌样式不再污染文档，并阻止脚本与外部资源",
-        "优化：AI 改写选区时原文保留至模型开始输出，放弃生成可完整恢复原文",
-        "优化：AI 流式写入期间正文暂时锁定，可随时按 Esc 停止，写入位置自动滚动跟随",
-        "优化：流式渲染按内容长度自适应节流，长文生成更流畅，状态栏改为信息更丰富的状态卡片",
-        "优化：HTML 块新增模块标题栏，点击即可编辑源码，预览高度自适应内容",
-        "优化：斜杠命令搜索按匹配程度排序，/ai 可直接命中 AI 实时编写",
-        "优化：AI 设置测试连接结果自动滚动至可见位置",
-        "修复：Mermaid 语法错误不再额外渲染整张错误图，并清理渲染异常残留的临时节点",
-        "修复：欢迎页应用图标不再被拖拽出半透明预览"
+        "优化：保存文档时只重新生成改动过的块，未编辑的段落保持与文件原文逐字节一致，原始空行、列表间距等排版细节不再被编辑器改写",
+        "优化：大文档编辑保存更快，编辑器通过块指纹比对定位改动，未变部分直接复用原文",
+        "优化：点击「立即安装」后显示“正在准备安装…”加载状态，准备期间更新窗口暂不可关闭，避免误操作",
+        "修复：重复点击「立即安装」可能同时启动多个安装程序的问题",
+        "修复：安装程序启动失败时在更新窗口显示明确的失败原因，可直接重试"
       ],
       "downloads": {
         "windows": {
@@ -28,9 +22,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.2.5-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Windows-x64.exe",
-              "sha256": "7288865e549d557c9a1990144516e87f19ece8befba19f9020ab75cab779e090"
+              "filename": "XMD-1.2.6-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.6/XMD-1.2.6-Windows-x64.exe",
+              "sha256": "154d77d9f967f15afb4998ccd7b2608343d64c2a2dc38bd684febd6fb465911e"
             }
           ]
         },
@@ -42,17 +36,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.5-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-macOS-arm64.dmg",
-              "sha256": "deb303465fa6ce112b48bf832552484ba51b9463eaf612840194e4db78619d62"
+              "filename": "XMD-1.2.6-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.6/XMD-1.2.6-macOS-arm64.dmg",
+              "sha256": "d75c48d75185417ddeeeefc809cdbdb421050b843cb0dc9266eea77d71ffc148"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.5-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-macOS-x64.dmg",
-              "sha256": "28d5913f00d6976a39f4bf0853ee8495b14b85a75ac6ec2bd2895f25bf9785c7"
+              "filename": "XMD-1.2.6-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.6/XMD-1.2.6-macOS-x64.dmg",
+              "sha256": "a3e4caf8407f8058e1ee3ca5d61efdfff243a820d8aeea880933fa52f019f835"
             }
           ]
         },
@@ -64,17 +58,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.5-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Linux-x86_64.AppImage",
-              "sha256": "4d185eda14dd390d479eb1c50a257ec5e12bc17804b0908941db2f46cdb401ff"
+              "filename": "XMD-1.2.6-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.6/XMD-1.2.6-Linux-x86_64.AppImage",
+              "sha256": "eb9bce6ecda5921b4cd61ab19d966d23ae9562fa145d3d0b7abff556e68dc05c"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.5-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.5/XMD-1.2.5-Linux-arm64.AppImage",
-              "sha256": "5b6b4991fede5fc77dd81c1088c3e403cb9a8a46115b53490882ef0370eed641"
+              "filename": "XMD-1.2.6-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.6/XMD-1.2.6-Linux-arm64.AppImage",
+              "sha256": "bacad5ef0053d417b1fc2d5399a4c39217d9684fa6e074bdd4baced07d800cde"
             }
           ]
         }
