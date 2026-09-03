@@ -21,6 +21,8 @@ import type {
 import { getAiSettings, currentProviderConfig, saveAiSettings, toPublicSettings, testAiConnection, resolveApiKey, normalizeSettings, isAiProvider } from "../aiSettings";
 import { getAiAgentStatus, getChatAgent, getWriterAgent } from "../mastra";
 import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
+import { retrieve } from "../context/retriever";
+import { estimateTokens } from "../context/chunker";
 
 interface ActiveAiRequest {
   controller: AbortController;
@@ -48,6 +50,10 @@ const normalizeFinishReason = (reason: string): AiDoneEvent["finishReason"] => {
 };
 
 const activeRequests = new Map<string, ActiveAiRequest>();
+
+// 模型上下文窗口（token）：AiSettings 未暴露该配置，这里用主流模型的保守值。
+// 仅用于检索预算估算：窗口越大，可注入的文档片段越多；预算另有 4000 token 的硬上限约束。
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 8000;
 
 const EDIT_ACTIONS = new Set([
   "polish",
@@ -463,8 +469,25 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     try {
       const agent = await getChatAgent(request.model);
 
+      // 检索上下文：切块 + BM25 + token 预算内选块，
+      // 用最近 6 条消息（约 3 轮对话）作为相关性 query
+      const retrieved = retrieve({
+        query: request.messages
+          .slice(-6)
+          .map((m) => m.content)
+          .join("\n"),
+        documentText: request.documentContext ?? "",
+        selection: request.selection ?? "",
+        cursorOffset: request.cursorOffset ?? null,
+        contextWindow: DEFAULT_CONTEXT_WINDOW_TOKENS,
+        historyTokens: estimateTokens(
+          request.messages.map((m) => m.content).join("\n"),
+        ),
+        maxOutputTokens: request.options?.maxTokens ?? settings.maxTokens,
+      });
+
       // 系统提示通过 system 参数传入，消息列表只保留 user/assistant 对话历史
-      const systemPrompt = buildChatSystemPrompt(request);
+      const systemPrompt = buildChatSystemPrompt(request, retrieved);
       const messages = request.messages
         .filter((m) => m.role !== "system")
         .map((m, i) => ({

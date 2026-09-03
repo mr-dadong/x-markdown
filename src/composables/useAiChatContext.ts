@@ -1,31 +1,25 @@
 import { computed } from "vue";
 
 export interface AiChatContextOptions {
-  /** 获取当前文档完整内容。 */
+  /** 获取当前文档完整内容（不再截断，检索在主进程做）。 */
   getDocumentContent: () => string;
   /** 获取当前选区文本。 */
   getSelection: () => string;
-  /** 最大上下文长度（字符数），超出时截断。 */
-  maxContextLength?: number;
+  /** 获取光标在文档源码中的字符偏移；返回 null 表示拿不到光标位置。 */
+  getCursorOffset: () => number | null;
 }
 
 /**
  * 管理 Chat 侧栏的文档上下文注入。
- * 自动将当前文档内容和选区作为上下文提供给 AI。
+ * 只负责把"原始全文 + 选区 + 光标位置"传给主进程做切块检索，
+ * 不再在渲染层截断文档。
  */
 export const useAiChatContext = (options: AiChatContextOptions) => {
-  const maxLen = options.maxContextLength ?? 8000;
-
-  const documentContext = computed(() => {
-    const content = options.getDocumentContent().trim();
-    if (!content) return "";
-    if (content.length <= maxLen) return content;
-    return content.slice(0, maxLen) + "\n\n[文档内容已截断…]";
-  });
+  const documentContext = computed(() => options.getDocumentContent());
 
   const selectionContext = computed(() => options.getSelection().trim());
 
-  const hasDocument = computed(() => documentContext.value.length > 0);
+  const hasDocument = computed(() => documentContext.value.trim().length > 0);
   const hasSelection = computed(() => selectionContext.value.length > 0);
 
   /**
@@ -36,7 +30,7 @@ export const useAiChatContext = (options: AiChatContextOptions) => {
    */
   const resolveReferences = (
     input: string,
-  ): { message: string; documentContext: string; selection: string } => {
+  ): { message: string; documentContext: string; selection: string; cursorOffset: number | null } => {
     let docCtx = "";
     let selCtx = "";
 
@@ -59,7 +53,10 @@ export const useAiChatContext = (options: AiChatContextOptions) => {
       docCtx = documentContext.value;
     }
 
-    return { message, documentContext: docCtx, selection: selCtx };
+    // 光标偏移始终跟随当前光标位置（仅在有文档上下文时才有意义）
+    const cursorOffset = docCtx ? options.getCursorOffset() : null;
+
+    return { message, documentContext: docCtx, selection: selCtx, cursorOffset };
   };
 
   return {

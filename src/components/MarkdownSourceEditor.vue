@@ -331,6 +331,13 @@ const insertAtCursor = (text: string): void => {
   sourceView.focus()
 }
 
+// CodeMirror 的光标 head 就是源码中的字符偏移，与 documentText 坐标系一致。
+const getCursorOffset = (): number | null => {
+  const sourceView = view.value
+  if (!sourceView) return null
+  return sourceView.state.selection.main.head
+}
+
 defineExpose<SourceEditorHandle>({
   getViewportSourceLine,
   scrollToSourceLine,
@@ -344,6 +351,7 @@ defineExpose<SourceEditorHandle>({
   getSelectionText,
   replaceSelection,
   insertAtCursor,
+  getCursorOffset,
 })
 
 const sourceStyle = computed<Record<string, string>>(() => {

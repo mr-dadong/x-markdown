@@ -1012,6 +1012,27 @@ const insertAtCursor = (text: string): void => {
   tipTapEditor.chain().focus().insertContentAt(from, text).run()
 }
 
+/**
+ * 光标在 Markdown 源码中的字符偏移（近似值）。
+ * 原理：把光标前的文档片段用 tiptap-markdown 序列化器转回 Markdown 源码，
+ * 其长度即光标在源码中的位置——与切块/检索所用的 documentText 坐标系一致。
+ * 光标选中了一段文本时取选区起点（from）。
+ */
+const getCursorOffset = (): number | null => {
+  const tipTapEditor = editor.value
+  if (!tipTapEditor) return null
+  const { from } = tipTapEditor.state.selection
+  // storage.markdown 在 tiptap-markdown 扩展初始化时挂载了 serializer，
+  // 类型定义未暴露该字段，这里做一次窄化断言后使用。
+  const serializer = (tipTapEditor.storage.markdown as unknown as {
+    serializer?: { serialize: (content: unknown) => string }
+  }).serializer
+  if (!serializer) return null
+  // 序列化光标前的文档前缀，长度即光标在 Markdown 源码中的偏移
+  const prefix = tipTapEditor.state.doc.cut(0, from)
+  return serializer.serialize(prefix).length
+}
+
 // 暴露方法给父组件
 defineExpose<EditorHandle>({
   scrollToHeading,
@@ -1022,6 +1043,7 @@ defineExpose<EditorHandle>({
   getSelectionText,
   replaceSelection,
   insertAtCursor,
+  getCursorOffset,
 } as EditorHandle)
 </script>
 

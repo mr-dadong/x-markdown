@@ -103,7 +103,7 @@
         <!-- AI 思考中指示器：未收到任何思考/正文内容前的等待提示 -->
         <div v-if="isStreaming && !streamingContent && !streamingReasoning" class="flex flex-col items-start px-3">
           <div class="flex items-center gap-2 rounded-2xl rounded-bl-md bg-toolbar px-3.5 py-2.5 text-[12px] text-muted">
-            <Icon icon="lucide:sparkles" :size="13" class="text-accent" />
+            <Icon icon="lucide:loader-2" :size="13" class="animate-spin text-accent" />
             <span>正在思考…</span>
           </div>
         </div>
@@ -121,7 +121,11 @@
               :content="streamingReasoning"
               :streaming="!streamingContent"
             />
-            <div v-if="streamingContent" class="ai-md markdown-body" v-html="renderedStreamingContent" />
+            <div v-if="streamingContent" class="ai-md markdown-body">
+              <!-- 已完成段落：独立缓存节点，key 稳定复用，不重建、不打断选中/复制；尾段：纯文本降级渲染 -->
+              <div v-for="block in streamingBlocks" :key="block.id" class="ai-md-block" v-html="block.html" />
+              <div v-if="streamingTail" class="ai-md-tail">{{ streamingTail }}</div>
+            </div>
             <!-- 流式中右下角停止按钮 -->
             <div class="mt-2 flex justify-end">
               <button
@@ -187,6 +191,7 @@ const props = defineProps<{
   documentOpen: boolean
   getDocumentContext: () => string
   getSelection: () => string
+  getCursorOffset: () => number | null
   insertAtCursor: (text: string) => void
   replaceSelection: (text: string) => void
   getFilePath: () => string | null
@@ -324,6 +329,7 @@ const handleModelSelect = (id: string): void => {
 const { hasDocument, hasSelection, resolveReferences } = useAiChatContext({
   getDocumentContent: props.getDocumentContext,
   getSelection: props.getSelection,
+  getCursorOffset: props.getCursorOffset,
 })
 
 // Chat 状态
@@ -341,6 +347,7 @@ const {
 } = useAiChat({
   getDocumentContext: props.getDocumentContext,
   getSelection: props.getSelection,
+  getCursorOffset: props.getCursorOffset,
   insertAtCursor: props.insertAtCursor,
   replaceSelection: props.replaceSelection,
   filePath: props.getFilePath,
@@ -354,10 +361,66 @@ const inputRef = ref<InstanceType<typeof AiChatInput> | null>(null)
 // 显示的消息（排除流式中的临时内容）
 const displayMessages = computed(() => messages.value)
 
-// 流式内容的 Markdown 渲染（流式期间先归一化过度转义，避免 \*\* 闪现原始星号）
-const renderedStreamingContent = computed(() => {
-  if (!streamingContent.value) return ''
-  return md.render(normalizeAiMarkdown(streamingContent.value))
+// 流式内容按段落 / 代码块分段增量渲染，避免每个 delta 全量重解析 + 整体 v-html 替换（O(n²)）。
+// 已完成块缓存为独立 DOM 节点（key 稳定复用，不重建，保住选中 / 复制状态）；
+// 正在写的最后一段降级为纯文本，未闭合的代码围栏按原文展示，直到闭合才升级为 markdown 块。
+interface StreamBlock {
+  id: number
+  html: string
+}
+
+// 按空行与代码围栏边界切分流式文本，返回 [已完成块..., 尾块]。
+// 尾块可能是一段未写完的正文，也可能是未闭合的 ``` 围栏。
+const splitStreamBlocks = (text: string): { done: string[]; tail: string } => {
+  const done: string[] = []
+  let current = ''
+  let inFence = false
+  for (const line of text.split('\n')) {
+    const isFence = /^\s*```/.test(line)
+    if (isFence) {
+      if (!inFence) {
+        if (current) {
+          done.push(current)
+          current = ''
+        }
+        current = line
+        inFence = true
+      } else {
+        current += '\n' + line
+        done.push(current)
+        current = ''
+        inFence = false
+      }
+    } else if (!inFence && line.trim() === '') {
+      if (current) {
+        done.push(current)
+        current = ''
+      }
+    } else {
+      current += (current ? '\n' : '') + line
+    }
+  }
+  return { done, tail: current }
+}
+
+const streamingBlocks = ref<StreamBlock[]>([])
+const streamingTail = ref('')
+let nextBlockId = 0
+
+watch(streamingContent, (text) => {
+  if (!text) {
+    streamingBlocks.value = []
+    streamingTail.value = ''
+    nextBlockId = 0
+    return
+  }
+  const { done, tail } = splitStreamBlocks(normalizeAiMarkdown(text))
+  // 已完成块只增量补齐：新增块渲染一次，旧块 HTML 与 DOM 节点保持不变
+  for (let i = streamingBlocks.value.length; i < done.length; i++) {
+    streamingBlocks.value.push({ id: nextBlockId++, html: md.render(done[i]) })
+  }
+  // 尾块用 textContent 展示，未闭合代码块 / 写到一半的标记以原文出现，不炸渲染
+  streamingTail.value = tail
 })
 
 // 状态文本
@@ -375,6 +438,7 @@ const sendMessage = (content: string): void => {
   void rawSendMessage(resolved.message, {
     documentContext: resolved.documentContext,
     ...(resolved.selection ? { selection: resolved.selection } : {}),
+    ...(resolved.cursorOffset !== null ? { cursorOffset: resolved.cursorOffset } : {}),
   })
 }
 
@@ -455,6 +519,21 @@ const startResize = (event: MouseEvent): void => {
   font-size: 13px;
   line-height: 1.7;
   color: var(--color-ink);
+}
+
+/* 流式分段渲染：块之间的间距由包裹层控制，最后一个块贴底不残留空隙 */
+.ai-md :deep(.ai-md-block) {
+  margin-bottom: 8px;
+}
+
+.ai-md :deep(.ai-md-block:last-child) {
+  margin-bottom: 0;
+}
+
+/* 尾段：纯文本降级，保留换行与缩进，长串自动换行 */
+.ai-md :deep(.ai-md-tail) {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 标题 */

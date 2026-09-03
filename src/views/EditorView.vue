@@ -89,8 +89,8 @@
             </main>
             <!-- Chat 侧栏：放在 flex 行内，与编辑区并列 -->
             <AiChatSidebar :document-open="isDocumentOpen" :get-document-context="getAiDocumentContext"
-                :get-selection="getAiSelection" :insert-at-cursor="insertAiAtCursor"
-                :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
+                :get-selection="getAiSelection" :get-cursor-offset="getAiCursorOffset"
+                :insert-at-cursor="insertAiAtCursor" :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
                 :pending-selections="pendingSelections" @clear-pending-selections="clearPendingSelections"
                 @remove-pending-selection="removePendingSelection"
                 @close="isAiChatOpen = false" @open-settings="openAiSettings" />
@@ -179,6 +179,12 @@ const getAiSelection = (): string => {
 }
 
 const getAiDocumentContext = (): string => currentContent.value
+
+// 光标在 Markdown 源码中的字符偏移（富文本/源码模式分别由两个编辑器 handle 提供）。
+const getAiCursorOffset = (): number | null => {
+    if (isSourceMode.value) return sourceEditorRef.value?.getCursorOffset() ?? null
+    return editorRef.value?.getCursorOffset() ?? null
+}
 
 const getAiFilePath = (): string | null => currentFilePath.value
 

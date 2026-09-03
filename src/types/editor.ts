@@ -21,6 +21,8 @@ export interface EditorHandle {
   getSelectionText: () => string;
   replaceSelection: (text: string) => void;
   insertAtCursor: (text: string) => void;
+  /** 光标在 Markdown 源码中的字符偏移（近似值）；无编辑器时返回 null。 */
+  getCursorOffset: () => number | null;
 }
 
 export interface SourceEditorHandle {
@@ -39,4 +41,6 @@ export interface SourceEditorHandle {
   getSelectionText: () => string;
   replaceSelection: (text: string) => void;
   insertAtCursor: (text: string) => void;
+  /** 光标在源码中的字符偏移（CodeMirror 坐标，与文档源码一致）；无编辑器时返回 null。 */
+  getCursorOffset: () => number | null;
 }

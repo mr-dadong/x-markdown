@@ -13,6 +13,8 @@ export type AiChatStatus = "idle" | "streaming" | "done" | "error";
 export interface AiChatContextOverride {
   documentContext?: string;
   selection?: string;
+  /** 光标在文档源码中的字符偏移；null 表示不带光标信息。 */
+  cursorOffset?: number | null;
 }
 
 export interface AiChatOptions {
@@ -20,6 +22,8 @@ export interface AiChatOptions {
   getDocumentContext: () => string;
   /** 获取当前选区文本。 */
   getSelection: () => string;
+  /** 获取光标在文档源码中的字符偏移；返回 null 表示拿不到光标位置。 */
+  getCursorOffset: () => number | null;
   /** 将文本插入到编辑器光标位置。 */
   insertAtCursor: (text: string) => void;
   /** 用文本替换当前选区。 */
@@ -156,11 +160,14 @@ export const useAiChat = (options: AiChatOptions) => {
       // 显式传入的上下文优先（含空字符串，表示刻意不带）；否则回退到默认取值
       const documentContext = context?.documentContext ?? options.getDocumentContext();
       const selection = context?.selection ?? options.getSelection();
+      // 光标偏移：显式传入优先，否则取当前编辑器光标位置；null 表示不携带
+      const cursorOffset = context?.cursorOffset ?? options.getCursorOffset();
       await aiService.chatInvoke({
         requestId,
         messages: chatMessages,
         documentContext,
         selection,
+        ...(cursorOffset !== null && cursorOffset !== undefined ? { cursorOffset } : {}),
         ...(modelOverride ? { model: modelOverride } : {}),
       });
     } catch (invokeError) {

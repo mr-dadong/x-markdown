@@ -173,8 +173,11 @@ export interface AiChatMessage {
 export interface AiChatRequest {
   requestId: string
   messages: Array<{ role: AiChatRole; content: string }>
+  /** 完整文档原文（Markdown 源码，不再截断；切块/检索在主进程做） */
   documentContext?: string
   selection?: string
+  /** 光标在文档源码中的字符偏移（用于定位光标邻接块）；缺省表示无光标信息 */
+  cursorOffset?: number
   /** 仅模型名（不含厂商前缀）；缺省或空表示使用设置页当前厂商的模型 */
   model?: string
   options?: {
