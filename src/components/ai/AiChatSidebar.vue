@@ -61,7 +61,7 @@
     <!-- 对话区域 -->
     <template v-else>
       <!-- 消息列表：select-text 放行文本选择，避免被根节点的 select-none 连带禁用 -->
-      <div ref="messagesRef" class="editor-scroll flex flex-1 select-text flex-col gap-4 overflow-y-auto py-4">
+      <div ref="messagesRef" class="editor-scroll relative flex flex-1 select-text flex-col gap-4 overflow-y-auto py-4" @scroll="handleScroll">
         <!-- 空状态：欢迎页 + 快捷提问 -->
         <div v-if="displayMessages.length === 0" class="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
           <!-- AI 图标：深色实心圆，作为整页视觉焦点 -->
@@ -140,6 +140,17 @@
             </div>
           </div>
         </div>
+
+        <!-- 回到底部浮标：用户上翻历史时显示，点击回到底部 -->
+        <button
+          v-if="!isNearBottom"
+          type="button"
+          class="absolute right-4 bottom-4 z-10 flex h-7 cursor-pointer items-center gap-1 rounded-full border border-line bg-panel px-3 text-[11px] font-medium text-secondary hover:bg-toolbar hover:text-ink"
+          @mousedown.prevent="jumpToBottom"
+        >
+          <Icon icon="lucide:arrow-down" :size="12" />
+          <span>回到底部</span>
+        </button>
       </div>
 
       <!-- 输入框 -->
@@ -459,18 +470,41 @@ const handleClear = (): void => {
   clearHistory()
 }
 
-// 自动滚动到底部
+// ─── 自动滚动：仅当贴近底部时才跟随到底，用户上翻历史时不被强制拽回 ───
+
+/** 距底部多少像素内视为「贴近底部」，此范围内新内容才自动滚动跟随 */
+const NEAR_BOTTOM_THRESHOLD = 80
+
+// 是否贴近底部；用户上翻时会随 scroll 事件置为 false，浮标随之出现
+const isNearBottom = ref(true)
+
+const handleScroll = (): void => {
+  const el = messagesRef.value
+  if (el) {
+    isNearBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD
+  }
+}
+
+// 滚动到底部（内容变化自动跟随、浮标点击共用）
 const scrollToBottom = (): void => {
   nextTick(() => {
     if (messagesRef.value) {
       messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+      isNearBottom.value = true
     }
   })
 }
 
+// 浮标点击
+const jumpToBottom = (): void => {
+  scrollToBottom()
+}
+
 watch(
   () => [messages.value.length, streamingContent.value, streamingReasoning.value],
-  () => scrollToBottom(),
+  () => {
+    if (isNearBottom.value) scrollToBottom()
+  },
 )
 
 onMounted(() => {
