@@ -207,7 +207,7 @@
     });
   }
 
-  fetch(manifestUrl)
+  fetchJson(manifestUrl)
     .then(function (manifest) {
       var latestRelease = validateManifest(manifest);
       var requestedVersion = new URLSearchParams(window.location.search).get('version');

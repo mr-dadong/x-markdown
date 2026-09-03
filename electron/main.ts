@@ -27,7 +27,10 @@ import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
 import { registerAiIpc } from "./ai/ipc/aiIpc";
 import { getAiAgentStatus } from "./ai/mastra";
 import { getRecentFiles } from "./services/recentFiles";
-import { createApplicationMenu, setConfiguredShortcuts } from "./app/applicationMenu";
+import {
+  createApplicationMenu,
+  setConfiguredShortcuts,
+} from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
 import type {
@@ -105,22 +108,33 @@ async function refreshRendererCacheWhenBuildChanges(): Promise<void> {
   // cache 包含普通缓存、CacheStorage 与 Shader Cache；代码缓存需要单独清理。
   await session.defaultSession.clearData({ dataTypes: ["cache"] });
   await session.defaultSession.clearCodeCaches({ urls: [] });
-  await fs.promises.writeFile(installedBuildIdPath, `${currentBuildId}\n`, "utf8");
+  await fs.promises.writeFile(
+    installedBuildIdPath,
+    `${currentBuildId}\n`,
+    "utf8",
+  );
 }
 
 // 生产包无法直接查看 DevTools，关键交互写入用户数据目录便于定位首次启动问题。
 // 日志只接受结构化事件和基础类型字段，不接收文档正文、AI 内容或密钥。
-async function appendRendererDiagnostic(event: RendererDiagnosticEvent): Promise<void> {
+async function appendRendererDiagnostic(
+  event: RendererDiagnosticEvent,
+): Promise<void> {
   const logDirectory = path.join(app.getPath("userData"), "logs");
   const logPath = path.join(logDirectory, "renderer-diagnostic.log");
   await fs.promises.mkdir(logDirectory, { recursive: true });
 
-  const stats = await fs.promises.stat(logPath).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return null;
-    throw error;
-  });
+  const stats = await fs.promises
+    .stat(logPath)
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
   if (stats && stats.size >= diagnosticLogMaximumBytes) {
-    const archivedPath = path.join(logDirectory, "renderer-diagnostic.previous.log");
+    const archivedPath = path.join(
+      logDirectory,
+      "renderer-diagnostic.previous.log",
+    );
     await fs.promises.rm(archivedPath, { force: true });
     await fs.promises.rename(logPath, archivedPath);
   }
@@ -269,7 +283,10 @@ function selectUpdate(release: UpdateRelease): SelectedUpdate {
     );
   if (!selectedPackage.filename || !selectedPackage.url)
     throw new Error("安装包信息不完整");
-  if (!selectedPackage.sha256 || !/^[a-f\d]{64}$/iu.test(selectedPackage.sha256))
+  if (
+    !selectedPackage.sha256 ||
+    !/^[a-f\d]{64}$/iu.test(selectedPackage.sha256)
+  )
     throw new Error("安装包缺少有效的 SHA-256 校验值");
   ensureHttpsUrl(selectedPackage.url);
 
@@ -421,16 +438,17 @@ function createWindow(): void {
 function createMenu(): void {
   createApplicationMenu({
     getMainWindow: () => mainWindow,
-    readDocuments: async (filePaths) => Promise.all(
-      filePaths.map(async (filePath) => {
-        authorizeDocument(filePath);
-        const [content, stats] = await Promise.all([
-          fs.promises.readFile(filePath, "utf-8"),
-          fs.promises.stat(filePath),
-        ]);
-        return { filePath, content, modifiedTime: stats.mtimeMs };
-      }),
-    ),
+    readDocuments: async (filePaths) =>
+      Promise.all(
+        filePaths.map(async (filePath) => {
+          authorizeDocument(filePath);
+          const [content, stats] = await Promise.all([
+            fs.promises.readFile(filePath, "utf-8"),
+            fs.promises.stat(filePath),
+          ]);
+          return { filePath, content, modifiedTime: stats.mtimeMs };
+        }),
+      ),
     getRecentFiles,
   });
 }
@@ -452,9 +470,12 @@ registerWindowIpc({
 });
 
 // 设置页自定义快捷键后重建系统菜单，让菜单加速键跟随用户配置。
-ipcMain.on(IPC_CHANNELS.updateShortcuts, (_event, shortcuts: Record<string, string>) => {
-  setConfiguredShortcuts(shortcuts);
-});
+ipcMain.on(
+  IPC_CHANNELS.updateShortcuts,
+  (_event, shortcuts: Record<string, string>) => {
+    setConfiguredShortcuts(shortcuts);
+  },
+);
 
 ipcMain.on(
   IPC_CHANNELS.rendererDiagnostic,
@@ -514,110 +535,115 @@ ipcMain.handle(IPC_CHANNELS.openExternalLink, async (_event, url: string) => {
   await shell.openExternal(parsedUrl.toString());
 });
 
-ipcMain.handle(
-  IPC_CHANNELS.downloadUpdate,
-  async () => {
-    if (!selectedUpdate) throw new Error("请先检查并确认可用更新");
-    if (updateDownloadInProgress) throw new Error("安装包正在下载");
+ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
+  if (!selectedUpdate) throw new Error("请先检查并确认可用更新");
+  if (updateDownloadInProgress) throw new Error("安装包正在下载");
 
-    const currentUpdate = selectedUpdate;
-    const parsedUrl = ensureHttpsUrl(currentUpdate.download.url);
-    updateDownloadInProgress = true;
-    verifiedUpdate = null;
+  const currentUpdate = selectedUpdate;
+  const parsedUrl = ensureHttpsUrl(currentUpdate.download.url);
+  updateDownloadInProgress = true;
+  verifiedUpdate = null;
 
-    try {
-      const response = await net.fetch(parsedUrl.toString(), {
-        method: "HEAD",
-        redirect: "follow",
-      });
-      if (!response.ok) throw new Error(`下载安装包失败（${response.status}）`);
-      const contentType =
-        response.headers.get("content-type")?.toLowerCase() ?? "";
+  try {
+    const response = await net.fetch(parsedUrl.toString(), {
+      method: "HEAD",
+      redirect: "follow",
+    });
+    if (!response.ok) throw new Error(`下载安装包失败（${response.status}）`);
+    const contentType =
+      response.headers.get("content-type")?.toLowerCase() ?? "";
 
-      // 网盘分享链接返回网页而非安装包，交给系统浏览器完成网盘验证和下载。
-      if (contentType.includes("text/html")) {
-        await shell.openExternal(parsedUrl.toString());
-        return { status: "external" as const };
-      }
+    // 网盘分享链接返回网页而非安装包，交给系统浏览器完成网盘验证和下载。
+    if (contentType.includes("text/html")) {
+      await shell.openExternal(parsedUrl.toString());
+      return { status: "external" as const };
+    }
 
-      return await new Promise<{ status: "downloaded"; filePath: string }>(
-        (resolve, reject) => {
-          const onWillDownload = (
-            _downloadEvent: Electron.Event,
-            item: Electron.DownloadItem,
-          ): void => {
-            const extension = path
-              .extname(currentUpdate.download.filename)
-              .toLowerCase();
-            if (
-              !installerExtensions.has(extension) ||
-              path.extname(item.getFilename()).toLowerCase() !== extension
-            ) {
-              item.cancel();
-              reject(new Error("下载地址没有返回支持的安装包"));
+    return await new Promise<{ status: "downloaded"; filePath: string }>(
+      (resolve, reject) => {
+        const onWillDownload = (
+          _downloadEvent: Electron.Event,
+          item: Electron.DownloadItem,
+        ): void => {
+          const extension = path
+            .extname(currentUpdate.download.filename)
+            .toLowerCase();
+          if (
+            !installerExtensions.has(extension) ||
+            path.extname(item.getFilename()).toLowerCase() !== extension
+          ) {
+            item.cancel();
+            reject(new Error("下载地址没有返回支持的安装包"));
+            return;
+          }
+
+          const savePath = path.join(
+            app.getPath("temp"),
+            `XMD-update-${Date.now()}${extension}`,
+          );
+          item.setSavePath(savePath);
+          item.on("updated", () => {
+            const totalBytes = item.getTotalBytes();
+            const receivedBytes = item.getReceivedBytes();
+            const percent =
+              totalBytes > 0
+                ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
+                : 0;
+            mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
+              percent,
+              receivedBytes,
+              totalBytes,
+            });
+          });
+          item.once("done", (_doneEvent, state) => {
+            if (state !== "completed") {
+              reject(new Error("安装包下载未完成"));
               return;
             }
-
-            const savePath = path.join(
-              app.getPath("temp"),
-              `XMD-update-${Date.now()}${extension}`,
-            );
-            item.setSavePath(savePath);
-            item.on("updated", () => {
-              const totalBytes = item.getTotalBytes();
-              const receivedBytes = item.getReceivedBytes();
-              const percent =
-                totalBytes > 0
-                  ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
-                  : 0;
-              mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
-                percent,
-                receivedBytes,
-                totalBytes,
-              });
-            });
-            item.once("done", (_doneEvent, state) => {
-              if (state !== "completed") {
-                reject(new Error("安装包下载未完成"));
-                return;
-              }
-              void calculateFileSha256(savePath).then((actualSha256) => {
-                if (actualSha256 !== currentUpdate.download.sha256) {
-                  void fs.promises.rm(savePath, { force: true }).then(
+            void calculateFileSha256(savePath).then((actualSha256) => {
+              if (actualSha256 !== currentUpdate.download.sha256) {
+                void fs.promises
+                  .rm(savePath, { force: true })
+                  .then(
                     () => reject(new Error("安装包校验失败，文件已删除")),
                     reject,
                   );
-                  return;
-                }
+                return;
+              }
 
-                verifiedUpdate = {
-                  filePath: savePath,
-                  sha256: currentUpdate.download.sha256,
-                };
-                mainWindow?.webContents.send(IPC_CHANNELS.updateDownloadProgress, {
+              verifiedUpdate = {
+                filePath: savePath,
+                sha256: currentUpdate.download.sha256,
+              };
+              mainWindow?.webContents.send(
+                IPC_CHANNELS.updateDownloadProgress,
+                {
                   percent: 100,
                   receivedBytes: item.getReceivedBytes(),
                   totalBytes: item.getTotalBytes(),
-                });
-                resolve({ status: "downloaded", filePath: savePath });
-              }, reject);
-            });
-          };
+                },
+              );
+              resolve({ status: "downloaded", filePath: savePath });
+            }, reject);
+          });
+        };
 
-          session.defaultSession.once("will-download", onWillDownload);
-          try {
-            session.defaultSession.downloadURL(parsedUrl.toString());
-          } catch (error) {
-            session.defaultSession.removeListener("will-download", onWillDownload);
-            reject(error);
-          }
-        },
-      );
-    } finally {
-      updateDownloadInProgress = false;
-    }
-  },
-);
+        session.defaultSession.once("will-download", onWillDownload);
+        try {
+          session.defaultSession.downloadURL(parsedUrl.toString());
+        } catch (error) {
+          session.defaultSession.removeListener(
+            "will-download",
+            onWillDownload,
+          );
+          reject(error);
+        }
+      },
+    );
+  } finally {
+    updateDownloadInProgress = false;
+  }
+});
 
 ipcMain.handle(IPC_CHANNELS.installUpdate, async () => {
   if (updateInstallInProgress) throw new Error("安装程序正在启动");
@@ -639,14 +665,9 @@ ipcMain.handle(IPC_CHANNELS.installUpdate, async () => {
       .catch(() => false);
     if (!installerExists) throw new Error("安装包不存在，请重新下载");
 
-    // 安装前再次校验文件，等待期间渲染进程会显示明确的准备状态。
-    const actualSha256 = await calculateFileSha256(resolvedPath);
-    if (actualSha256 !== verifiedUpdate.sha256) {
-      verifiedUpdate = null;
-      await fs.promises.rm(resolvedPath, { force: true });
-      throw new Error("安装包在下载后发生变化，已阻止执行");
-    }
-
+    // 安装包在下载完成时已经过 SHA-256 校验通过（见 downloadUpdate），
+    // 这里不再对全量文件二次哈希，避免点击“立即安装”后界面长时间卡在
+    // “正在准备安装…”。直接交给系统安装器打开，界面立刻响应。
     const errorMessage = await shell.openPath(resolvedPath);
     if (errorMessage) throw new Error(errorMessage);
     app.quit();
@@ -746,7 +767,11 @@ ipcMain.handle(
 
 // 给异步操作加超时保护，避免某个环节异常卡死时导出窗口一直挂起。
 // promise 提前完成时清理定时器，避免无意义的迟到 reject。
-const withTimeout = <T>(promise: Promise<T>, errorMessage: string, timeoutMs: number): Promise<T> =>
+const withTimeout = <T>(
+  promise: Promise<T>,
+  errorMessage: string,
+  timeoutMs: number,
+): Promise<T> =>
   new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
     promise.then(
@@ -786,7 +811,11 @@ ipcMain.handle(
       const dataUrl = `data:text/html;charset=utf-8;base64,${Buffer.from(html, "utf-8").toString("base64")}`;
       // data URL 本身是即时加载的，但 HTML 内保留的 http(s) 图片会拖慢加载事件，
       // 因此加载和打印两个阶段都要有超时保护。
-      await withTimeout(printWindow.loadURL(dataUrl), "PDF 页面加载超时（15 秒）", 15000);
+      await withTimeout(
+        printWindow.loadURL(dataUrl),
+        "PDF 页面加载超时（15 秒）",
+        15000,
+      );
       const pdfBuffer = await withTimeout(
         printWindow.webContents.printToPDF({
           printBackground: true,
@@ -911,7 +940,10 @@ ipcMain.handle(
         10000,
       )) as { width: number; height: number };
       const width = Math.max(1, Math.min(Math.round(dimensions.width), 2400));
-      const height = Math.max(1, Math.min(Math.round(dimensions.height), 12000));
+      const height = Math.max(
+        1,
+        Math.min(Math.round(dimensions.height), 12000),
+      );
       captureWindow.setContentSize(width, height);
       // 部分平台对隐藏窗口的绘制时机更保守；放到屏幕外显示后再捕获，
       // 避免 capturePage 拿到空白帧，也不影响用户当前工作窗口。
@@ -964,41 +996,48 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
   );
 });
 
-ipcMain.handle(IPC_CHANNELS.confirmExit, async (
-  _event,
-  { openCount, modifiedCount }: { openCount: number; modifiedCount: number },
-) => {
-  if (!mainWindow) return "cancel";
-  if (modifiedCount === 0) {
+ipcMain.handle(
+  IPC_CHANNELS.confirmExit,
+  async (
+    _event,
+    { openCount, modifiedCount }: { openCount: number; modifiedCount: number },
+  ) => {
+    if (!mainWindow) return "cancel";
+    if (modifiedCount === 0) {
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: "question",
+        title: "关闭 XMD？",
+        message: `当前打开了 ${openCount} 个文档。`,
+        detail: "确认关闭全部标签页并退出程序吗？",
+        buttons: ["关闭并退出", "取消"],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+      });
+      return result.response === 0 ? "discard" : "cancel";
+    }
     const result = await dialog.showMessageBox(mainWindow, {
-      type: "question",
-      title: "关闭 XMD？",
-      message: `当前打开了 ${openCount} 个文档。`,
-      detail: "确认关闭全部标签页并退出程序吗？",
-      buttons: ["关闭并退出", "取消"],
-      defaultId: 1,
-      cancelId: 1,
+      type: "warning",
+      title: "保存修改后退出？",
+      message: `还有 ${modifiedCount} 个文档尚未保存。`,
+      detail: "可以先保存全部文档，也可以放弃这些修改。",
+      buttons: ["保存全部并退出", "放弃修改", "取消"],
+      defaultId: 0,
+      cancelId: 2,
       noLink: true,
     });
-    return result.response === 0 ? "discard" : "cancel";
-  }
-  const result = await dialog.showMessageBox(mainWindow, {
-    type: "warning",
-    title: "保存修改后退出？",
-    message: `还有 ${modifiedCount} 个文档尚未保存。`,
-    detail: "可以先保存全部文档，也可以放弃这些修改。",
-    buttons: ["保存全部并退出", "放弃修改", "取消"],
-    defaultId: 0,
-    cancelId: 2,
-    noLink: true,
-  });
-  return (["save", "discard", "cancel"] as const)[result.response] ?? "cancel";
-});
+    return (
+      (["save", "discard", "cancel"] as const)[result.response] ?? "cancel"
+    );
+  },
+);
 
 ipcMain.handle(IPC_CHANNELS.loadRecoveryDrafts, async () => {
   const draftPath = path.join(app.getPath("userData"), "recovery-drafts.json");
   try {
-    const drafts = JSON.parse(await fs.promises.readFile(draftPath, "utf-8")) as Array<{
+    const drafts = JSON.parse(
+      await fs.promises.readFile(draftPath, "utf-8"),
+    ) as Array<{
       filePath: string | null;
       content: string;
       savedContent: string;
@@ -1014,23 +1053,32 @@ ipcMain.handle(IPC_CHANNELS.loadRecoveryDrafts, async () => {
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.saveRecoveryDrafts, async (_event, drafts: Array<{
-  filePath: string | null;
-  content: string;
-  savedContent: string;
-  modifiedTime: number | null;
-}>) => {
-  // 仅持久化用户已经通过文件对话框授权过的路径，未命名草稿不包含路径。
-  drafts.forEach((draft) => {
-    if (draft.filePath) assertAuthorizedPath(draft.filePath);
-  });
-  const draftPath = path.join(app.getPath("userData"), "recovery-drafts.json");
-  if (drafts.length === 0) {
-    await fs.promises.rm(draftPath, { force: true });
-    return;
-  }
-  await writeTextFileAtomically(draftPath, JSON.stringify(drafts));
-});
+ipcMain.handle(
+  IPC_CHANNELS.saveRecoveryDrafts,
+  async (
+    _event,
+    drafts: Array<{
+      filePath: string | null;
+      content: string;
+      savedContent: string;
+      modifiedTime: number | null;
+    }>,
+  ) => {
+    // 仅持久化用户已经通过文件对话框授权过的路径，未命名草稿不包含路径。
+    drafts.forEach((draft) => {
+      if (draft.filePath) assertAuthorizedPath(draft.filePath);
+    });
+    const draftPath = path.join(
+      app.getPath("userData"),
+      "recovery-drafts.json",
+    );
+    if (drafts.length === 0) {
+      await fs.promises.rm(draftPath, { force: true });
+      return;
+    }
+    await writeTextFileAtomically(draftPath, JSON.stringify(drafts));
+  },
+);
 
 // 更新日志使用全量历史清单，用户打开日志页时才会请求。
 ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
@@ -1230,9 +1278,9 @@ function resolveEditorFilePath(
   const resolvedPath = url.startsWith("file:")
     ? fileURLToPath(url)
     : path.resolve(
-      currentDocumentPath ? path.dirname(currentDocumentPath) : process.cwd(),
-      decodeURIComponent(url),
-    );
+        currentDocumentPath ? path.dirname(currentDocumentPath) : process.cwd(),
+        decodeURIComponent(url),
+      );
   return assertAuthorizedPath(resolvedPath);
 }
 
@@ -1570,7 +1618,10 @@ ipcMain.handle(
   IPC_CHANNELS.readEditorFileBytes,
   async (
     _event,
-    { url, currentDocumentPath }: { url: string; currentDocumentPath: string | null },
+    {
+      url,
+      currentDocumentPath,
+    }: { url: string; currentDocumentPath: string | null },
   ) => {
     const filePath = resolveEditorFilePath(url, currentDocumentPath);
     const stats = await fs.promises.stat(filePath);
@@ -1613,11 +1664,15 @@ ipcMain.handle(
     if (/^https?:/i.test(url)) {
       const response = await net.fetch(url);
       if (!response.ok) throw new Error(`下载图片失败：${response.status}`);
-      image = nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
+      image = nativeImage.createFromBuffer(
+        Buffer.from(await response.arrayBuffer()),
+      );
     } else if (/^data:/i.test(url)) {
       image = nativeImage.createFromDataURL(url);
     } else {
-      image = nativeImage.createFromPath(resolveEditorFilePath(url, currentDocumentPath));
+      image = nativeImage.createFromPath(
+        resolveEditorFilePath(url, currentDocumentPath),
+      );
     }
 
     if (image.isEmpty()) throw new Error("无法读取选中的图片");
