@@ -8,24 +8,6 @@
     <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
       :style="typographyStyle" @scroll="handleEditorScroll" />
 
-    <!-- 右侧选择轨道：按下并上下拖动可框选连续内容块，松开后按 Del 快速删除。
-      stopPropagation 防止松开时的 click 冒泡到编辑区根节点而立刻取消选区。 -->
-    <div v-if="editor && !modalOpen" data-block-select-track
-      class="absolute bottom-0 top-0 z-10 w-3"
-      :style="{ right: '14px' }" contenteditable="false"
-      @mousedown.prevent.stop="handleSelectTrackMouseDown" @click.stop />
-
-    <!-- 块多选提示条：拖动与选中期间常驻，实时显示块数并给出键盘操作提示。 -->
-    <div v-if="multiSelectActive" class="xmd-multiselect-hint" contenteditable="false">
-      <span>已选中 {{ selectedBlockCount() }} 个块</span>
-      <span class="xmd-multiselect-hint-keys">
-        <kbd class="slash-menu-key">Del</kbd>
-        <span>删除</span>
-        <kbd class="slash-menu-key">Esc</kbd>
-        <span>取消</span>
-      </span>
-    </div>
-
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowTableMenu"
       :tippy-options="{ placement: 'top', maxWidth: 720 }">
@@ -274,7 +256,7 @@ import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
 import { buildWriterContext } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
 import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
@@ -404,13 +386,6 @@ const {
   finishBlockDrag,
   handleBlockDrop,
   scrollToHeading,
-  // 飞书式块多选
-  multiSelectActive,
-  startBlockMultiSelect,
-  updateBlockMultiSelect,
-  finishBlockMultiSelect,
-  cancelBlockMultiSelect,
-  selectedBlockCount,
 } = useMarkdownEditor(
   () => props.initialContent ?? '',
   emit,
@@ -863,8 +838,6 @@ const openAttachment = async (element: HTMLElement): Promise<void> => {
 
 const handleEditorContentClick = async (event: MouseEvent): Promise<void> => {
   closeBlockMenu()
-  // 点击正文任意位置取消块多选，与 Esc 行为一致。
-  cancelBlockMultiSelect()
   const target = event.target as HTMLElement | null
   const openButton = target?.closest('[data-xmd-attachment-open]') as HTMLElement | null
   const attachment = openButton?.closest('[data-xmd-attachment]') as HTMLElement | null
@@ -923,31 +896,6 @@ const handleEditorAreaLeave = (event: MouseEvent): void => {
   handleEditorMouseLeave(event)
   scheduleLinkMenuClose()
 }
-
-// ===== 右侧选择轨道（飞书式块多选）=====
-// 按下轨道即开始框选，拖动期间改用 window 级监听：指针移出轨道甚至移出编辑区
-// 也能继续选（配合 useEditor 内的边缘自动滚动）。松开后选区保持，等待 Delete。
-const handleSelectTrackMouseMove = (event: MouseEvent): void => {
-  updateBlockMultiSelect(event.clientY)
-}
-
-const handleSelectTrackMouseUp = (): void => {
-  window.removeEventListener('mousemove', handleSelectTrackMouseMove)
-  window.removeEventListener('mouseup', handleSelectTrackMouseUp)
-  finishBlockMultiSelect()
-}
-
-const handleSelectTrackMouseDown = (event: MouseEvent): void => {
-  if (event.button !== 0) return
-  startBlockMultiSelect(event.clientY)
-  window.addEventListener('mousemove', handleSelectTrackMouseMove)
-  window.addEventListener('mouseup', handleSelectTrackMouseUp)
-}
-
-onUnmounted(() => {
-  window.removeEventListener('mousemove', handleSelectTrackMouseMove)
-  window.removeEventListener('mouseup', handleSelectTrackMouseUp)
-})
 
 const selectActiveLink = () => {
   if (!editor.value || !activeLink.value) return null
@@ -1219,58 +1167,6 @@ defineExpose<EditorHandle>({
   line-height: 1.75;
   color: var(--color-ink);
   word-break: break-word;
-}
-
-/* ===== 飞书式块多选 ===== */
-
-/* 选中块：淡蓝底 + 左侧竖线，与链接色同源，深浅主题都可见。 */
-.tiptap .xmd-block-selected {
-  background-color: color-mix(in srgb, var(--color-link) 10%, transparent);
-  box-shadow: inset 3px 0 0 0 var(--color-link);
-  border-radius: 4px;
-}
-
-:root.dark .tiptap .xmd-block-selected {
-  background-color: color-mix(in srgb, var(--color-link) 14%, transparent);
-}
-
-/* 右侧选择轨道：平时隐形，悬停时给一点提示；按下拖动即开始框选。 */
-[data-block-select-track] {
-  cursor: default;
-}
-
-[data-block-select-track]:hover {
-  background-color: color-mix(in srgb, var(--color-link) 8%, transparent);
-  border-radius: 4px;
-}
-
-/* 多选提示条：固定在编辑区底部居中，不拦截鼠标事件。 */
-.xmd-multiselect-hint {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  background-color: var(--color-ink);
-  color: var(--color-inverse);
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-  user-select: none;
-}
-
-.xmd-multiselect-hint-keys {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  opacity: 0.75;
 }
 
 /*

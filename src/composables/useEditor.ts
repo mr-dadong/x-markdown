@@ -29,11 +29,6 @@ import {
   type SlashRange,
 } from "../modules/slashCommands";
 import { emojis, filterEmojis, type EmojiItem } from "../modules/emojis";
-import {
-  blockPositionToIndex,
-  computeMultiSelectRange,
-  resolveBlockAtClientY,
-} from "../modules/blockMultiSelect";
 import { useSettings } from "./useSettings";
 
 
@@ -71,13 +66,6 @@ export const useMarkdownEditor = (
   const blockControlPosition = ref({ left: 0, top: 0 });
   const dropIndicator = ref<DropIndicator | null>(null);
   const draggedBlockPosition = ref<number | null>(null);
-  // 飞书式块多选状态：右侧选择轨道按下鼠标并上下拖动，框选连续的顶层块，
-  // 松开后按 Delete/Backspace 快速删除。multiSelectDragging 只在拖动过程中为 true，
-  // 松开后保持选中态等待 Delete / Esc / 点击正文。
-  const multiSelectActive = ref(false);
-  const multiSelectDragging = ref(false);
-  const multiSelectAnchor = ref<number | null>(null);
-  const multiSelectCurrent = ref<number | null>(null);
   const editorRenderVersion = ref(0);
   let lastEmittedMarkdown: string | null = null;
   let renderedDocumentPath = getCurrentDocumentPath?.() ?? null;
@@ -783,12 +771,7 @@ export const useMarkdownEditor = (
   };
 
   const handleEditorMouseMove = (event: MouseEvent): void => {
-    if (
-      draggedBlockPosition.value !== null ||
-      blockMenuVisible.value ||
-      multiSelectActive.value
-    )
-      return;
+    if (draggedBlockPosition.value !== null || blockMenuVisible.value) return;
 
     const block = resolveTopLevelBlock(event.target);
     if (!block) return;
@@ -1033,179 +1016,10 @@ export const useMarkdownEditor = (
     finishBlockDrag();
   };
 
-  // ===== 飞书式块多选 =====
-  // 在编辑区右侧选择轨道按下鼠标并上下拖动，框选连续的顶层块；松开后选区保持，
-  // 按 Delete/Backspace 删除选中块，Esc 或点击正文取消。
-  // 纯计算逻辑（块索引换算、区间计算、Y 坐标定位）在 modules/blockMultiSelect.ts。
-
-  const selectedBlockCount = (): number => {
-    if (
-      !editor.value ||
-      multiSelectAnchor.value === null ||
-      multiSelectCurrent.value === null
-    )
-      return 0;
-    const range = computeMultiSelectRange(
-      editor.value,
-      multiSelectAnchor.value,
-      multiSelectCurrent.value,
-    );
-    return range ? range.endIndex - range.startIndex + 1 : 0;
-  };
-
-  // 把高亮 class 同步到选中块：先清掉旧标记，再按当前区间添加，避免文档变化后残留。
-  const syncMultiSelectHighlights = (): void => {
-    if (!editor.value) return;
-    const root = editor.value.view.dom;
-    root.querySelectorAll(".xmd-block-selected").forEach((element) => {
-      element.classList.remove("xmd-block-selected");
-    });
-    if (
-      !multiSelectActive.value ||
-      multiSelectAnchor.value === null ||
-      multiSelectCurrent.value === null
-    )
-      return;
-
-    const range = computeMultiSelectRange(
-      editor.value,
-      multiSelectAnchor.value,
-      multiSelectCurrent.value,
-    );
-    if (!range) return;
-
-    const children = Array.from(root.children);
-    for (let index = range.startIndex; index <= range.endIndex; index += 1) {
-      children[index]?.classList.add("xmd-block-selected");
-    }
-  };
-
-  const startBlockMultiSelect = (clientY: number): void => {
-    if (!editor.value) return;
-    const block = resolveBlockAtClientY(editor.value, clientY);
-    if (!block) return;
-    closeBlockMenu();
-    closeSlashMenu();
-    closeEmojiMenu();
-    blockControlVisible.value = false;
-    multiSelectActive.value = true;
-    multiSelectDragging.value = true;
-    multiSelectAnchor.value = block.position;
-    multiSelectCurrent.value = block.position;
-    syncMultiSelectHighlights();
-  };
-
-  // 拖动中更新当前块并同步高亮；同时处理边缘自动滚动，滚出可视区也能继续选。
-  let multiSelectScrollFrame = 0;
-  const updateBlockMultiSelect = (clientY: number): void => {
-    if (!multiSelectDragging.value || !editor.value) return;
-
-    // 指针贴近滚动容器上下边缘时自动滚动，让框选可以越过一屏。
-    const scroller = editor.value.view.dom.closest(".editor-scroll");
-    if (scroller) {
-      const rect = scroller.getBoundingClientRect();
-      const edgeSize = 48;
-      const speed = 14;
-      const direction =
-        clientY < rect.top + edgeSize
-          ? -1
-          : clientY > rect.bottom - edgeSize
-            ? 1
-            : 0;
-      if (direction !== 0) {
-        if (multiSelectScrollFrame === 0) {
-          const step = (): void => {
-            multiSelectScrollFrame = 0;
-            if (!multiSelectDragging.value || !editor.value) return;
-            const previousTop = scroller.scrollTop;
-            scroller.scrollTop += direction * speed;
-            // 滚动位置没有变化说明已到顶/到底，停止空转。
-            if (scroller.scrollTop === previousTop) return;
-            multiSelectScrollFrame = requestAnimationFrame(step);
-          };
-          multiSelectScrollFrame = requestAnimationFrame(step);
-        }
-      } else if (multiSelectScrollFrame !== 0) {
-        cancelAnimationFrame(multiSelectScrollFrame);
-        multiSelectScrollFrame = 0;
-      }
-    }
-
-    const block = resolveBlockAtClientY(editor.value, clientY);
-    if (!block) return;
-    multiSelectCurrent.value = block.position;
-    syncMultiSelectHighlights();
-  };
-
-  const finishBlockMultiSelect = (): void => {
-    if (multiSelectScrollFrame !== 0) {
-      cancelAnimationFrame(multiSelectScrollFrame);
-      multiSelectScrollFrame = 0;
-    }
-    if (!multiSelectDragging.value) return;
-    multiSelectDragging.value = false;
-    // 选区保持，等待 Delete / Esc / 点击；先让编辑器获得焦点以便拦截按键。
-    editor.value?.commands.focus();
-  };
-
-  const cancelBlockMultiSelect = (): void => {
-    if (!multiSelectActive.value && !multiSelectDragging.value) return;
-    multiSelectActive.value = false;
-    multiSelectDragging.value = false;
-    multiSelectAnchor.value = null;
-    multiSelectCurrent.value = null;
-    syncMultiSelectHighlights();
-  };
-
-  // 删除选中区间。删除后若文档为空，补一个空段落保持 schema 合法。
-  const deleteSelectedBlocks = (): boolean => {
-    if (
-      !editor.value ||
-      !multiSelectActive.value ||
-      multiSelectAnchor.value === null ||
-      multiSelectCurrent.value === null
-    )
-      return false;
-    const range = computeMultiSelectRange(
-      editor.value,
-      multiSelectAnchor.value,
-      multiSelectCurrent.value,
-    );
-    if (!range) return false;
-
-    const transaction = editor.value.state.tr.delete(range.from, range.to);
-    if (transaction.doc.content.size === 0) {
-      transaction.insert(
-        0,
-        editor.value.schema.nodes.paragraph.create(),
-      );
-    }
-    editor.value.view.dispatch(transaction.scrollIntoView());
-    cancelBlockMultiSelect();
-    editor.value.commands.focus();
-    return true;
-  };
-
-  const handleMultiSelectKeydown = (event: KeyboardEvent): boolean => {
-    if (!multiSelectActive.value) return false;
-    if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      deleteSelectedBlocks();
-      return true;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      cancelBlockMultiSelect();
-      return true;
-    }
-    return false;
-  };
-
   const handleEditorKeyDown = (
     view: EditorView,
     event: KeyboardEvent,
   ): boolean => {
-    if (handleMultiSelectKeydown(event)) return true;
     if (handleSlashMenuKeydown(event)) return true;
     if (handleEmojiMenuKeydown(event)) return true;
     if (event.isComposing) return false;
@@ -1471,8 +1285,6 @@ export const useMarkdownEditor = (
         editorRenderVersion.value += 1;
         if (blockControlVisible.value) void nextTick(refreshBlockControlPosition);
       }
-      // 文档变化后重新对齐选中高亮（例如撤销/重做改变了块区间）。
-      if (multiSelectActive.value) void nextTick(syncMultiSelectHighlights);
     },
   });
 
@@ -1500,8 +1312,6 @@ export const useMarkdownEditor = (
 
       // 外部载入文档或切换文件目录时不触发编辑事件，避免文档被误标记为已修改。
       editor.value.commands.setContent(newContent, false);
-      // 切换文档后块选区已经失去意义，取消多选状态避免高亮残留。
-      cancelBlockMultiSelect();
       // setContent 之后文档与 newContent 一致，重建原文基准。
       baseline = captureBaseline(editor.value, newContent);
     },
@@ -1590,15 +1400,6 @@ export const useMarkdownEditor = (
     finishBlockDrag,
     handleBlockDrop,
     handleEditorKeyDown,
-    // 飞书式块多选
-    multiSelectActive,
-    multiSelectDragging,
-    startBlockMultiSelect,
-    updateBlockMultiSelect,
-    finishBlockMultiSelect,
-    cancelBlockMultiSelect,
-    deleteSelectedBlocks,
-    selectedBlockCount,
     scrollToHeading,
   };
 };
