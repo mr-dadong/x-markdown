@@ -138,7 +138,7 @@ import { getFileName } from '../utils/file'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { matchesShortcut } from '../utils/shortcuts'
 import { blockFractionToSourceLine, getTopLevelBlockRanges, mapBlockIndex, sourceLineToBlockFraction } from '../modules/viewSync'
-import type { EditorHandle, SourceEditorHandle } from '../types/editor'
+import type { EditorHandle, SourceEditorHandle, ViewportAnchor } from '../types/editor'
 
 const editorRef = ref<EditorHandle | null>(null)
 const sourceEditorRef = ref<SourceEditorHandle | null>(null)
@@ -150,6 +150,20 @@ const pendingSelections = ref<string[]>([])
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
+
+// 标签页视图状态：每个打开的文档独立保存自己的阅读位置，
+// 切换标签时保存旧文档锚点、恢复新文档锚点，避免超长文档来回切换时反复从头滚动。
+interface DocumentViewState {
+  // 渲染视图：视口顶部所在顶层块 + 块内偏移比例（与 viewSync 锚点体系一致）。
+  renderedAnchor: ViewportAnchor | null
+  // 源码视图：视口顶部行号（0 起始，与 markdown-it 一致）。
+  sourceLine: number | null
+}
+const viewStates = new Map<number, DocumentViewState>()
+// 跨标签查找跳转时由查找面板负责定位，跳过自动恢复避免互相覆盖。
+let findReplaceNavigation = false
+// 快速连续切换标签时只恢复最后一次激活的文档，避免旧回调覆盖新位置。
+let restoreSequence = 0
 const { isDarkTheme, toggleTheme } = useTheme()
 const { hasUpdate, isUpdateModalOpen, checkForUpdates, openUpdateModal } = useUpdater()
 
@@ -273,7 +287,11 @@ const findReplaceController = useFindReplace(
     isSourceMode,
     () => documents.value,
     () => activeDocumentId.value,
-    activateDocument,
+    // 跨标签查找跳转时由查找面板负责定位，设置标志让标签恢复逻辑跳过自动恢复。
+    (documentId: number) => {
+        findReplaceNavigation = true
+        activateDocument(documentId)
+    },
 )
 
 const { recentFiles, loadRecentFiles, removeRecentFile, clearRecentFiles } = useRecentFiles()
@@ -358,12 +376,67 @@ const toggleSourceMode = async (): Promise<void> => {
     }
 }
 
-// 每个文档首次打开都严格采用设置中的默认模式，手动切换只影响当前文档。
-watch(activeDocumentId, (documentId) => {
+// 切换标签前保存旧文档的视图锚点，切换后恢复新文档的锚点。
+// 锚点不依赖像素：渲染模式记录“顶层块 + 块内比例”，源码模式记录视口顶部行号，
+// 文档内容变化（自动保存、外部修改）后仍能大致回到原阅读位置。
+const saveViewState = (documentId: number): void => {
+    // 关闭流程中旧文档已从列表移除，不再保存其状态。
+    if (!documents.value.some((document) => document.id === documentId)) return
+    const state = viewStates.get(documentId) ?? { renderedAnchor: null, sourceLine: null }
+    if (isSourceMode.value) {
+        state.sourceLine = sourceEditorRef.value?.getViewportSourceLine() ?? null
+    } else {
+        state.renderedAnchor = editorRef.value?.getViewportAnchor() ?? null
+    }
+    viewStates.set(documentId, state)
+}
+
+// 等目标文档内容载入完成、DOM 布局稳定后恢复阅读位置。
+// 用微任务 + 宏任务组合等待，避免依赖 requestAnimationFrame——窗口隐藏或最小化时 rAF 不触发。
+const restoreViewState = async (documentId: number): Promise<void> => {
+    const sequence = ++restoreSequence
+    // 跨标签查找跳转由查找面板负责定位，本次自动恢复直接跳过。
+    if (findReplaceNavigation) {
+        findReplaceNavigation = false
+        return
+    }
+    await nextTick()
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    await nextTick()
+    // 快速连续切换时只恢复最后一次激活的文档，避免旧回调覆盖新位置。
+    if (sequence !== restoreSequence) return
+    if (activeDocumentId.value !== documentId) return
+    const state = viewStates.get(documentId)
+    if (!state) return
+    if (isSourceMode.value) {
+        if (state.sourceLine !== null) sourceEditorRef.value?.scrollToSourceLine(state.sourceLine)
+    } else if (state.renderedAnchor !== null) {
+        editorRef.value?.scrollToBlockFraction(state.renderedAnchor.index, state.renderedAnchor.fraction)
+    }
+}
+
+// 每个文档首次打开都严格采用设置中的默认模式，手动切换只影响当前文档；
+// 切换标签时先保存旧文档锚点，再恢复新文档锚点。
+watch(activeDocumentId, (documentId, previousDocumentId) => {
+    if (previousDocumentId !== null && previousDocumentId !== documentId) {
+        saveViewState(previousDocumentId)
+    }
     if (documentId === null) return
     const savedMode = documentModes.get(documentId)
     isSourceMode.value = savedMode ?? settings.editorMode === 'source'
     if (savedMode === undefined) documentModes.set(documentId, isSourceMode.value)
+    void restoreViewState(documentId)
+})
+
+// 关闭文档后清理对应的视图状态与编辑模式记忆，避免 Map 无限增长。
+watch(documents, (list) => {
+    const aliveIds = new Set(list.map((document) => document.id))
+    for (const id of viewStates.keys()) {
+        if (!aliveIds.has(id)) viewStates.delete(id)
+    }
+    for (const id of documentModes.keys()) {
+        if (!aliveIds.has(id)) documentModes.delete(id)
+    }
 })
 
 // 在窗口范围内监听快捷键，编辑器获得焦点时也可以收缩或展开侧边栏。
