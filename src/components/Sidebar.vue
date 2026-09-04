@@ -328,17 +328,32 @@ const scrollToHeading = (headingId: string): void => {
 
 // 打开文件时先让编辑器完成正文渲染，再生成大纲。
 // 连续输入会合并为一次解析，避免每次按键都扫描整篇文档。
+const scheduleHeadingParse = (): void => {
+  if (headingParseTimer) clearTimeout(headingParseTimer)
+  headingParseTimer = setTimeout(() => {
+    parseHeadings()
+    headingParseTimer = null
+  }, 260)
+}
+
 watch(
   () => props.content,
-  () => {
-    if (headingParseTimer) clearTimeout(headingParseTimer)
-    headingParseTimer = setTimeout(() => {
-      parseHeadings()
-      headingParseTimer = null
-    }, 260)
-  },
+  scheduleHeadingParse,
   { immediate: true, flush: 'post' },
 )
+
+// 大纲面板刚被展示出来时，直接基于当前正文同步生成一次大纲，
+// 避免内容在上一次解析后、面板隐藏期间发生变化而错过了刷新。
+// 若内容仍在解析等待中，(主动)取消后由 scheduleHeadingParse 重新排队。
+watch(activeTab, (tab) => {
+  if (tab !== 'outline') return
+  if (headingParseTimer) {
+    clearTimeout(headingParseTimer)
+    headingParseTimer = null
+  }
+  parseHeadings()
+})
+
 onMounted(async () => {
   stopWorkspaceListener = fileSystemService.onWorkspaceChanged(scheduleWorkspaceRefresh)
   const savedWorkspace = await fileSystemService.getWorkspace()
