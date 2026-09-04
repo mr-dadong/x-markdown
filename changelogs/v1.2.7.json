@@ -25,7 +25,7 @@
               "installer": "NSIS",
               "filename": "XMD-1.2.7-Windows-x64.exe",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Windows-x64.exe",
-              "sha256": null
+              "sha256": "71a9ca4bba41a2f5e0c74d80f25f59ac918631c1efa601c9623aa669438a789e"
             }
           ]
         },
@@ -39,7 +39,7 @@
               "installer": "DMG",
               "filename": "XMD-1.2.7-macOS-arm64.dmg",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-macOS-arm64.dmg",
-              "sha256": null
+              "sha256": "e00899b9b3da3f6dd1b58dc374ca57188bac21ca019301804c62fab22db82600"
             },
             {
               "arch": "x64",
@@ -47,7 +47,7 @@
               "installer": "DMG",
               "filename": "XMD-1.2.7-macOS-x64.dmg",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-macOS-x64.dmg",
-              "sha256": null
+              "sha256": "8cd2a7099d0294920434a026472ce5b984e117f2302767ff76777ac980db2d27"
             }
           ]
         },
@@ -61,7 +61,7 @@
               "installer": "AppImage",
               "filename": "XMD-1.2.7-Linux-x86_64.AppImage",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Linux-x86_64.AppImage",
-              "sha256": null
+              "sha256": "81700dbf8d6ca83c728b209351621023cc1da2d74e8f17d4aaa23090104ae582"
             },
             {
               "arch": "arm64",
@@ -69,7 +69,7 @@
               "installer": "AppImage",
               "filename": "XMD-1.2.7-Linux-arm64.AppImage",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Linux-arm64.AppImage",
-              "sha256": null
+              "sha256": "6862ed6bbb89ecb47c616f48bae18f9c5bc627309e06d44f120009a7bee86f6a"
             }
           ]
         }
