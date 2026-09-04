@@ -342,17 +342,33 @@ watch(
   { immediate: true, flush: 'post' },
 )
 
-// 大纲面板刚被展示出来时，直接基于当前正文同步生成一次大纲，
-// 避免内容在上一次解析后、面板隐藏期间发生变化而错过了刷新。
-// 若内容仍在解析等待中，(主动)取消后由 scheduleHeadingParse 重新排队。
-watch(activeTab, (tab) => {
-  if (tab !== 'outline') return
+// 大纲属于“展示时即应正确”的界面：除了内容变化，还要在下面两类时机
+// 重新按当前最新正文生成，避免任何一次内容刷新被合并/丢失后大纲残留为空：
+// 1) 用户把侧栏切换到大纲标签（面板由隐藏/其他标签变为可见）；
+// 2) 切到另一个文档（currentFilePath 变化）——此时即使正文停留为空也按新文档
+//    立即重建，内容随后落地时会再触发一次 content 监听做最终校正。
+const forceRefreshOutline = (): void => {
+  if (activeTab.value !== 'outline') return
   if (headingParseTimer) {
     clearTimeout(headingParseTimer)
     headingParseTimer = null
   }
   parseHeadings()
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'outline') forceRefreshOutline()
 })
+
+watch(
+  () => props.currentFilePath,
+  () => {
+    // 切换文档后异步读取的内容尚未就绪时就按旧值解析没有意义，
+    // 直接强制执行一次并把内容监听作为最终校正，保证始终基于最新原文。
+    forceRefreshOutline()
+    scheduleHeadingParse()
+  },
+)
 
 onMounted(async () => {
   stopWorkspaceListener = fileSystemService.onWorkspaceChanged(scheduleWorkspaceRefresh)
