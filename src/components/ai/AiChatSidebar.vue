@@ -121,11 +121,11 @@
               :content="streamingReasoning"
               :streaming="!streamingContent"
             />
-            <div v-if="streamingContent" class="ai-md markdown-body">
+            <AiMarkdown v-if="streamingContent" ref="aiMarkdownRef">
               <!-- 已完成段落：独立缓存节点，key 稳定复用，不重建、不打断选中/复制；尾段：纯文本降级渲染 -->
               <div v-for="block in streamingBlocks" :key="block.id" class="ai-md-block" v-html="block.html" />
               <div v-if="streamingTail" class="ai-md-tail">{{ streamingTail }}</div>
-            </div>
+            </AiMarkdown>
             <!-- 流式中右下角停止按钮 -->
             <div class="mt-2 flex justify-end">
               <button
@@ -186,7 +186,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
-import MarkdownIt from 'markdown-it'
 import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
@@ -197,6 +196,7 @@ import AiChatMessage from './AiChatMessage.vue'
 import AiChatReasoning from './AiChatReasoning.vue'
 import AiChatInput from './AiChatInput.vue'
 import AiChatModelSelector from './AiChatModelSelector.vue'
+import AiMarkdown from './AiMarkdown.vue'
 
 const props = defineProps<{
   documentOpen: boolean
@@ -218,23 +218,6 @@ const emit = defineEmits<{
   'clear-pending-selections': []
   'remove-pending-selection': [index: number]
 }>()
-
-// 初始化 markdown-it
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: false,
-  breaks: true,
-})
-
-// 自定义代码块渲染
-md.renderer.rules.fence = (tokens, idx) => {
-  const token = tokens[idx]
-  const lang = token.info.trim()
-  const langLabel = lang ? `<span class="code-lang">${lang}</span>` : ''
-  const content = md.utils.escapeHtml(token.content)
-  return `<div class="code-block-wrapper">${langLabel}<pre class="code-block"><code>${content}</code></pre></div>`
-}
 
 // AI 状态
 const { status, isConfigured } = useAiStatus()
@@ -418,21 +401,31 @@ const streamingBlocks = ref<StreamBlock[]>([])
 const streamingTail = ref('')
 let nextBlockId = 0
 
-watch(streamingContent, (text) => {
-  if (!text) {
-    streamingBlocks.value = []
-    streamingTail.value = ''
-    nextBlockId = 0
-    return
-  }
-  const { done, tail } = splitStreamBlocks(normalizeAiMarkdown(text))
-  // 已完成块只增量补齐：新增块渲染一次，旧块 HTML 与 DOM 节点保持不变
-  for (let i = streamingBlocks.value.length; i < done.length; i++) {
-    streamingBlocks.value.push({ id: nextBlockId++, html: md.render(done[i]) })
-  }
-  // 尾块用 textContent 展示，未闭合代码块 / 写到一半的标记以原文出现，不炸渲染
-  streamingTail.value = tail
-})
+// 流式分块的 HTML 由共享渲染器组件预渲染；flush: 'post' 确保组件随 streamingContent 挂载后 ref 可用
+const aiMarkdownRef = ref<InstanceType<typeof AiMarkdown> | null>(null)
+
+watch(
+  streamingContent,
+  (text) => {
+    if (!text) {
+      streamingBlocks.value = []
+      streamingTail.value = ''
+      nextBlockId = 0
+      return
+    }
+    const { done, tail } = splitStreamBlocks(normalizeAiMarkdown(text))
+    // 已完成块只增量补齐：新增块渲染一次，旧块 HTML 与 DOM 节点保持不变
+    for (let i = streamingBlocks.value.length; i < done.length; i++) {
+      streamingBlocks.value.push({
+        id: nextBlockId++,
+        html: aiMarkdownRef.value?.render(done[i]) ?? '',
+      })
+    }
+    // 尾块用 textContent 展示，未闭合代码块 / 写到一半的标记以原文出现，不炸渲染
+    streamingTail.value = tail
+  },
+  { flush: 'post' },
+)
 
 // 状态文本
 const statusText = computed(() => {
@@ -546,161 +539,3 @@ const startResize = (event: MouseEvent): void => {
   document.addEventListener('mouseup', onMouseUp)
 }
 </script>
-
-<style scoped>
-/* 流式临时消息里的 Markdown 正文排版（内容由 v-html 渲染，只能用深度选择器控制样式） */
-.ai-md {
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--color-ink);
-}
-
-/* 流式分段渲染：块之间的间距由包裹层控制，最后一个块贴底不残留空隙 */
-.ai-md :deep(.ai-md-block) {
-  margin-bottom: 8px;
-}
-
-.ai-md :deep(.ai-md-block:last-child) {
-  margin-bottom: 0;
-}
-
-/* 尾段：纯文本降级，保留换行与缩进，长串自动换行 */
-.ai-md :deep(.ai-md-tail) {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* 标题 */
-.ai-md :deep(h1),
-.ai-md :deep(h2),
-.ai-md :deep(h3),
-.ai-md :deep(h4) {
-  margin-top: 14px;
-  margin-bottom: 6px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.ai-md :deep(h1) { font-size: 18px; }
-.ai-md :deep(h2) { font-size: 16px; }
-.ai-md :deep(h3) { font-size: 14px; }
-
-.ai-md :deep(h1:first-child),
-.ai-md :deep(h2:first-child),
-.ai-md :deep(h3:first-child) {
-  margin-top: 0;
-}
-
-/* 段落 */
-.ai-md :deep(p) {
-  margin: 0 0 8px;
-}
-
-.ai-md :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-/* 列表 */
-.ai-md :deep(ul),
-.ai-md :deep(ol) {
-  margin: 6px 0;
-  padding-left: 22px;
-}
-
-.ai-md :deep(li) {
-  margin: 3px 0;
-}
-
-/* 代码块 */
-.ai-md :deep(.code-block-wrapper) {
-  position: relative;
-  margin: 8px 0;
-}
-
-.ai-md :deep(.code-lang) {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  font-size: 10px;
-  color: var(--color-muted);
-  text-transform: uppercase;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  z-index: 1;
-}
-
-.ai-md :deep(.code-block) {
-  background: var(--color-paper);
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.ai-md :deep(code) {
-  background: var(--color-selected);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-}
-
-.ai-md :deep(pre code) {
-  background: transparent;
-  padding: 0;
-}
-
-/* 引用块 */
-.ai-md :deep(blockquote) {
-  margin: 8px 0;
-  padding: 6px 10px;
-  border-left: 3px solid var(--color-accent);
-  background: var(--color-selected);
-  border-radius: 0 6px 6px 0;
-}
-
-.ai-md :deep(blockquote p) {
-  margin: 0;
-}
-
-/* 链接 */
-.ai-md :deep(a) {
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-/* 表格 */
-.ai-md :deep(table) {
-  border-collapse: collapse;
-  margin: 8px 0;
-  width: 100%;
-  font-size: 12px;
-}
-
-.ai-md :deep(th),
-.ai-md :deep(td) {
-  border: 1px solid var(--color-line);
-  padding: 5px 8px;
-  text-align: left;
-}
-
-.ai-md :deep(th) {
-  background: var(--color-selected);
-  font-weight: 600;
-}
-
-/* 分割线 */
-.ai-md :deep(hr) {
-  border: none;
-  border-top: 1px solid var(--color-line);
-  margin: 12px 0;
-}
-
-/* 强调 */
-.ai-md :deep(strong) {
-  font-weight: 600;
-}
-</style>

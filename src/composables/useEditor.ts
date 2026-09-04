@@ -321,12 +321,16 @@ export const useMarkdownEditor = (
     selectedCommandIndex.value = 0;
   };
 
-  const refreshSlashMenu = (currentEditor: Editor): void => {
+  const refreshSlashMenu = (currentEditor: Editor, allowOpen = true): void => {
     const { selection } = currentEditor.state;
     if (!selection.empty) {
       closeSlashMenu();
       return;
     }
+
+    // 仅由"输入行为"（onUpdate）放行弹出；纯光标移动/点击定位（onSelectionUpdate）
+    // 只在菜单已打开时负责位置跟随与关闭，不应凭光标停在一个 "/" 附近就主动弹出。
+    if (!allowOpen && !slashMenuVisible.value) return;
 
     const { $from } = selection;
     const textBeforeCursor = $from.parent.textBetween(
@@ -398,7 +402,7 @@ export const useMarkdownEditor = (
         closeSlashMenu();
         return;
       }
-      refreshSlashMenu(editor.value);
+      refreshSlashMenu(editor.value, true);
     });
   };
 
@@ -1242,11 +1246,10 @@ export const useMarkdownEditor = (
     },
     onUpdate: ({ editor, transaction }) => {
       /*
-       * 斜杠菜单和 Emoji 菜单属于编辑器界面状态，必须在每次正文变化后刷新。
-       * 外部加载文档时虽然不能把 Markdown 回传给文档层，但仍要完成界面同步；
-       * 否则首次输入“/”可能因为加载事务被过滤而看不到菜单，直到下一次事务才恢复。
+       * 斜杠菜单属于"由输入召唤"的界面状态：只有在正文真正变化（用户键入“/”）
+       * 时才允许弹出。纯光标移动/点击定位不应触发它。
        */
-      refreshSlashMenu(editor);
+      refreshSlashMenu(editor, true);
       refreshEmojiMenu(editor);
 
       /*
@@ -1265,7 +1268,9 @@ export const useMarkdownEditor = (
       }
     },
     onSelectionUpdate: ({ editor }) => {
-      refreshSlashMenu(editor);
+      // 光标移动/点击定位只负责斜杠菜单的位置跟随与关闭，不主动弹出。
+      // 弹出必须由真正键入“/”的内容更新（onUpdate）触发，避免鼠标靠近文本就误弹。
+      refreshSlashMenu(editor, false);
       refreshEmojiMenu(editor);
       // 全选包含不可编辑的媒体节点，给编辑器根节点添加状态，统一显示整块选区。
       editor.view.dom.classList.toggle(
