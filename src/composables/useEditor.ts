@@ -783,11 +783,12 @@ export const useMarkdownEditor = (
   };
 
   const handleEditorMouseMove = (event: MouseEvent): void => {
-    if (draggedBlockPosition.value !== null || blockMenuVisible.value) return;
-
-    // 框选期间（含松开后等待 Delete 的阶段）由 window 级监听驱动选区更新，
-    // 这里不再改写手柄位置，让手柄固定在锚点块上。
-    if (multiSelectActive.value) return;
+    if (
+      draggedBlockPosition.value !== null ||
+      blockMenuVisible.value ||
+      multiSelectActive.value
+    )
+      return;
 
     const block = resolveTopLevelBlock(event.target);
     if (!block) return;
@@ -801,8 +802,6 @@ export const useMarkdownEditor = (
     const nextElement = event.relatedTarget as HTMLElement | null;
     if (nextElement?.closest("[data-block-control], [data-block-menu]")) return;
     if (blockMenuVisible.value) return;
-    // 框选期间手柄跟随锚点块，不能因鼠标离开编辑区而消失。
-    if (multiSelectActive.value) return;
     if (draggedBlockPosition.value === null) blockControlVisible.value = false;
   };
 
@@ -811,7 +810,6 @@ export const useMarkdownEditor = (
     if (nextElement?.closest("[data-block-menu]")) return;
     if (nextElement && editor.value?.view.dom.contains(nextElement)) return;
     if (blockMenuVisible.value) return;
-    if (multiSelectActive.value) return;
     if (draggedBlockPosition.value === null) blockControlVisible.value = false;
   };
 
@@ -1036,8 +1034,8 @@ export const useMarkdownEditor = (
   };
 
   // ===== 飞书式块多选 =====
-  // 鼠标悬停到内容块时左侧显示 ⋮⋮ 手柄；按住手柄上下拖动即可框选连续的顶层块，
-  // 松开后选区保持，按 Delete/Backspace 删除选中块，Esc 或点击正文取消。
+  // 在编辑区右侧选择轨道按下鼠标并上下拖动，框选连续的顶层块；松开后选区保持，
+  // 按 Delete/Backspace 删除选中块，Esc 或点击正文取消。
   // 纯计算逻辑（块索引换算、区间计算、Y 坐标定位）在 modules/blockMultiSelect.ts。
 
   const selectedBlockCount = (): number => {
@@ -1082,31 +1080,18 @@ export const useMarkdownEditor = (
     }
   };
 
-  // 按下手柄进入多选：锚点块 = 手柄所在块，手柄固定显示在锚点块上。
-  const startBlockMultiSelect = (anchorPosition: number): void => {
+  const startBlockMultiSelect = (clientY: number): void => {
     if (!editor.value) return;
+    const block = resolveBlockAtClientY(editor.value, clientY);
+    if (!block) return;
     closeBlockMenu();
     closeSlashMenu();
     closeEmojiMenu();
-    blockControlVisible.value = true;
+    blockControlVisible.value = false;
     multiSelectActive.value = true;
     multiSelectDragging.value = true;
-    multiSelectAnchor.value = anchorPosition;
-    multiSelectCurrent.value = anchorPosition;
-    // 让手柄贴住锚点块（拖动过程中不再由 mousemove 改写 activeBlock）。
-    const anchorIndex = blockPositionToIndex(editor.value, anchorPosition);
-    const anchorElement = anchorIndex >= 0
-      ? (editor.value.view.dom.children[anchorIndex] as HTMLElement | undefined)
-      : undefined;
-    const anchorNode = editor.value.state.doc.nodeAt(anchorPosition);
-    if (anchorElement && anchorNode) {
-      activeBlock.value = {
-        position: anchorPosition,
-        element: anchorElement,
-        isHeading: anchorNode.type.name === "heading",
-      };
-      void nextTick(refreshBlockControlPosition);
-    }
+    multiSelectAnchor.value = block.position;
+    multiSelectCurrent.value = block.position;
     syncMultiSelectHighlights();
   };
 
@@ -1150,9 +1135,6 @@ export const useMarkdownEditor = (
     if (!block) return;
     multiSelectCurrent.value = block.position;
     syncMultiSelectHighlights();
-    // 手柄跟随当前块，保持飞书式“手柄拖到哪，选区就延伸到哪”的反馈。
-    activeBlock.value = block;
-    refreshBlockControlPosition();
   };
 
   const finishBlockMultiSelect = (): void => {
@@ -1603,7 +1585,9 @@ export const useMarkdownEditor = (
     copyActiveBlockText,
     toggleActiveHeading,
     findHeadingSectionEnd,
+    handleBlockDragStart,
     handleBlockDragOver,
+    finishBlockDrag,
     handleBlockDrop,
     handleEditorKeyDown,
     // 飞书式块多选
@@ -1613,6 +1597,8 @@ export const useMarkdownEditor = (
     updateBlockMultiSelect,
     finishBlockMultiSelect,
     cancelBlockMultiSelect,
+    deleteSelectedBlocks,
+    selectedBlockCount,
     scrollToHeading,
   };
 };

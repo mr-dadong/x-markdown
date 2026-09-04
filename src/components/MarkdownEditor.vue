@@ -8,6 +8,24 @@
     <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
       :style="typographyStyle" @scroll="handleEditorScroll" />
 
+    <!-- 右侧选择轨道：按下并上下拖动可框选连续内容块，松开后按 Del 快速删除。
+      stopPropagation 防止松开时的 click 冒泡到编辑区根节点而立刻取消选区。 -->
+    <div v-if="editor && !modalOpen" data-block-select-track
+      class="absolute bottom-0 top-0 z-10 w-3"
+      :style="{ right: '14px' }" contenteditable="false"
+      @mousedown.prevent.stop="handleSelectTrackMouseDown" @click.stop />
+
+    <!-- 块多选提示条：拖动与选中期间常驻，实时显示块数并给出键盘操作提示。 -->
+    <div v-if="multiSelectActive" class="xmd-multiselect-hint" contenteditable="false">
+      <span>已选中 {{ selectedBlockCount() }} 个块</span>
+      <span class="xmd-multiselect-hint-keys">
+        <kbd class="slash-menu-key">Del</kbd>
+        <span>删除</span>
+        <kbd class="slash-menu-key">Esc</kbd>
+        <span>取消</span>
+      </span>
+    </div>
+
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowTableMenu"
       :tippy-options="{ placement: 'top', maxWidth: 720 }">
@@ -48,14 +66,13 @@
           @retry="retryInlineWriter" />
     </div>
 
-    <!-- 左侧手柄（飞书式）：悬停块时出现 ⋮⋮；按住手柄上下拖动即可框选连续块，
-      松开后保持选区，按 Delete 快速删除；单击手柄打开块菜单。 -->
+    <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
     <div v-if="blockControlVisible && activeBlock" data-block-control
       class="fixed z-20 flex h-7 items-center text-muted/45" :style="blockControlStyle" contenteditable="false"
       @mousemove.stop @mouseleave="handleBlockControlLeave">
-      <button type="button" title="拖动选择内容块"
+      <button type="button" draggable="true" title="拖动内容块"
         class="flex h-7 w-6 cursor-grab items-center justify-center rounded hover:bg-control-hover hover:text-secondary active:cursor-grabbing focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-        @mousedown.prevent.stop="handleBlockGripMouseDown" @click.stop>
+        @click.stop="toggleBlockMenu" @dragstart="handleBlockDragStart" @dragend="finishBlockDrag">
         <Icon icon="lucide:grip-vertical" :size="14" />
       </button>
       <!-- 折叠箭头靠近标题，拖拽柄留在外侧，操作层级更符合阅读方向。 -->
@@ -382,7 +399,9 @@ const {
   moveActiveBlock,
   copyActiveBlockText,
   toggleActiveHeading,
+  handleBlockDragStart,
   handleBlockDragOver,
+  finishBlockDrag,
   handleBlockDrop,
   scrollToHeading,
   // 飞书式块多选
@@ -391,6 +410,7 @@ const {
   updateBlockMultiSelect,
   finishBlockMultiSelect,
   cancelBlockMultiSelect,
+  selectedBlockCount,
 } = useMarkdownEditor(
   () => props.initialContent ?? '',
   emit,
@@ -904,42 +924,29 @@ const handleEditorAreaLeave = (event: MouseEvent): void => {
   scheduleLinkMenuClose()
 }
 
-// ===== 左侧手柄块多选（飞书式）=====
-// 按下手柄开始框选，拖动期间改用 window 级监听：指针移出编辑区也能继续选
-// （配合 useEditor 内的边缘自动滚动）。松开后选区保持，等待 Delete 删除。
-// 快速点击（无位移）则关闭多选并打开块菜单，与单击手柄的旧行为一致。
-let gripDragStart: { x: number; y: number } | null = null
-
-const handleBlockGripMouseMove = (event: MouseEvent): void => {
+// ===== 右侧选择轨道（飞书式块多选）=====
+// 按下轨道即开始框选，拖动期间改用 window 级监听：指针移出轨道甚至移出编辑区
+// 也能继续选（配合 useEditor 内的边缘自动滚动）。松开后选区保持，等待 Delete。
+const handleSelectTrackMouseMove = (event: MouseEvent): void => {
   updateBlockMultiSelect(event.clientY)
 }
 
-const handleBlockGripMouseUp = (event: MouseEvent): void => {
-  window.removeEventListener('mousemove', handleBlockGripMouseMove)
-  window.removeEventListener('mouseup', handleBlockGripMouseUp)
-  const isDrag = gripDragStart
-    ? Math.hypot(event.clientX - gripDragStart.x, event.clientY - gripDragStart.y) > 4
-    : false
-  gripDragStart = null
-  if (isDrag) {
-    finishBlockMultiSelect()
-  } else {
-    cancelBlockMultiSelect()
-    toggleBlockMenu()
-  }
+const handleSelectTrackMouseUp = (): void => {
+  window.removeEventListener('mousemove', handleSelectTrackMouseMove)
+  window.removeEventListener('mouseup', handleSelectTrackMouseUp)
+  finishBlockMultiSelect()
 }
 
-const handleBlockGripMouseDown = (event: MouseEvent): void => {
-  if (event.button !== 0 || !activeBlock.value) return
-  gripDragStart = { x: event.clientX, y: event.clientY }
-  startBlockMultiSelect(activeBlock.value.position)
-  window.addEventListener('mousemove', handleBlockGripMouseMove)
-  window.addEventListener('mouseup', handleBlockGripMouseUp)
+const handleSelectTrackMouseDown = (event: MouseEvent): void => {
+  if (event.button !== 0) return
+  startBlockMultiSelect(event.clientY)
+  window.addEventListener('mousemove', handleSelectTrackMouseMove)
+  window.addEventListener('mouseup', handleSelectTrackMouseUp)
 }
 
 onUnmounted(() => {
-  window.removeEventListener('mousemove', handleBlockGripMouseMove)
-  window.removeEventListener('mouseup', handleBlockGripMouseUp)
+  window.removeEventListener('mousemove', handleSelectTrackMouseMove)
+  window.removeEventListener('mouseup', handleSelectTrackMouseUp)
 })
 
 const selectActiveLink = () => {
@@ -1225,6 +1232,45 @@ defineExpose<EditorHandle>({
 
 :root.dark .tiptap .xmd-block-selected {
   background-color: color-mix(in srgb, var(--color-link) 14%, transparent);
+}
+
+/* 右侧选择轨道：平时隐形，悬停时给一点提示；按下拖动即开始框选。 */
+[data-block-select-track] {
+  cursor: default;
+}
+
+[data-block-select-track]:hover {
+  background-color: color-mix(in srgb, var(--color-link) 8%, transparent);
+  border-radius: 4px;
+}
+
+/* 多选提示条：固定在编辑区底部居中，不拦截鼠标事件。 */
+.xmd-multiselect-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background-color: var(--color-ink);
+  color: var(--color-inverse);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  user-select: none;
+}
+
+.xmd-multiselect-hint-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.75;
 }
 
 /*
