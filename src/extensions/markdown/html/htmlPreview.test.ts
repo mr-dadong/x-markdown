@@ -41,4 +41,17 @@ describe('HTML 隔离预览', () => {
     assert.match(document, /style-src 'unsafe-inline'/)
     assert.match(document, /form-action 'none'/)
   })
+
+  test('不再以 flex 强制压缩内容宽度，保留横向滚动而非裁掉内容', () => {
+    const document = createHtmlPreviewDocument('<div style="width: 900px">宽内容</div>')
+
+    // 去掉旧的 display:flex / flex-direction:column 压缩，避免固定宽度内容被压扁。
+    assert.doesNotMatch(document, /body\s*\{[^}]*display:\s*flex/)
+    assert.doesNotMatch(document, /body\s*>\s*\*\s*\{[^}]*min-width:\s*0/)
+    // 宽度溢出时允许横向滚动，而不是 overflow hidden 裁掉。
+    assert.match(document, /body\s*\{[^}]*overflow-x:\s*auto/)
+    assert.doesNotMatch(document, /body\s*\{[^}]*overflow:\s*hidden/)
+    // 常见定宽元素保留固有宽度，不被压缩。
+    assert.match(document, /pre, table, video, canvas, svg/)
+  })
 })

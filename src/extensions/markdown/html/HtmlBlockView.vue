@@ -3,18 +3,30 @@
     <div class="flex w-full flex-col overflow-hidden rounded-md border bg-paper"
       :class="editing || props.selected ? 'border-accent' : 'border-line'" contenteditable="false">
       <!-- 常驻的模块身份与编辑入口，让用户无需试探就能发现 HTML 预览可以继续编辑。 -->
-      <button type="button"
-        class="flex h-9 w-full items-center justify-between border-b border-line bg-toolbar px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
-        title="编辑 HTML 源码" @click.stop="startEditing">
-        <span class="flex items-center gap-2 text-[11px] font-semibold text-secondary">
-          <Icon icon="lucide:file-code-2" :size="14" class="text-danger" />
-          <span>HTML 预览</span>
-        </span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted">
+      <div
+        class="flex h-9 w-full items-center justify-between gap-2 border-b border-line bg-toolbar px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent">
+        <button type="button"
+          class="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+          title="编辑 HTML 源码" @click.stop="startEditing">
+          <span class="flex items-center gap-2 text-[11px] font-semibold text-secondary">
+            <Icon icon="lucide:file-code-2" :size="14" class="text-danger" />
+            <span>HTML 预览</span>
+          </span>
+        </button>
+        <span class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted">
           <span>{{ editing ? '正在编辑源码' : '点击编辑源码' }}</span>
-          <Icon icon="lucide:pencil" :size="13" />
+          <button type="button" title="编辑 HTML 源码"
+            class="flex h-6 w-6 items-center justify-center rounded hover:bg-line hover:text-secondary"
+            @click.stop="startEditing">
+            <Icon icon="lucide:pencil" :size="13" />
+          </button>
+          <button type="button" title="放大预览"
+            class="flex h-6 w-6 items-center justify-center rounded hover:bg-line hover:text-secondary"
+            @click.stop="openPreviewModal">
+            <Icon icon="lucide:maximize-2" :size="14" />
+          </button>
         </span>
-      </button>
+      </div>
 
       <div class="relative flex min-h-14 w-full cursor-text px-3 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
         role="button" tabindex="0" title="点击编辑 HTML 源码" @click.stop="startEditing"
@@ -51,6 +63,42 @@
         <HtmlSourceEditor v-model="draft" :line-wrapping="lineWrapping" :style="sourceEditorStyle" @submit="saveEditing" />
       </div>
     </MarkdownModulePopover>
+
+    <!-- 放大预览：全屏蒙层，内容保留真实宽度，超高/超宽时在蒙层内滚动。 -->
+    <Teleport to="body">
+      <div v-if="previewOpen" ref="previewModalRoot" tabindex="-1"
+        class="fixed inset-0 z-[160] flex flex-col bg-black/45 p-6 outline-none"
+        role="dialog" aria-modal="true" aria-label="HTML 放大预览"
+        @mousedown.self="closePreviewModal" @keydown.esc.prevent="closePreviewModal">
+        <div class="mb-4 flex shrink-0 items-center justify-between">
+          <span class="flex items-center gap-2 text-[13px] font-semibold text-ink">
+            <span class="flex h-7 w-7 items-center justify-center rounded-md bg-panel text-muted">
+              <Icon icon="lucide:maximize-2" :size="15" />
+            </span>
+            <span>HTML 放大预览</span>
+          </span>
+          <div class="flex items-center gap-1">
+            <button type="button"
+              class="flex h-7 items-center gap-1.5 rounded-md border border-line bg-paper px-2 text-[12px] text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+              @click="openInNewWindow">
+              <Icon icon="lucide:external-link" :size="13" />
+              <span>在新窗口打开</span>
+            </button>
+            <button type="button" title="关闭"
+              class="flex h-7 w-7 items-center justify-center rounded-md border border-line bg-paper text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+              @click="closePreviewModal">
+              <Icon icon="lucide:x" :size="15" />
+            </button>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-line bg-paper">
+          <iframe v-if="hasVisiblePreview" ref="previewModalFrame" :srcdoc="previewDocument"
+            sandbox="allow-same-origin" title="HTML 放大预览"
+            class="block w-full border-0 bg-transparent" :style="previewModalFrameStyle"
+            @load="handlePreviewModalLoad" />
+        </div>
+      </div>
+    </Teleport>
   </NodeViewWrapper>
 </template>
 
@@ -73,6 +121,13 @@ const sourceBeforeEditing = ref(source.value)
 const previewFrame = ref<HTMLIFrameElement | null>(null)
 const previewHeight = ref(56)
 let previewResizeObserver: ResizeObserver | null = null
+
+// 放大预览状态：复用同样的预览文档，但允许在蒙层内自由滚动并保留内容真实宽度。
+const previewOpen = ref(false)
+const previewModalRoot = ref<HTMLDivElement | null>(null)
+const previewModalFrame = ref<HTMLIFrameElement | null>(null)
+const previewModalHeight = ref(56)
+let previewModalResizeObserver: ResizeObserver | null = null
 const lineNumbers = computed(() => Array.from({ length: draft.value.split('\n').length }, (_, index) => index + 1))
 // 少量源码按实际行数收紧高度，较长源码达到上限后在窗口内部滚动。
 const sourceEditorStyle = computed(() => ({
@@ -82,6 +137,7 @@ const sourceEditorStyle = computed(() => ({
 const previewDocument = computed(() => createHtmlPreviewDocument(source.value))
 const hasVisiblePreview = computed(() => source.value.trim().length > 0)
 const previewFrameStyle = computed(() => ({ height: `${previewHeight.value}px` }))
+const previewModalFrameStyle = computed(() => ({ height: `${previewModalHeight.value}px` }))
 
 const disconnectPreviewObserver = (): void => {
   previewResizeObserver?.disconnect()
@@ -109,6 +165,77 @@ const handlePreviewLoad = (): void => {
   observer.observe(frameDocument.documentElement)
 }
 
+const disconnectPreviewModalObserver = (): void => {
+  previewModalResizeObserver?.disconnect()
+  previewModalResizeObserver = null
+}
+
+const updatePreviewModalHeight = (): void => {
+  const frameDocument = previewModalFrame.value?.contentDocument
+  if (!frameDocument) return
+  const bodyHeight = frameDocument.body?.scrollHeight ?? 0
+  const documentHeight = frameDocument.documentElement?.scrollHeight ?? 0
+  previewModalHeight.value = Math.max(32, bodyHeight, documentHeight)
+}
+
+const handlePreviewModalLoad = (): void => {
+  disconnectPreviewModalObserver()
+  const frameDocument = previewModalFrame.value?.contentDocument
+  if (!frameDocument?.body) return
+
+  updatePreviewModalHeight()
+  // 放大预览走高的方式：iframe 撑到内容真实高度，纵向滚动交给外层蒙层容器。
+  const observer = new ResizeObserver(updatePreviewModalHeight)
+  previewModalResizeObserver = observer
+  observer.observe(frameDocument.body)
+  observer.observe(frameDocument.documentElement)
+}
+
+const openPreviewModal = (): void => {
+  if (previewOpen.value) return
+  previewOpen.value = true
+  previewModalHeight.value = 56
+  // 聚焦到蒙层根节点，让 Esc 与键盘事件可用；容器跟随内容高度后用户即可上下滚动。
+  void nextTick(() => previewModalRoot.value?.focus())
+}
+
+const closePreviewModal = (): void => {
+  if (!previewOpen.value) return
+  previewOpen.value = false
+  disconnectPreviewModalObserver()
+  // 关闭后把焦点还给主编辑区（TipTap 的内容可编辑根节点），避免键盘事件残留。
+  const editorRoot = document.querySelector('.ProseMirror')
+  if (editorRoot instanceof HTMLElement) editorRoot.focus()
+}
+
+// 在新窗口打开一份只读自包含 HTML：不开放脚本/表单，仅用于查看渲染效果。
+const openInNewWindow = (): void => {
+  if (!hasVisiblePreview.value) return
+  // 同时带上有内容的 body 和用户自身的 style 块，保证新窗口渲染样式与预览一致。
+  const bodyMatch = previewDocument.value.match(/<body>([\s\S]*)<\/body>/)
+  const userCssMatch = previewDocument.value.match(/<style data-xmd-user-css>([\s\S]*?)<\/style>/)
+  const safeContent = bodyMatch?.[1] ?? ''
+  const userCss = userCssMatch?.[1] ?? ''
+  const doc = `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'">
+<style>
+  html { color-scheme: light dark; background: #ffffff; }
+  body { padding: 24px; margin: 0; color: light-dark(#252525, #e4e6eb); background: transparent; }
+</style>
+<style>${userCss}</style>
+</head>
+<body>${safeContent}</body>
+</html>`
+  const blob = new Blob([doc], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  // 新窗口打开后等一小段时间再释放 URL，避免导航前被回收。
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 const startEditing = (): void => {
   if (editing.value) return
   sourceBeforeEditing.value = source.value
@@ -134,11 +261,14 @@ watch(source, (value) => {
   void nextTick(updatePreviewHeight)
 })
 
-// HTML 仍经过 DOMPurify 过滤后展示；源码输入则立即同步到当前文档节点。
+// 编辑期间源码变化，放大预览使用同一个 previewDocument，随节点属性实时刷新。
 watch(draft, (value) => {
   if (!editing.value || value === source.value) return
   props.updateAttributes({ source: value })
 })
 
-onBeforeUnmount(disconnectPreviewObserver)
+onBeforeUnmount(() => {
+  disconnectPreviewObserver()
+  disconnectPreviewModalObserver()
+})
 </script>
