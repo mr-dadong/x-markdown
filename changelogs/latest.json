@@ -1,18 +1,23 @@
 {
-  "latest": "1.2.7",
+  "latest": "1.2.8",
   "releases": [
     {
-      "version": "1.2.7",
+      "version": "1.2.8",
       "date": "2026-09-04",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：AI 聊天支持基于当前文档内容的智能检索，回复会自动参考文档上下文，结果更贴合文档内容",
-        "新增：AI 聊天窗口上翻历史消息时显示「回到底部」按钮，点击可快速回到最新回复，贴近底部时自动跟随滚动",
-        "新增：AI 聊天侧栏「正在思考…」状态新增转圈动画，等待 AI 回复时反馈更清晰",
-        "优化：AI 回复流式渲染按段落增量更新，长文本生成更流畅、更省资源",
-        "修复：AI 聊天输入框在输入法组合输入时不再误触发送，回车键行为更稳定",
-        "修复：切换到大纲面板或打开新文档时大纲立即重建，不再显示空内容或残留旧大纲"
+        "新增：代码块内双击选中某个词时，自动高亮当前代码块中其它相同文本，快速定位同名标识符，效果类似 VS Code 的匹配高亮",
+        "优化：切换文档标签时自动记住每个文档的阅读位置，切回标签后恢复到原来的视图区域，超长文档来回查看无需反复滚动",
+        "优化：阅读位置在渲染视图与源码视图下分别记忆，两个模式来回切换也能回到对应位置",
+        "优化：关闭文档后自动清理该文档的记忆状态，快速连续切换标签时只恢复最终停留的文档，不会互相覆盖",
+        "新增：提示块拆分为 5 种类型插入命令（备注块、提示块、重要块、警告块、注意块），插入时类型直接定死",
+        "优化：提示块编辑改为与公式块、Mermaid 一致的源码编辑方式，点击块弹出深色源码编辑器，直接编辑正文",
+        "优化：提示块标题不再单独编辑，卡片自动显示类型名；新块默认不可折叠",
+        "优化：斜杠命令面板移除底部键盘提示条（选择 / 插入 / 关闭），面板更简洁",
+        "优化：斜杠命令菜单新增「提示块」分组，备注块、提示块、重要块、警告块、注意块统一归入该组",
+        "优化：斜杠命令分组顺序固定，扩展内容组始终排在最后",
+        "优化：斜杠命令面板隐藏右侧滚动条，命令较多时仍可正常滚动浏览"
       ],
       "downloads": {
         "windows": {
@@ -23,9 +28,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.2.7-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Windows-x64.exe",
-              "sha256": "71a9ca4bba41a2f5e0c74d80f25f59ac918631c1efa601c9623aa669438a789e"
+              "filename": "XMD-1.2.8-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.8/XMD-1.2.8-Windows-x64.exe",
+              "sha256": "c5ec11efe6212098d856c2495e411ab1b3b2ad5656bc653505bd2ef0250346de"
             }
           ]
         },
@@ -37,17 +42,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.7-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-macOS-arm64.dmg",
-              "sha256": "e00899b9b3da3f6dd1b58dc374ca57188bac21ca019301804c62fab22db82600"
+              "filename": "XMD-1.2.8-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.8/XMD-1.2.8-macOS-arm64.dmg",
+              "sha256": "f06c0509af2c06566492dbf4433e5a8c6100a2a90ada509ef2b598a6aabe699a"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.7-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-macOS-x64.dmg",
-              "sha256": "8cd2a7099d0294920434a026472ce5b984e117f2302767ff76777ac980db2d27"
+              "filename": "XMD-1.2.8-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.8/XMD-1.2.8-macOS-x64.dmg",
+              "sha256": "183d512643e7b842ddd2a6853c747a47ce35680a3f153f3c98efc29b37e11934"
             }
           ]
         },
@@ -59,17 +64,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.7-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Linux-x86_64.AppImage",
-              "sha256": "81700dbf8d6ca83c728b209351621023cc1da2d74e8f17d4aaa23090104ae582"
+              "filename": "XMD-1.2.8-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.8/XMD-1.2.8-Linux-x86_64.AppImage",
+              "sha256": "b18ff5c18caf7b109e458eafae2965da60d3be011ea39d731959f040bb364b96"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.7-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.7/XMD-1.2.7-Linux-arm64.AppImage",
-              "sha256": "6862ed6bbb89ecb47c616f48bae18f9c5bc627309e06d44f120009a7bee86f6a"
+              "filename": "XMD-1.2.8-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.8/XMD-1.2.8-Linux-arm64.AppImage",
+              "sha256": "8096aed69c4e9c33de1abf22f4b41a6c0570090be78ee7058c99a5d635dbca25"
             }
           ]
         }
