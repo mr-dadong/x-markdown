@@ -12,6 +12,8 @@ export interface CodeBlockStyle {
   menuSearchClass: string
   menuOptionClass: string
   menuSelectedClass: string
+  // 键盘上下键高亮项的底色，与各主题的悬停色保持一致，鼠标与键盘视觉统一。
+  menuHighlightClass: string
   preClass: string
   codeClass: string
   tokenClass: string
@@ -37,6 +39,7 @@ export const codeBlockStyles: CodeBlockStyle[] = [
     menuSearchClass: 'border-[#c9c9c9] bg-[#f7f7f7] focus-within:border-[#777b83] dark:border-[#494c53] dark:bg-[#27292e] dark:focus-within:border-[#8b9099]',
     menuOptionClass: 'hover:bg-[#dedede] hover:text-[#202124] focus-visible:bg-[#dedede] dark:hover:bg-[#414349] dark:hover:text-white dark:focus-visible:bg-[#414349]',
     menuSelectedClass: 'bg-[#d8d8d8] font-medium text-[#202124] dark:bg-[#414349] dark:text-white',
+    menuHighlightClass: 'bg-[#dedede] text-[#202124] dark:bg-[#414349] dark:text-white',
     preClass: '!border-[#3b3e45] !bg-[#24262b]',
     codeClass: '!text-[#d8dee9]',
     tokenClass: '[&_.hljs-attr]:!text-[#5dd8ff] [&_.hljs-built_in]:!text-[#5dd8ff] [&_.hljs-comment]:!text-[#6c7986] [&_.hljs-keyword]:!text-[#fc5fa3] [&_.hljs-literal]:!text-[#d0bf69] [&_.hljs-number]:!text-[#d0bf69] [&_.hljs-quote]:!text-[#6c7986] [&_.hljs-string]:!text-[#fc6a5d] [&_.hljs-title]:!text-[#67b7a4] [&_.hljs-type]:!text-[#5dd8ff]',
@@ -56,6 +59,7 @@ export const codeBlockStyles: CodeBlockStyle[] = [
     menuSearchClass: 'border-[#3d5748] bg-[#101a14] focus-within:border-[#8eb69a]',
     menuOptionClass: 'hover:bg-[#263b2e] hover:text-[#e1f3e6] focus-visible:bg-[#263b2e]',
     menuSelectedClass: 'bg-[#263b2e] font-medium text-[#e1f3e6]',
+    menuHighlightClass: 'bg-[#263b2e] text-[#e1f3e6]',
     preClass: '!border-[#31463a] !bg-[#101a14]',
     codeClass: '!text-[#c7e4ce]',
     tokenClass: '[&_.hljs-attr]:!text-[#8dd7a2] [&_.hljs-built_in]:!text-[#7ecf98] [&_.hljs-comment]:!text-[#66806d] [&_.hljs-keyword]:!text-[#b7e07e] [&_.hljs-literal]:!text-[#e0c77e] [&_.hljs-number]:!text-[#e0c77e] [&_.hljs-quote]:!text-[#66806d] [&_.hljs-string]:!text-[#a6d8b3] [&_.hljs-title]:!text-[#63c68a] [&_.hljs-type]:!text-[#8dd7a2]',
@@ -75,6 +79,7 @@ export const codeBlockStyles: CodeBlockStyle[] = [
     menuSearchClass: 'border-[#c9c2b5] bg-[#faf8f2] focus-within:border-[#706b61]',
     menuOptionClass: 'hover:bg-[#ded8cc] hover:text-[#292720] focus-visible:bg-[#ded8cc]',
     menuSelectedClass: 'bg-[#ded8cc] font-medium text-[#292720]',
+    menuHighlightClass: 'bg-[#ded8cc] text-[#292720]',
     preClass: '!border-[#d7d2c8] !bg-[#faf8f2]',
     codeClass: '!text-[#34322d]',
     tokenClass: '[&_.hljs-attr]:!text-[#006a83] [&_.hljs-built_in]:!text-[#006a83] [&_.hljs-comment]:!text-[#8b877d] [&_.hljs-keyword]:!text-[#9f2254] [&_.hljs-literal]:!text-[#805b00] [&_.hljs-number]:!text-[#805b00] [&_.hljs-quote]:!text-[#8b877d] [&_.hljs-string]:!text-[#a13b27] [&_.hljs-title]:!text-[#26715d] [&_.hljs-type]:!text-[#006a83]',
@@ -94,6 +99,7 @@ export const codeBlockStyles: CodeBlockStyle[] = [
     menuSearchClass: 'border-[#385071] bg-[#111b2b] focus-within:border-[#82aaff]',
     menuOptionClass: 'hover:bg-[#2b3e5b] hover:text-white focus-visible:bg-[#2b3e5b]',
     menuSelectedClass: 'bg-[#2b3e5b] font-medium text-white',
+    menuHighlightClass: 'bg-[#2b3e5b] text-white',
     preClass: '!border-[#283a55] !bg-[#111b2b]',
     codeClass: '!text-[#d2dced]',
     tokenClass: '[&_.hljs-attr]:!text-[#77c7d9] [&_.hljs-built_in]:!text-[#77c7d9] [&_.hljs-comment]:!text-[#64758e] [&_.hljs-keyword]:!text-[#c792ea] [&_.hljs-literal]:!text-[#f0c674] [&_.hljs-number]:!text-[#f0c674] [&_.hljs-quote]:!text-[#64758e] [&_.hljs-string]:!text-[#c3e88d] [&_.hljs-title]:!text-[#82aaff] [&_.hljs-type]:!text-[#89ddff]',

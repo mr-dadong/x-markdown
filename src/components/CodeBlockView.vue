@@ -31,6 +31,17 @@
           <kbd class="flex h-5 items-center rounded border border-[#d0d0d0] px-1.5 dark:border-[#4b4e55]">Ctrl ↵</kbd>
           <span>结束代码块</span>
         </span>
+        <!-- 换行切换按钮：与设置面板的“代码块内自动换行”共用同一个开关，
+             开启时用选中底色高亮，方便一眼看出当前状态。 -->
+        <button
+          type="button"
+          :title="settings.codeWrap ? '关闭自动换行' : '开启自动换行'"
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
+          :class="[activeCodeBlockStyle.headerHoverClass, settings.codeWrap ? activeCodeBlockStyle.menuSelectedClass : activeCodeBlockStyle.headerControlClass]"
+          @click.stop="settings.codeWrap = !settings.codeWrap"
+        >
+          <Icon icon="lucide:wrap-text" :size="14" />
+        </button>
         <button
           type="button"
           :title="copied ? '已复制' : '复制代码'"
@@ -43,8 +54,10 @@
       </div>
     </div>
 
-    <pre class="!m-0 flex !rounded-b-md !rounded-t-none !px-4 !py-4" :class="activeCodeBlockStyle.preClass"><span
-      v-if="settings.codeLineNumbers"
+    <!-- 换行开启时文字折行显示；关闭时保留完整行并横向滚动。
+         折行后行号与代码行不再逐行对应，此时隐藏行号列避免错位。 -->
+    <pre class="!m-0 flex !rounded-b-md !rounded-t-none !px-4 !py-4" :class="[activeCodeBlockStyle.preClass, settings.codeWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre overflow-x-auto']"><span
+      v-if="settings.codeLineNumbers && !settings.codeWrap"
       contenteditable="false"
       class="mr-4 flex shrink-0 select-none flex-col border-r border-current pr-3 text-right opacity-60"
       :class="activeCodeBlockStyle.codeClass"

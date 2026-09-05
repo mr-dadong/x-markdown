@@ -222,7 +222,7 @@
         </span>
         <div class="flex flex-col items-center gap-0.5">
           <span class="text-[12px] font-medium text-secondary">没有匹配的命令</span>
-          <span class="text-[11px] text-muted">换个关键词，或按 Esc 关闭</span>
+          <span class="text-[11px] text-muted">换个关键词，或按 Esc / Enter 关闭</span>
         </div>
       </div>
     </div>
@@ -231,8 +231,9 @@
 
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
-import { NodeSelection } from '@tiptap/pm/state'
-import type { Props as TippyProps } from 'tippy.js'
+import { NodeSelection, type Selection } from '@tiptap/pm/state'
+import type { ResolvedPos } from '@tiptap/pm/model'
+import type { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
@@ -555,6 +556,7 @@ watch(showAiWriterInput, (value) => {
 
 // AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
 // AI 实时编写期间不弹出：操作由底部状态栏承接，弹出动作条会遮挡正在生成的内容。
+// 选中文字位于代码块内时不弹出：AI 润色/重写等动作对代码无意义。
 const shouldShowAiMenu = (): boolean => {
   if (props.modalOpen) return false
   // 刚取消时不显示，避免闪烁
@@ -564,18 +566,49 @@ const shouldShowAiMenu = (): boolean => {
   // 如果正在流式处理或有结果，也显示
   if (inlineAiStreaming.value || inlineAiResult.value || inlineAiError.value) return true
   const { selection } = editor.value?.state ?? {}
-  if (!selection || selection.empty) return false
+  if (!selection || selection.empty) {
+    // 选区清空视为结束上一次“添加到选取”的隐藏状态，下次选中文本时恢复弹出。
+    aiMenuDismissedRange = null
+    return false
+  }
+  // 判断当前选区是否仍是点击“添加到选取”时的那一段：相同则继续隐藏动作条。
+  const isSameDismissedRange = aiMenuDismissedRange !== null
+    && selection.from === aiMenuDismissedRange.from
+    && selection.to === aiMenuDismissedRange.to
+  // 选区已变化（用户重新选择了其他文本），恢复动作条弹出。
+  if (!isSameDismissedRange) aiMenuDismissedRange = null
   if (isTableSelection(selection)) return false
+  // 选区落在代码块内时，AI 动作条不弹出：润色/重写等操作对代码无意义。
+  if (isSelectionInCodeBlock(selection)) return false
   // 点击公式、Mermaid、图片等原子节点会形成 NodeSelection（整节点选中而非文本选区），
   // AI 润色/重写等动作对它们无意义，不弹出动作条。
   if (selection instanceof NodeSelection) return false
+  // 点击“添加到选取”后，同一段选区保持动作条隐藏，直到用户改变选区。
+  if (isSameDismissedRange) return false
   return true
+}
+
+// 判断选区是否完全位于代码块内：检查选区两端各自向上找到的祖先节点。
+const isSelectionInCodeBlock = (selection: Selection): boolean => {
+  return isPositionInCodeBlock(selection.$anchor) || isPositionInCodeBlock(selection.$head)
+}
+
+// 从给定位置向上逐层查找，命中 codeBlock 节点即认为处于代码块内。
+const isPositionInCodeBlock = (pos: ResolvedPos): boolean => {
+  for (let depth = pos.depth; depth > 0; depth -= 1) {
+    if (pos.node(depth).type.name === 'codeBlock') return true
+  }
+  return false
 }
 
 // 添加选中文本到 AI Chat 输入框
 const addToSelection = (): void => {
   const text = getSelectionText()
   if (!text.trim()) return
+  // 记录本次选区并立即隐藏动作条：添加成功后不再遮挡正文，选区变化后自动恢复弹出。
+  const { from, to } = editor.value?.state.selection ?? { from: -1, to: -1 }
+  aiMenuDismissedRange = { from, to }
+  aiMenuTippy?.hide()
   emit('add-to-selection', text)
 }
 
@@ -603,11 +636,17 @@ const blockActionSeparators = [2, 3, 5]
 
 const editorShell = ref<HTMLElement | null>(null)
 
-// AI 菜单默认显示在选区上方；顶部空间不足时，以编辑区为边界翻转到下方，避免被文档标签栏裁掉。
+// AI 动作条默认显示在选区上方；顶部空间不足时，以编辑区为边界翻转到下方，避免被文档标签栏裁掉。
+// aiMenuTippy 保存 tippy 实例：点击“添加到选取”后需要主动隐藏动作条，
+// 因为按钮用 @mousedown.prevent 不会产生编辑器事务，BubbleMenu 插件不会自动重新求值隐藏。
+let aiMenuTippy: TippyInstance | null = null
+// 记录点击“添加到选取”时的选区范围：同一段选区保持动作条隐藏，选区变化（含清空）后恢复弹出。
+let aiMenuDismissedRange: { from: number; to: number } | null = null
 const aiMenuTippyOptions: Partial<TippyProps> = {
   placement: 'top',
   maxWidth: 600,
   onCreate: (instance) => {
+    aiMenuTippy = instance
     const boundary = editorShell.value
     if (!boundary) return
 

@@ -1,15 +1,6 @@
 <template>
   <aside class="flex h-full w-[292px] shrink-0 flex-col overflow-hidden border-r border-line bg-panel">
-    <div class="flex shrink-0 flex-col gap-3 border-b border-line px-4 py-3">
-      <div v-if="!currentDir" class="flex items-center">
-        <button type="button"
-          class="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-line bg-paper px-2 text-[11px] font-medium text-secondary hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-          @click="selectWorkspace">
-          <Icon icon="lucide:folder-open" :size="14" />
-          <span>打开文件夹</span>
-        </button>
-      </div>
-
+    <div class="flex shrink-0 flex-col border-b border-line px-4 py-3">
       <div class="flex h-8 items-center rounded-md border border-line/60 bg-paper p-0.5">
         <button v-for="tab in tabs" :key="tab.id" type="button"
           class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
@@ -39,7 +30,7 @@
               <Icon icon="lucide:folder-open" :size="19" />
             </div>
             <p class="text-[13px] font-medium text-secondary">尚未打开项目</p>
-            <p class="text-[11px] leading-5 text-muted">选择一个文件夹，在独立工作区中浏览 Markdown 文档。</p>
+            <p class="text-[11px] leading-5 text-muted">打开一个 Markdown 文档后，这里会显示同级文件。</p>
           </div>
 
           <div v-else-if="files.length === 0"
@@ -221,30 +212,35 @@ const runFileTreeAction = async (action: FileTreeAction): Promise<void> => {
   }
 }
 
+// 文件树始终跟随当前打开文档：根目录即当前文件所在目录，切换文件时立即刷新。
+// 打开文件入口（侧栏点击、最近文件、文件菜单、文件关联）最终都会走到
+// currentFilePath 变化，因此在这里统一重新定位目录，保证侧栏展示的始终是
+// 当前文件所在目录，而不是某个固定保存的工作区目录。
+let loadFilesSequence = 0
 const loadFiles = async (): Promise<void> => {
-  if (!currentDir.value) {
+  const sequence = ++loadFilesSequence
+  const filePath = props.currentFilePath
+  if (!filePath) {
+    currentDir.value = null
     files.value = []
     return
   }
 
   try {
-    const items = await fileSystemService.readDirectory(currentDir.value)
+    const dirPath = await fileSystemService.getDirectoryName(filePath)
+    // 快速连续切换文档时丢弃过期的目录读取，避免旧目录覆盖新目录。
+    if (sequence !== loadFilesSequence) return
+    currentDir.value = dirPath
+    // 重新监听当前目录，目录内文件变动（新建、删除、改名）后自动刷新列表。
+    await fileSystemService.watchWorkspace(dirPath)
+    if (sequence !== loadFilesSequence) return
+    const items = await fileSystemService.readDirectory(dirPath)
+    if (sequence !== loadFilesSequence) return
     files.value = items.filter((item) => item.isDirectory || isMarkdownFile(item.name))
   } catch (error) {
     console.error('读取目录失败:', error)
     files.value = []
   }
-}
-
-const openWorkspace = async (directoryPath: string): Promise<void> => {
-  currentDir.value = directoryPath
-  await fileSystemService.watchWorkspace(directoryPath)
-  await loadFiles()
-}
-
-const selectWorkspace = async (): Promise<void> => {
-  const directoryPath = await fileSystemService.selectWorkspace()
-  if (directoryPath) await openWorkspace(directoryPath)
 }
 
 const scheduleWorkspaceRefresh = (): void => {
@@ -370,27 +366,18 @@ watch(
   },
 )
 
-onMounted(async () => {
-  stopWorkspaceListener = fileSystemService.onWorkspaceChanged(scheduleWorkspaceRefresh)
-  const savedWorkspace = await fileSystemService.getWorkspace()
-  if (savedWorkspace) {
-    try {
-      await openWorkspace(savedWorkspace)
-      return
-    } catch (error) {
-      console.error('恢复工作区失败:', error)
-    }
-  }
-  if (props.currentFilePath) {
-    const directoryPath = await fileSystemService.getDirectoryName(props.currentFilePath)
-    await openWorkspace(directoryPath)
-  }
-})
+// 切换文档时文件树跟随当前文件目录刷新（旧工作区固定目录逻辑已移除）。
+// 侧栏挂载时立即按当前打开的文档定位目录；尚未打开文档时保持空状态。
+watch(
+  () => props.currentFilePath,
+  () => {
+    void loadFiles()
+  },
+  { immediate: true },
+)
 
-watch(() => props.currentFilePath, async (filePath) => {
-  if (currentDir.value || !filePath) return
-  const directoryPath = await fileSystemService.getDirectoryName(filePath)
-  await openWorkspace(directoryPath)
+onMounted(() => {
+  stopWorkspaceListener = fileSystemService.onWorkspaceChanged(scheduleWorkspaceRefresh)
 })
 
 onUnmounted(() => {

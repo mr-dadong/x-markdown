@@ -16,7 +16,7 @@
       v-if="menuOpen"
       class="absolute left-0 top-9 z-30 flex w-48 flex-col rounded-lg border p-2"
       :class="style.menuClass"
-      @keydown.esc.stop="menuOpen = false"
+      @keydown="handleMenuKeydown"
     >
       <div class="mb-2 flex h-9 items-center gap-2 rounded-md border px-2.5" :class="style.menuSearchClass">
         <Icon icon="lucide:search" :size="13" class="shrink-0" />
@@ -31,13 +31,19 @@
         />
       </div>
 
-      <div class="editor-scroll flex max-h-56 flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1">
+      <!-- 隐藏右侧竖向滚动条但保留滚动能力，列表较长时用上下键或滚轮仍然可以滚动。 -->
+      <div
+        ref="listRef"
+        class="[scrollbar-width:none] flex max-h-56 flex-col gap-0.5 overflow-y-auto overscroll-contain"
+      >
         <button
-          v-for="language in filteredLanguages"
+          v-for="(language, index) in filteredLanguages"
           :key="language.value"
           type="button"
           class="flex h-8 shrink-0 items-center justify-between rounded-md px-2 text-left text-[10.5px] outline-none"
-          :class="language.value === modelValue ? style.menuSelectedClass : style.menuOptionClass"
+          :data-language-highlighted="index === highlightedIndex || undefined"
+          :class="index === highlightedIndex ? style.menuHighlightClass : language.value === modelValue ? style.menuSelectedClass : style.menuOptionClass"
+          @mouseenter="highlightedIndex = index"
           @click.stop="selectLanguage(language.value)"
         >
           <span class="min-w-0 truncate">{{ language.label }}</span>
@@ -54,7 +60,7 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue/offline'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { CodeBlockStyle } from '../../modules/codeBlockStyles'
 import { codeBlockLanguages, getCodeBlockLanguageLabel } from '../../modules/codeBlockLanguages'
 
@@ -64,7 +70,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const menuOpen = ref(false)
 const picker = ref<HTMLElement | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
+const listRef = ref<HTMLElement | null>(null)
 const search = ref('')
+// 键盘上下键与鼠标悬停共用同一个高亮索引，保证两种操作的高亮视觉一致。
+const highlightedIndex = ref(0)
 
 const selectedLabel = computed(() => getCodeBlockLanguageLabel(props.modelValue))
 const visibleLanguages = computed(() => {
@@ -82,6 +91,8 @@ const filteredLanguages = computed(() => {
 const toggleMenu = (): void => {
   menuOpen.value = !menuOpen.value
   search.value = ''
+  // 打开菜单时默认高亮第一个元素，直接回车即可选中。
+  highlightedIndex.value = 0
   if (menuOpen.value) void nextTick(() => searchInput.value?.focus())
 }
 
@@ -93,5 +104,45 @@ const selectLanguage = (language: string): void => {
 const closeMenu = (event: FocusEvent): void => {
   const nextElement = event.relatedTarget as HTMLElement | null
   if (!nextElement || !picker.value?.contains(nextElement)) menuOpen.value = false
+}
+
+// 搜索词变化时过滤结果整体替换，高亮回到第一项，避免落在已不可见的旧位置上。
+watch(search, () => {
+  highlightedIndex.value = 0
+})
+
+// 键盘上下键循环选择，回车选中当前高亮项；在搜索框内输入时同样生效。
+const handleMenuKeydown = (event: KeyboardEvent): void => {
+  // 中文输入法组词阶段的方向键与回车属于输入法，不参与语言选择。
+  if (event.isComposing) return
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    const count = filteredLanguages.value.length
+    if (count === 0) return
+    const step = event.key === 'ArrowDown' ? 1 : -1
+    highlightedIndex.value = (highlightedIndex.value + step + count) % count
+    scrollHighlightedIntoView()
+    return
+  }
+
+  if (event.key === 'Enter') {
+    const language = filteredLanguages.value[highlightedIndex.value]
+    if (!language) return
+    event.preventDefault()
+    selectLanguage(language.value)
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    menuOpen.value = false
+  }
+}
+
+const scrollHighlightedIntoView = (): void => {
+  void nextTick(() => {
+    listRef.value?.querySelector('[data-language-highlighted]')?.scrollIntoView({ block: 'nearest' })
+  })
 }
 </script>

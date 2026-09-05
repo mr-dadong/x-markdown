@@ -2,7 +2,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { Extension, type Editor } from "@tiptap/core";
 import { DOMSerializer } from "@tiptap/pm/model";
-import { AllSelection, NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state";
+import {
+  AllSelection,
+  NodeSelection,
+  Plugin,
+  TextSelection,
+  type Transaction,
+} from "@tiptap/pm/state";
+import { ReplaceStep } from "@tiptap/pm/transform";
 import { CellSelection } from "@tiptap/pm/tables";
 import type { EditorView } from "@tiptap/pm/view";
 import {
@@ -321,9 +328,34 @@ export const useMarkdownEditor = (
     selectedCommandIndex.value = 0;
   };
 
-  const refreshSlashMenu = (currentEditor: Editor, allowOpen = true): void => {
+  // 只有“真正插入了内容”的更新（输入字符、粘贴）才允许重新弹出斜杠面板；
+  // 退格合并行、删除字符等操作只是让光标恰好停在一个 “/xxx” 后面，不应再次弹出。
+  // 缺少事务信息（例如滚动跟随）时保持原行为，不做额外拦截。
+  const isInsertingContent = (transaction?: Transaction): boolean => {
+    if (!transaction) return true;
+    return transaction.steps.some(
+      (step) => step instanceof ReplaceStep && step.slice.size > 0,
+    );
+  };
+
+  const refreshSlashMenu = (
+    currentEditor: Editor,
+    allowOpen = true,
+    transaction?: Transaction,
+  ): void => {
     const { selection } = currentEditor.state;
     if (!selection.empty) {
+      closeSlashMenu();
+      return;
+    }
+
+    const { $from } = selection;
+    // 代码块与行内代码里输入的“/”是代码正文，不是斜杠命令，
+    // 无论面板是否已打开都不允许弹出，避免干扰写代码。
+    if (
+      $from.parent.type.name === "codeBlock" ||
+      $from.marks().some((mark) => mark.type.name === "code")
+    ) {
       closeSlashMenu();
       return;
     }
@@ -331,8 +363,10 @@ export const useMarkdownEditor = (
     // 仅由"输入行为"（onUpdate）放行弹出；纯光标移动/点击定位（onSelectionUpdate）
     // 只在菜单已打开时负责位置跟随与关闭，不应凭光标停在一个 "/" 附近就主动弹出。
     if (!allowOpen && !slashMenuVisible.value) return;
+    // 菜单尚未打开时，只有插入内容的更新（输入、粘贴）才允许弹出；
+    // 删除、换行、合并行等变更后光标即使停在 “/xxx” 后面，也不弹面板。
+    if (!slashMenuVisible.value && !isInsertingContent(transaction)) return;
 
-    const { $from } = selection;
     const textBeforeCursor = $from.parent.textBetween(
       0,
       $from.parentOffset,
@@ -680,10 +714,15 @@ export const useMarkdownEditor = (
     }
 
     if (event.key === "Enter") {
-      event.preventDefault();
       const command = filteredCommands.value[selectedCommandIndex.value];
-      if (command) executeSlashCommand(command);
-      return true;
+      if (command) {
+        event.preventDefault();
+        executeSlashCommand(command);
+        return true;
+      }
+      // 没有匹配的命令时，回车应关闭面板并正常插入换行，而不是把按键吞掉。
+      closeSlashMenu();
+      return false;
     }
 
     if (event.key === "Escape") {
@@ -1249,7 +1288,7 @@ export const useMarkdownEditor = (
        * 斜杠菜单属于"由输入召唤"的界面状态：只有在正文真正变化（用户键入“/”）
        * 时才允许弹出。纯光标移动/点击定位不应触发它。
        */
-      refreshSlashMenu(editor, true);
+      refreshSlashMenu(editor, true, transaction);
       refreshEmojiMenu(editor);
 
       /*
