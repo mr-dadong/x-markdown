@@ -10,7 +10,7 @@ export interface SlashRange {
 
 export interface SlashCommand {
   id: string;
-  group: "基础" | "列表与内容" | "扩展内容" | "媒体与链接";
+  group: "基础" | "列表与内容" | "媒体与链接" | "提示块" | "扩展内容";
   label: string;
   description: string;
   icon: string;
@@ -26,11 +26,14 @@ export interface SlashCommand {
   ) => boolean | void | Promise<void>;
 }
 
+// 组序固定：提示块紧跟媒体与链接，扩展内容始终是最后一个组，
+// 便于后续接入外部扩展时保持“扩展组垫底”的稳定预期。
 export const slashCommandGroups: SlashCommand["group"][] = [
   "基础",
   "列表与内容",
-  "扩展内容",
   "媒体与链接",
+  "提示块",
+  "扩展内容",
 ];
 
 const insertMarkdownModule = (
@@ -239,18 +242,83 @@ export const slashCommands: SlashCommand[] = [
     run: (editor, range) =>
       insertMarkdownModule(editor, range, "mathBlock", { expression: "E = mc^2" }),
   },
+  // 提示块拆成 5 种类型命令：类型在插入时定死，编辑弹层只改正文。
+  {
+    id: "callout-note",
+    group: "提示块",
+    label: "备注块",
+    description: "插入 Callout 备注块",
+    icon: "lucide:info",
+    iconClass: "bg-toolbar text-secondary",
+    keywords: ["备注", "callout", "admonition", "beizhu", "bz"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "callout", {
+        calloutType: "NOTE",
+        title: "",
+        fold: "",
+        body: "在这里输入提示内容。",
+      }),
+  },
   {
     id: "callout",
-    group: "扩展内容",
+    group: "提示块",
     label: "提示块",
-    description: "插入 Callout 提示内容",
-    icon: "lucide:info",
+    description: "插入 Callout 提示块",
+    icon: "lucide:check",
     iconClass: "bg-toolbar text-link",
     keywords: ["提示块", "警告", "callout", "admonition", "tishikuai", "tsk"],
     run: (editor, range) =>
       insertMarkdownModule(editor, range, "callout", {
-        calloutType: "NOTE",
-        title: "提示",
+        calloutType: "TIP",
+        title: "",
+        fold: "",
+        body: "在这里输入提示内容。",
+      }),
+  },
+  {
+    id: "callout-important",
+    group: "提示块",
+    label: "重要块",
+    description: "插入 Callout 重要块",
+    icon: "lucide:alert-triangle",
+    iconClass: "bg-toolbar text-folder",
+    keywords: ["重要", "callout", "admonition", "zhongyao", "zy"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "callout", {
+        calloutType: "IMPORTANT",
+        title: "",
+        fold: "",
+        body: "在这里输入提示内容。",
+      }),
+  },
+  {
+    id: "callout-warning",
+    group: "提示块",
+    label: "警告块",
+    description: "插入 Callout 警告块",
+    icon: "lucide:file-warning",
+    iconClass: "bg-toolbar text-folder",
+    keywords: ["警告", "callout", "admonition", "jinggao", "jg"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "callout", {
+        calloutType: "WARNING",
+        title: "",
+        fold: "",
+        body: "在这里输入提示内容。",
+      }),
+  },
+  {
+    id: "callout-caution",
+    group: "提示块",
+    label: "注意块",
+    description: "插入 Callout 注意块",
+    icon: "lucide:alert-triangle",
+    iconClass: "bg-toolbar text-danger",
+    keywords: ["注意", "callout", "admonition", "zhuyi", "zyi"],
+    run: (editor, range) =>
+      insertMarkdownModule(editor, range, "callout", {
+        calloutType: "CAUTION",
+        title: "",
         fold: "",
         body: "在这里输入提示内容。",
       }),

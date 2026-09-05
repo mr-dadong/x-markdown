@@ -225,24 +225,6 @@
           <span class="text-[11px] text-muted">换个关键词，或按 Esc 关闭</span>
         </div>
       </div>
-
-      <!-- 键盘提示页脚：面板靠键盘驱动，首次使用也需要明确的路标。 -->
-      <div v-if="filteredCommands.length"
-        class="flex shrink-0 items-center gap-3 border-t border-line px-3.5 py-2 text-[10px] text-muted">
-        <span class="flex items-center gap-1.5">
-          <kbd class="slash-menu-key">↑</kbd>
-          <kbd class="slash-menu-key">↓</kbd>
-          <span>选择</span>
-        </span>
-        <span class="flex items-center gap-1.5">
-          <kbd class="slash-menu-key">↵</kbd>
-          <span>插入</span>
-        </span>
-        <span class="flex items-center gap-1.5">
-          <kbd class="slash-menu-key">Esc</kbd>
-          <span>关闭</span>
-        </span>
-      </div>
     </div>
   </div>
 </template>
@@ -1052,25 +1034,17 @@ defineExpose<EditorHandle>({
   使用 <style> 非 scoped（通过选择器限定范围），保留原有样式设计。
 -->
 <style>
-/* ===== 斜杠命令面板滚动条 =====
- * 小面板不适合 .editor-scroll 的 12px 宽滚动条，这里用 4px 细条保持轻盈。
- * 颜色沿用主题变量，深浅主题自动适配。
+/* ===== 斜杠面板滚动条 =====
+ * 面板不显示滚动条，但保留滚动能力：命令较多、面板高度受限时，
+ * 仍可用滚轮或键盘方向键滚动，视觉上不与命令行争抢注意力。
+ * Firefox 用 scrollbar-width 隐藏，Chromium/Safari 用伪元素隐藏。
  */
+.slash-menu-scroll {
+  scrollbar-width: none;
+}
+
 .slash-menu-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.slash-menu-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.slash-menu-scroll::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  background-color: var(--color-scrollbar);
-}
-
-.slash-menu-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-scrollbar-hover);
+  display: none;
 }
 
 /* 键盘移动选中项时，避免行贴住组头与面板边界，保留 4px 呼吸空间。 */
@@ -1138,23 +1112,6 @@ defineExpose<EditorHandle>({
 
 :root.dark .slash-menu-item-active {
   background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* 页脚键帽：迷你键位造型，提示可用的键盘操作。 */
-.slash-menu-key {
-  display: inline-flex;
-  height: 16px;
-  min-width: 18px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-line);
-  border-radius: 4px;
-  background-color: var(--color-toolbar);
-  padding: 0 4px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
-  font-size: 9px;
-  line-height: 1;
-  color: var(--color-secondary);
 }
 
 /* ===== 编辑器主体 ===== */

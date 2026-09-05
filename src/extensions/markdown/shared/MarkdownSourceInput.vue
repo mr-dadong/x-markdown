@@ -9,7 +9,7 @@
         </span>
         <span class="font-mono text-[10px] font-medium uppercase tracking-wider text-[#bec1c7]">{{ languageLabel }}</span>
       </span>
-      <button v-if="language === 'mermaid'" type="button" :title="lineWrapping ? '关闭自动换行' : '开启自动换行'"
+      <button v-if="language === 'mermaid' || language === 'callout'" type="button" :title="lineWrapping ? '关闭自动换行' : '开启自动换行'"
         class="flex h-6 items-center justify-center gap-1 rounded px-2 font-mono text-[10px] text-[#969aa3] hover:bg-[#3a3b40] hover:text-[#e4e6eb]"
         :class="lineWrapping ? 'bg-[#45464c] text-[#e4e6eb]' : ''" @mousedown.prevent="toggleLineWrapping">
         <Icon icon="lucide:wrap-text" :size="13" />
@@ -29,7 +29,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   modelValue: string
-  language: 'mermaid' | 'math'
+  language: 'mermaid' | 'math' | 'callout'
   minHeight?: number
 }>(), {
   minHeight: 48,
@@ -42,7 +42,7 @@ const emit = defineEmits<{
 
 const editorElement = ref<HTMLElement | null>(null)
 const editorSize = computed(() => ({ minHeight: `${props.minHeight}px` }))
-const languageLabel = computed(() => props.language === 'mermaid' ? 'Mermaid' : 'TeX')
+const languageLabel = computed(() => props.language === 'mermaid' ? 'Mermaid' : props.language === 'callout' ? 'Callout' : 'TeX')
 const lineWrapping = ref(true)
 let editorView: EditorView | null = null
 const lineWrappingCompartment = new Compartment()
@@ -58,10 +58,16 @@ const collectMarks = (state: EditorState): SourceMark[] => {
         { expression: /\b(?:LR|RL|TB|TD|BT)\b/gu, className: 'cm-module-operator' },
         { expression: /\p{Script=Han}+/gu, className: 'cm-module-value' },
       ]
-    : [
-        { expression: /\\[A-Za-z]+/gu, className: 'cm-module-keyword' },
-        { expression: /\b\d+(?:\.\d+)?\b/gu, className: 'cm-module-value' },
-      ]
+    : props.language === 'math'
+      ? [
+          { expression: /\\[A-Za-z]+/gu, className: 'cm-module-keyword' },
+          { expression: /\b\d+(?:\.\d+)?\b/gu, className: 'cm-module-value' },
+        ]
+      : [
+          // Callout：正文是普通 Markdown，高亮标题、粗体与行内代码。
+          { expression: /^#{1,6}\s.*$/gmu, className: 'cm-module-keyword' },
+          { expression: /`[^`\n]+`|\*\*[^*\n]+\*\*/gu, className: 'cm-module-value' },
+        ]
 
   for (const pattern of patterns) {
     for (const match of source.matchAll(pattern.expression)) {

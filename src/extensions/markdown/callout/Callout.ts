@@ -10,6 +10,7 @@ import {
   getMarkdownLine,
   writeMarkdownBlock,
 } from "../shared/markdownRuleUtils";
+import { calloutToMarkdown } from "./calloutSource";
 
 const TOKEN_NAME = "xmd_callout";
 const configuredParsers = new WeakSet<MarkdownIt>();
@@ -65,7 +66,8 @@ export const Callout = Node.create({
   addAttributes() {
     return {
       calloutType: { default: "NOTE" },
-      title: { default: "提示" },
+      // 标题为空时卡片直接显示类型名，因此默认不再内置「提示」标题。
+      title: { default: "" },
       fold: { default: "" },
       body: { default: "在这里输入提示内容。" },
     };
@@ -111,16 +113,17 @@ export const Callout = Node.create({
     return {
       markdown: {
         serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          const type = String(node.attrs.calloutType).toLocaleUpperCase();
-          const title = String(node.attrs.title).trim();
-          const fold = ["+", "-"].includes(String(node.attrs.fold)) ? String(node.attrs.fold) : "";
-          const body = String(node.attrs.body);
-          const header = `> [!${type}]${fold}${title ? ` ${title}` : ""}`;
-          const quotedBody = body
-            .split("\n")
-            .map((line) => (line ? `> ${line}` : ">"))
-            .join("\n");
-          writeMarkdownBlock(state, node, quotedBody ? `${header}\n${quotedBody}` : header);
+          // 落盘格式统一由 calloutSource 生成，保证与编辑器里的载荷源码一致。
+          writeMarkdownBlock(
+            state,
+            node,
+            calloutToMarkdown({
+              calloutType: String(node.attrs.calloutType),
+              fold: String(node.attrs.fold),
+              title: String(node.attrs.title),
+              body: String(node.attrs.body),
+            }),
+          );
         },
         parse: {
           setup(markdown: MarkdownIt) {
