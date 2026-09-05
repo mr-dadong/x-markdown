@@ -44,6 +44,7 @@ import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
 import { LegacyMediaFilter } from "../extensions/LegacyMediaFilter";
 import { RawMarkdownBlock } from "../extensions/RawMarkdownBlock";
 import { AiGhostMark } from "../extensions/AiGhostMark";
+import { CodeOccurrenceHighlight } from "../extensions/CodeOccurrenceHighlight";
 import {
   Callout,
   FootnoteDefinition,
@@ -422,6 +423,7 @@ export const createEditorExtensions = (options: {
     }),
     AttachmentTransfer,
     SectionCollapse,
+    CodeOccurrenceHighlight,
     AiGhostMark.configure({
       ghostClass: "ai-ghost-content",
     }),

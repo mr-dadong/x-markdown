@@ -1552,6 +1552,18 @@ defineExpose<EditorHandle>({
   outline-offset: 0px;
 }
 
+/* ===== 代码块选中匹配高亮 ===== */
+/* 选中代码块内某个词时，其他相同文本用浅色底色标记，类似 VS Code 的匹配高亮。 */
+.xmd-occurrence-match {
+  background-color: rgba(51, 112, 255, 0.30);
+  border-radius: 2px;
+  box-decoration-break: clone;
+}
+
+:root.dark .xmd-occurrence-match {
+  background-color: rgba(90, 140, 255, 0.34);
+}
+
 /* ===== AI 幽灵文本 ===== */
 /* 未接收的内容用低饱和背景色区分，保留原本字色和字形，方便用户接受前审阅内容质量 */
 .ai-ghost-content {
