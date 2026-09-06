@@ -44,22 +44,23 @@
         v-model="inputText"
         class="min-h-14 w-full resize-none border-0 bg-transparent px-3.5 pb-1 pt-2.5 text-[13px] leading-5 text-ink outline-none placeholder:text-muted disabled:opacity-60"
         :placeholder="placeholder"
-        :disabled="isStreaming"
+        :disabled="isStreaming || disabled"
         rows="1"
         @keydown="handleKeydown"
         @input="autoResize"
       />
 
-      <!-- 底部工具行：左侧放模型选择等扩展内容，右侧为发送/停止按钮 -->
+      <!-- 模式在左侧，模型紧邻右侧的发送按钮。 -->
       <div class="flex items-center justify-between gap-2 pb-2 pl-2.5 pr-2 pt-1">
-        <div class="flex min-w-0 flex-1 items-center">
+        <div class="flex shrink-0 items-center">
           <slot name="footer-left" />
         </div>
-        <div class="flex shrink-0 items-center">
+        <div class="flex min-w-0 items-center gap-2">
+          <slot name="footer-right" />
           <button
             v-if="isStreaming"
             type="button"
-            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-danger text-inverse hover:opacity-80"
+            class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-danger text-inverse hover:opacity-80"
             title="停止生成"
             @mousedown.prevent="$emit('cancel')"
           >
@@ -68,7 +69,7 @@
           <button
             v-else
             type="button"
-            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-accent text-inverse hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+            class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-inverse hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!canSend"
             title="发送 (Enter)"
             @mousedown.prevent="handleSend"
@@ -87,6 +88,8 @@ import { Icon } from '@iconify/vue/offline'
 
 const props = defineProps<{
   isStreaming: boolean
+  /** 有待审阅修改时暂停发送下一项任务。 */
+  disabled?: boolean
   pendingSelections?: string[]
 }>()
 
@@ -104,7 +107,7 @@ const previewIndex = ref<number | null>(null)
 // 输入框最大高度，超出后内部滚动
 const MAX_TEXTAREA_HEIGHT = 180
 
-const canSend = computed(() => inputText.value.trim().length > 0 && !props.isStreaming)
+const canSend = computed(() => inputText.value.trim().length > 0 && !props.isStreaming && !props.disabled)
 
 const truncateText = (text: string): string => {
   const trimmed = text.trim()

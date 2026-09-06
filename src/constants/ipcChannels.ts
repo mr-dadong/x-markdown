@@ -85,6 +85,10 @@ export const IPC_CHANNELS = {
   aiStreamError: "ai-stream-error",
   // Chat 多轮对话
   aiChatInvoke: "ai-chat-invoke",
+  // 单文档任务使用独立通道，不影响普通聊天事件。
+  documentAgentInvoke: "document-agent-invoke",
+  documentAgentCancel: "document-agent-cancel",
+  documentAgentEvent: "document-agent-event",
   aiChatCancel: "ai-chat-cancel",
   aiChatStreamDelta: "ai-chat-stream-delta",
   aiChatStreamReasoningDelta: "ai-chat-stream-reasoning-delta",

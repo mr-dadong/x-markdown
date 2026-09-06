@@ -14,7 +14,7 @@
     </button>
 
     <!-- 下拉列表（向上弹出） -->
-    <div v-if="open" class="chat-model-drop">
+    <div v-if="open" class="absolute bottom-full right-0 z-50 mb-2 flex max-h-80 w-[240px] flex-col overflow-hidden rounded-xl border border-line bg-paper">
       <!-- 头部：标题 + 刷新 -->
       <div class="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
         <span class="text-[11px] font-semibold text-muted">选择模型</span>
@@ -29,7 +29,7 @@
         </button>
       </div>
 
-      <div class="chat-model-scroll flex min-h-0 flex-col overflow-y-auto p-1">
+      <div class="flex min-h-0 flex-col overflow-y-auto p-1">
         <!-- 错误态 -->
         <div v-if="error" class="flex items-center gap-2 px-2 py-2 text-[12px] text-danger">
           <Icon icon="lucide:alert-circle" :size="13" class="shrink-0" />
@@ -198,41 +198,3 @@ const onDocumentKeydown = (event: KeyboardEvent): void => {
 }
 </script>
 
-<style scoped>
-/* 向上弹出的毛玻璃面板：半透明材质加发丝线边框 */
-.chat-model-drop {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  width: 260px;
-  max-height: 320px;
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-paper) 86%, transparent);
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-}
-
-:root.dark .chat-model-drop {
-  background: color-mix(in srgb, var(--color-paper) 78%, transparent);
-}
-
-/* 列表区专用细滚动条，避免使用主编辑区规格 */
-.chat-model-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-scrollbar) transparent;
-}
-
-.chat-model-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat-model-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-scrollbar);
-  border-radius: 2px;
-}
-</style>

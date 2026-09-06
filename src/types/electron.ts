@@ -5,6 +5,7 @@ import type {
   UpdateLogsResult,
 } from "./update";
 import type { AiServiceApi } from "./ai";
+import type { DocumentAgentApi } from "./documentAgent";
 import type { IPC_CHANNELS } from "../constants/ipcChannels";
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -128,6 +129,8 @@ export interface ExportImageData {
 
 export interface ElectronAPI {
   aiService: AiServiceApi;
+  /** 当前文档 Agent 的执行和进度接口。 */
+  documentAgent: DocumentAgentApi;
   getPathForFile: (file: File) => string;
   openFile: () => Promise<OpenFileData[] | null>;
   openDroppedFiles: (filePaths: string[]) => Promise<OpenFileData[]>;

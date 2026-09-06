@@ -17,12 +17,13 @@
           <Icon icon="lucide:sparkles" :size="15" />
         </span>
         <div class="min-w-0">
-          <h2 class="text-[13px] font-semibold leading-tight text-ink">AI Chat</h2>
+          <h2 class="text-[13px] font-semibold leading-tight text-ink">{{ mode === 'agent' ? '文档 Agent' : 'AI Chat' }}</h2>
           <span class="text-[11px] leading-tight text-muted">{{ statusText }}</span>
         </div>
       </div>
       <div class="flex items-center gap-0.5">
         <button
+          v-if="mode === 'chat'"
           type="button"
           class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
           title="清空对话"
@@ -60,6 +61,17 @@
 
     <!-- 对话区域 -->
     <template v-else>
+      <DocumentAgentPanel v-show="mode === 'agent'" :options="agentOptions" @busy="agentBusy = $event">
+        <template #footer-left>
+          <AiModeSelector v-model="mode" :disabled="isStreaming || agentBusy" />
+        </template>
+        <template #footer-right="{ busy }">
+          <AiChatModelSelector :current="selectedModel" :default-model="defaultModel" :models="modelList"
+            :custom-models="customModelList" :loading="modelsLoading" :error="modelsError" :disabled="busy"
+            @select="handleModelSelect" @refresh="fetchModelList" @open="handleModelDropdownOpen" />
+        </template>
+      </DocumentAgentPanel>
+      <div v-show="mode === 'chat'" class="flex min-h-0 flex-1 flex-col">
       <!-- 消息列表：select-text 放行文本选择，避免被根节点的 select-none 连带禁用 -->
       <div ref="messagesRef" class="editor-scroll relative flex flex-1 select-text flex-col gap-4 overflow-y-auto py-4" @scroll="handleScroll">
         <!-- 空状态：欢迎页 + 快捷提问 -->
@@ -164,6 +176,9 @@
       >
         <!-- 模型选择器：仅影响 AI 对话，不改动全局设置 -->
         <template #footer-left>
+          <AiModeSelector v-model="mode" :disabled="isStreaming || agentBusy" />
+        </template>
+        <template #footer-right>
           <AiChatModelSelector
             :current="selectedModel"
             :default-model="defaultModel"
@@ -178,6 +193,7 @@
           />
         </template>
       </AiChatInput>
+      </div>
     </template>
   </aside>
 </template>
@@ -196,6 +212,9 @@ import AiChatReasoning from './AiChatReasoning.vue'
 import AiChatInput from './AiChatInput.vue'
 import AiChatModelSelector from './AiChatModelSelector.vue'
 import AiMarkdown from './AiMarkdown.vue'
+import DocumentAgentPanel from './DocumentAgentPanel.vue'
+import AiModeSelector from './AiModeSelector.vue'
+import type { DocumentAgentOptions } from '../../composables/useDocumentAgent'
 
 const props = defineProps<{
   documentOpen: boolean
@@ -205,11 +224,24 @@ const props = defineProps<{
   insertAtCursor: (text: string) => void
   replaceSelection: (text: string) => void
   getFilePath: () => string | null
+  /** 文档标签 ID 能区分多个未保存文件。 */
+  getDocumentId: () => number | null
+  applyAgentDocument: (expected: string, next: string) => void
   pendingSelections?: string[]
 }>()
 import { overlayState } from '../../modules/overlayState'
 
 const sidebarOpen = computed(() => overlayState.aiChatOpen.value && props.documentOpen)
+const mode = ref<'chat' | 'agent'>('chat')
+const agentBusy = ref(false)
+// 函数在实际调用时获取最新编辑器状态，避免保存旧标签页引用。
+const agentOptions: DocumentAgentOptions = {
+  getDocument: () => props.getDocumentContext(),
+  getDocumentId: () => props.getDocumentId(),
+  getSelection: () => props.getSelection(),
+  getModel: () => selectedModel.value || null,
+  applyDocument: (expected, next) => props.applyAgentDocument(expected, next),
+}
 
 const emit = defineEmits<{
   close: []

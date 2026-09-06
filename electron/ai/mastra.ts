@@ -11,7 +11,8 @@ let chatAgent: Agent<string> | null = null;
 let writerSignature = "";
 let chatSignature = "";
 
-function buildModelConfig(settings: AiSettings, modelOverride?: string): unknown {
+// 文档 Agent 复用相同的厂商配置，不另存 API Key。
+export function buildModelConfig(settings: AiSettings, modelOverride?: string): unknown {
   const config = currentProviderConfig(settings);
   // 侧栏选择的模型覆盖值优先；为空时回退设置页当前厂商的模型
   const model = modelOverride?.trim() || config.model;

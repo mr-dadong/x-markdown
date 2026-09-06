@@ -33,8 +33,19 @@ import type {
   AiSettingsInput,
 } from '../src/types/ai'
 import { IPC_CHANNELS } from '../src/constants/ipcChannels'
+import type { DocumentAgentEvent, DocumentAgentRequest } from '../src/types/documentAgent'
 
 const electronAPI: ElectronAPI = {
+  // 仅暴露三个固定通道，渲染页面不能自行指定主进程操作。
+  documentAgent: {
+    invoke: (request: DocumentAgentRequest) => ipcRenderer.invoke(IPC_CHANNELS.documentAgentInvoke, request),
+    cancel: (requestId: string) => ipcRenderer.send(IPC_CHANNELS.documentAgentCancel, requestId),
+    onEvent: (callback: (event: DocumentAgentEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: DocumentAgentEvent): void => callback(payload)
+      ipcRenderer.on(IPC_CHANNELS.documentAgentEvent, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.documentAgentEvent, listener)
+    },
+  },
   aiService: {
     getSettings: (): Promise<import('../src/types/ai').AiPublicSettings> =>
       ipcRenderer.invoke(IPC_CHANNELS.aiGetSettings),

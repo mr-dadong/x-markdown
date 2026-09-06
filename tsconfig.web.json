@@ -23,6 +23,7 @@
     "src/**/*.ts",
     "src/**/*.vue",
     "src/vite-env.d.ts",
+    "electron/ai/documentAgentTools.ts",
     "package.json"
   ]
 }

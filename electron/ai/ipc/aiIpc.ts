@@ -24,6 +24,7 @@ import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
 import { retrieve } from "../context/retriever";
 import { estimateTokens } from "../context/chunker";
 import { formatChatContext } from "../../../src/utils/aiChatContext";
+import { registerDocumentAgentIpc } from './documentAgentIpc';
 
 interface ActiveAiRequest {
   controller: AbortController;
@@ -259,6 +260,8 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       throw new Error("未授权的 AI 请求来源");
     }
   }
+
+  registerDocumentAgentIpc(validateSender);
 
   ipcMain.handle(IPC_CHANNELS.aiGetSettings, async (event) => {
     validateSender(event);

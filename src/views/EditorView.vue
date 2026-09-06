@@ -91,6 +91,7 @@
             <AiChatSidebar :document-open="isDocumentOpen" :get-document-context="getAiDocumentContext"
                 :get-selection="getAiSelection" :get-cursor-offset="getAiCursorOffset"
                 :insert-at-cursor="insertAiAtCursor" :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
+                :get-document-id="() => activeDocumentId" :apply-agent-document="applyAgentDocument"
                 :pending-selections="pendingSelections" @clear-pending-selections="clearPendingSelections"
                 @remove-pending-selection="removePendingSelection"
                 @close="isAiChatOpen = false" @open-settings="openAiSettings" />
@@ -139,6 +140,8 @@ import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { matchesShortcut } from '../utils/shortcuts'
 import { blockFractionToSourceLine, getTopLevelBlockRanges, mapBlockIndex, sourceLineToBlockFraction } from '../modules/viewSync'
 import type { EditorHandle, SourceEditorHandle, ViewportAnchor } from '../types/editor'
+import { isolateHistory } from '@codemirror/commands'
+import { closeHistory } from '@tiptap/pm/history'
 
 const editorRef = ref<EditorHandle | null>(null)
 const sourceEditorRef = ref<SourceEditorHandle | null>(null)
@@ -201,6 +204,25 @@ const getAiCursorOffset = (): number | null => {
 }
 
 const getAiFilePath = (): string | null => currentFilePath.value
+
+// 原始 Markdown 通过源码事务写入，富文本视图由现有内容同步机制更新。
+// 单次接受与用户前后输入隔离，Ctrl+Z 不会连带撤销用户刚输入的文字。
+const applyAgentDocument = (expected: string, next: string): void => {
+  const view = sourceEditorRef.value?.getView()
+  if (!view || currentContent.value !== expected || view.state.doc.toString() !== expected) {
+    throw new Error('编辑器内容已变化，请重新读取文档后执行')
+  }
+  const richEditor = editorRef.value?.getEditor()
+  if (richEditor) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: next },
+    annotations: isolateHistory.of('full'),
+  })
+  // 富文本同步在 Vue 更新阶段发生，完成后再隔离下一次用户输入。
+  void nextTick(() => {
+    if (richEditor && !richEditor.isDestroyed) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+  })
+}
 
 const insertAiAtCursor = (text: string): void => {
   // 聊天插入的 AI 内容先归一化过度转义，源码模式与富文本模式统一受益
