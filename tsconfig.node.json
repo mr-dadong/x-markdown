@@ -21,6 +21,8 @@
     "src/types/electron.ts",
     "src/types/ai.ts",
     "src/types/update.ts",
+    // 主进程也会组装 AI 聊天引用，需将共用工具纳入 Node 项目检查。
+    "src/utils/aiChatContext.ts",
     "src/constants/ipcChannels.ts"
   ]
 }
