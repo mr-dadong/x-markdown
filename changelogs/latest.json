@@ -1,22 +1,23 @@
 {
-  "latest": "1.2.9",
+  "latest": "1.2.10",
   "releases": [
     {
-      "version": "1.2.9",
-      "date": "2026-09-06",
+      "version": "1.2.10",
+      "date": "2026-09-07",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：代码块头部工具栏新增自动换行切换按钮，与设置中的代码块自动换行开关同步；开启后代码自动折行显示、行号列自动隐藏，关闭时保持整行横向滚动",
-        "新增：代码语言选择菜单支持键盘导航，方向键循环选择、回车快速选中，鼠标悬停与键盘高亮一致，高亮项超出可视区时列表自动滚动定位",
-        "优化：文件侧栏不再依赖固定工作区目录，始终跟随当前打开的文档，打开或切换文档时自动刷新为文档所在目录的同级文件",
-        "优化：斜杠菜单在代码块与行内代码中不再触发，输入斜杠作为代码内容时不会误弹面板，不影响写代码",
-        "优化：斜杠菜单只在真正插入内容（输入、粘贴）时弹出，删除、换行、合并行等操作后光标停在斜杠命令后也不会再次弹出",
-        "优化：AI 动作条不再在代码块内弹出，选中代码块文本时不会出现润色、重写等对代码无意义的操作",
-        "优化：点击「添加到选取」后 AI 动作条立即隐藏，同一段选区不再反复弹出遮挡正文，重新选择其他文本后恢复显示",
-        "修复：斜杠菜单没有匹配命令时回车键不再被吞掉，会正常换行并关闭面板；空状态提示同步改为按 Esc 或 Enter 关闭",
-        "新增：光标位于标题开头时输入 # 可将标题升级一级（例如一级标题变为二级标题），与 Typora 的标题级别调整方式一致",
-        "优化：光标位于标题开头时按退格键不再把整个标题删除并并入上一行，而是让标题降级一级，一级标题直接转为普通段落"
+        "新增：选中文字后弹出文字格式工具栏，可一键把选区切换为正文、一级至三级标题、有序/无序/任务列表、代码块或引用块，当前类型带选中标记，切换类型时保留所选文字和后续段落",
+        "新增：文字格式工具栏集成加粗、删除线、斜体、下划线、高亮五种行内格式与超链接编辑，选中文字即可设置链接、修改或移除已有链接，无效地址会明确提示",
+        "新增：代码块内选中文字也会显示文字格式工具栏，可直接把代码内容转回正文或标题等文字类型，不再受代码块限制",
+        "优化：选中文字浮条由 AI 动作条升级为「问问 AI」入口：AI 已配置时点击即把选区发送到 AI 聊天提问，未配置时点击引导打开 AI 设置；未配置 AI 也能正常使用排版功能",
+        "新增：AI 聊天支持携带正文引用：添加到输入框的引用标签可点击预览完整原文，发送后消息下方显示「引用了 N 处正文」并可展开核对，引用与提问分开保存，不再拼贴在消息文本中",
+        "优化：AI 聊天发送失败或手动停止后，问题和引用保留在输入框可直接再次发送；失败后重发同一提问不会在历史中重复追加",
+        "优化：AI 聊天重新生成回复会自动沿用原提问附带的正文引用，并清除上一次的错误提示后重新生成",
+        "新增：AI 回复中的代码块支持语法高亮，配色与编辑器代码块一致，并随设置的代码块外观同步刷新",
+        "新增：AI 回复代码块头部新增语言标签与「复制」按钮，点击一键复制代码并提示已复制",
+        "优化：文字格式工具栏及其下拉面板会自动避开编辑区边缘，空间不足时向上展开，选中大段文字时也不会被顶部标签栏遮挡裁剪",
+        "优化：设置中的更新日志改为分区内滚动与分批加载，默认展示最近 20 条，继续向下滚动自动加载更多版本记录"
       ],
       "downloads": {
         "windows": {
@@ -27,9 +28,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.2.9-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Windows-x64.exe",
-              "sha256": "d84001f4df51fd8d0276239ada7e2696cf4f8b0c406a82ed98a74c24ba3be4f1"
+              "filename": "XMD-1.2.10-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Windows-x64.exe",
+              "sha256": "8a0605327a623a7490e4b434524da494fd6a0a3a777cdcf91492744d8411562d"
             }
           ]
         },
@@ -41,17 +42,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.9-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-macOS-arm64.dmg",
-              "sha256": "46ad09df81370c62dc3a60989d646472bfbf2cf30a4c952a1394ea467d3a7e6c"
+              "filename": "XMD-1.2.10-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-macOS-arm64.dmg",
+              "sha256": "74aa0917bcf83eac5e0b1a6832ba6a651e13a153420ab1bf5e51c6b181eace7b"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.9-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-macOS-x64.dmg",
-              "sha256": "704c58c58b07efb7658e9f25a6214d2a5d5cb186613619221acb9d5c9347f9c8"
+              "filename": "XMD-1.2.10-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-macOS-x64.dmg",
+              "sha256": "1883c8824dcfb7780fc4a6bcf19676a134fb0561749abebe546006fc1871b790"
             }
           ]
         },
@@ -63,17 +64,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.9-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Linux-x86_64.AppImage",
-              "sha256": "5f2891d1b5026439932bfe225ee03ba8ee89336f2ccedc729dafeaf7c17af028"
+              "filename": "XMD-1.2.10-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Linux-x86_64.AppImage",
+              "sha256": "efd92c4d9084e6ab5f9e9a1fbe0125d70d2ff3d6f79e86021eafe08d4d3cecfc"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.9-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Linux-arm64.AppImage",
-              "sha256": "a3875a99e92b53f8621e44ba84180761712de39f1c72646324a74231ab1324bd"
+              "filename": "XMD-1.2.10-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Linux-arm64.AppImage",
+              "sha256": "03370c3049224cdc5ae9f0b68d891bf5ccda4ef7043e7002e2c5997f37fbc28c"
             }
           ]
         }
