@@ -27,7 +27,7 @@
       </div>
     </bubble-menu>
 
-    <!-- 选中文本时出现 AI 动作条，表格内选区由上方表格工具栏接管，此处不重复弹出。 -->
+    <!-- 选中文字时显示格式工具栏，表格结构选区由上方工具栏接管。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowAiMenu"
       :tippy-options="aiMenuTippyOptions">
       <!-- 内联 AI 处理中或有结果时显示 InlineAiBar -->
@@ -35,7 +35,7 @@
         :result="inlineAiResult" :error="inlineAiError" :current-action="inlineAiAction" @accept="acceptInlineAiResult"
         @reject="rejectInlineAiResult" @cancel="cancelInlineAi" @retry="retryInlineAi" />
       <!-- 否则显示动作选择条 -->
-      <AiSelectionBar v-else @run="runInlineAiAction" @add-to-selection="addToSelection"
+      <AiSelectionBar v-else :editor="editor" @run="runInlineAiAction" @add-to-selection="addToSelection"
         @open-settings="emit('open-settings')" />
     </bubble-menu>
 
@@ -231,8 +231,7 @@
 
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
-import { NodeSelection, type Selection } from '@tiptap/pm/state'
-import type { ResolvedPos } from '@tiptap/pm/model'
+import { NodeSelection } from '@tiptap/pm/state'
 import type { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
@@ -556,7 +555,7 @@ watch(showAiWriterInput, (value) => {
 
 // AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
 // AI 实时编写期间不弹出：操作由底部状态栏承接，弹出动作条会遮挡正在生成的内容。
-// 选中文字位于代码块内时不弹出：AI 润色/重写等动作对代码无意义。
+// 代码块内也允许选择文字类型，用户可以直接转回正文。
 const shouldShowAiMenu = (): boolean => {
   if (props.modalOpen) return false
   // 刚取消时不显示，避免闪烁
@@ -578,27 +577,12 @@ const shouldShowAiMenu = (): boolean => {
   // 选区已变化（用户重新选择了其他文本），恢复动作条弹出。
   if (!isSameDismissedRange) aiMenuDismissedRange = null
   if (isTableSelection(selection)) return false
-  // 选区落在代码块内时，AI 动作条不弹出：润色/重写等操作对代码无意义。
-  if (isSelectionInCodeBlock(selection)) return false
   // 点击公式、Mermaid、图片等原子节点会形成 NodeSelection（整节点选中而非文本选区），
   // AI 润色/重写等动作对它们无意义，不弹出动作条。
   if (selection instanceof NodeSelection) return false
   // 点击“添加到选取”后，同一段选区保持动作条隐藏，直到用户改变选区。
   if (isSameDismissedRange) return false
   return true
-}
-
-// 判断选区是否完全位于代码块内：检查选区两端各自向上找到的祖先节点。
-const isSelectionInCodeBlock = (selection: Selection): boolean => {
-  return isPositionInCodeBlock(selection.$anchor) || isPositionInCodeBlock(selection.$head)
-}
-
-// 从给定位置向上逐层查找，命中 codeBlock 节点即认为处于代码块内。
-const isPositionInCodeBlock = (pos: ResolvedPos): boolean => {
-  for (let depth = pos.depth; depth > 0; depth -= 1) {
-    if (pos.node(depth).type.name === 'codeBlock') return true
-  }
-  return false
 }
 
 // 添加选中文本到 AI Chat 输入框
@@ -647,7 +631,8 @@ const aiMenuTippyOptions: Partial<TippyProps> = {
   maxWidth: 600,
   onCreate: (instance) => {
     aiMenuTippy = instance
-    const boundary = editorShell.value
+    // 编辑区边界：优先用模板 ref；极端情况下 ref 未就绪时，从锚点（编辑滚动容器）反查父级编辑区。
+    const boundary = editorShell.value ?? instance.reference?.parentElement ?? null
     if (!boundary) return
 
     instance.setProps({
@@ -661,11 +646,31 @@ const aiMenuTippyOptions: Partial<TippyProps> = {
               padding: 8,
             },
           },
+          // 最后一道定位约束：flip 只在“上方放得下/放不下”之间二选一，
+          // 当选区很高（例如拖动选中大段文字或全选）时上下都放不下，
+          // flip 会退回“溢出更少”的 top，菜单就会顶到编辑区上边界之外，
+          // 被编辑区的 overflow-hidden 裁掉，看起来就像被文件标签栏挡住。
+          // 这个修饰符排在 flip 之后运行，把最终位置强制约束在编辑区内，
+          // 保证菜单在任何选区形状下都完整可见、不会被标签栏遮住。
           {
-            name: 'preventOverflow',
-            options: {
-              boundary,
-              padding: 8,
+            name: 'clampAiBarToEditor',
+            enabled: true,
+            phase: 'main',
+            fn: ({ state }) => {
+              const shell = editorShell.value ?? boundary
+              const offsets = state.modifiersData.popperOffsets
+              const offsetParent = state.elements.popper.offsetParent
+              if (!shell || !offsets || !offsetParent) return
+              const shellRect = shell.getBoundingClientRect()
+              const parentRect = offsetParent.getBoundingClientRect()
+              const popperRect = state.rects.popper
+              // 菜单与编辑区各留 8px 边距；菜单比编辑区还宽/高时取左/上边缘，保证数值不反向。
+              const minLeft = shellRect.left + 8
+              const maxLeft = Math.max(minLeft, shellRect.right - popperRect.width - 8)
+              const minTop = shellRect.top + 8
+              const maxTop = Math.max(minTop, shellRect.bottom - popperRect.height - 8)
+              offsets.x = Math.min(Math.max(parentRect.left + offsets.x, minLeft), maxLeft) - parentRect.left
+              offsets.y = Math.min(Math.max(parentRect.top + offsets.y, minTop), maxTop) - parentRect.top
             },
           },
         ],

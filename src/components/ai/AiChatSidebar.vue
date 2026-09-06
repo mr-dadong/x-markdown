@@ -24,19 +24,19 @@
       <div class="flex items-center gap-0.5">
         <button
           type="button"
-          class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
+          class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
           title="清空对话"
           @mousedown.prevent="handleClear"
         >
-          <Icon icon="lucide:trash-2" :size="14" />
+          <Icon icon="lucide:trash-2" :size="13" />
         </button>
         <button
           type="button"
-          class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
+          class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
           title="关闭"
           @mousedown.prevent="emit('close')"
         >
-          <Icon icon="lucide:x" :size="16" />
+          <Icon icon="lucide:x" :size="14" />
         </button>
       </div>
     </header>
@@ -160,7 +160,6 @@
         :pending-selections="props.pendingSelections"
         @send="sendMessage"
         @cancel="cancel"
-        @clear-pending-selections="emit('clear-pending-selections')"
         @remove-pending-selection="(i) => emit('remove-pending-selection', i)"
       >
         <!-- 模型选择器：仅影响 AI 对话，不改动全局设置 -->
@@ -334,7 +333,7 @@ const {
   streamingReasoning,
   sendMessage: rawSendMessage,
   cancel,
-  retry,
+  retry: rawRetry,
   clearHistory,
   insertMessageToCursor,
   copyMessage,
@@ -427,23 +426,43 @@ watch(
   { flush: 'post' },
 )
 
-// 状态文本
+// 状态文本：仅展示流式生成状态，其余保持默认（不显示消息数量）
 const statusText = computed(() => {
   if (isStreaming.value) return streamingContent.value || !streamingReasoning.value ? '正在生成…' : '正在思考…'
-  if (displayMessages.value.length === 0) return ''
-  return `${displayMessages.value.filter((m) => m.role !== 'system').length} 条消息`
+  return ''
 })
 
 // 发送消息（处理 @引用）
-const sendMessage = (content: string): void => {
+const sendMessage = async (content: string): Promise<void> => {
   const resolved = resolveReferences(content)
-  // 文档上下文始终显式传递（可能为空字符串，表示仅 @选区 时刻意不带文档）；
-  // 选区仅在用户显式 @选区 时传递，否则回退到 useAiChat 内部取当前选区的默认行为
-  void rawSendMessage(resolved.message, {
+  // 发送前复制引用，生成期间新增的选区不属于本轮请求。
+  const references = [...(props.pendingSelections ?? [])]
+  // 选区由附件或显式 @选区 提供；移除附件后不再暗中读取编辑器选区。
+  const succeeded = await rawSendMessage(resolved.message, {
     documentContext: resolved.documentContext,
-    ...(resolved.selection ? { selection: resolved.selection } : {}),
+    selection: resolved.selection,
     ...(resolved.cursorOffset !== null ? { cursorOffset: resolved.cursorOffset } : {}),
-  })
+  }, references)
+  if (!succeeded) return
+  clearSentDraft(content, references)
+}
+
+// 发送与重试成功后共用清理步骤，失败时问题和引用仍留在输入区。
+const clearSentDraft = (content: string, references: string[], onlyMatchingDraft = false): void => {
+  const cleared = inputRef.value?.clearDraft(content)
+  // 重新生成历史回复时，不清除用户为下一轮准备的引用。
+  if (onlyMatchingDraft && !cleared) return
+  // 从后往前移除本轮引用，保留生成期间用户新添加的材料。
+  for (let index = references.length - 1; index >= 0; index--) {
+    if (props.pendingSelections?.[index] === references[index]) emit('remove-pending-selection', index)
+  }
+}
+
+// 重新生成沿用历史引用，输入区后来添加的引用不参与本次重试。
+const retry = async (): Promise<void> => {
+  const message = [...messages.value].reverse().find((item) => item.role === 'user')
+  if (!message) return
+  if (await rawRetry()) clearSentDraft(message.content, message.references ?? [], true)
 }
 
 // 空状态快捷提问：提示词均围绕当前文档，点击即发送

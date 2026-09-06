@@ -14,11 +14,16 @@ import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import { windowService } from '../../services/windowService'
+import { highlightCode } from '../../modules/codeBlockHighlight'
+import { getCodeBlockStyle } from '../../modules/codeBlockStyles'
+import { useSettings } from '../../composables/useSettings'
 
 const props = defineProps<{
   /** 整段 Markdown 内容；缺省时使用默认插槽提供流式分块内容 */
   markdown?: string
 }>()
+
+const { settings } = useSettings()
 
 // 初始化 markdown-it（整段渲染与流式分块共用同一实例，保证配置一致）
 const md = new MarkdownIt({
@@ -28,13 +33,20 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
-// 自定义代码块渲染：统一语言标签 + 代码围栏结构
+// 自定义代码块渲染：统一语言标签 + 语法高亮 + 右上角复制按钮。
+// 颜色类名来自设置中的代码块外观，与编辑器代码块保持一致。
 md.renderer.rules.fence = (tokens, idx) => {
   const token = tokens[idx]
   const lang = token.info.trim()
-  const langLabel = lang ? `<span class="code-lang">${lang}</span>` : ''
-  const content = md.utils.escapeHtml(token.content)
-  return `<div class="code-block-wrapper">${langLabel}<pre class="code-block"><code>${content}</code></pre></div>`
+  const style = getCodeBlockStyle(settings.codeBlockStyle)
+  const langLabel = `<span class="code-lang">${md.utils.escapeHtml(lang)}</span>`
+  const copyButton = `<button type="button" class="code-copy-btn ${style.headerControlClass} ${style.headerHoverClass}">复制</button>`
+  return (
+    `<div class="code-block-wrapper ${style.tokenClass}">` +
+    `<div class="code-block-header ${style.headerClass} ${style.headerTextClass}">${langLabel}${copyButton}</div>` +
+    `<pre class="code-block ${style.preClass} ${style.codeClass}"><code>${highlightCode(lang, token.content)}</code></pre>` +
+    `</div>`
+  )
 }
 
 // 片段的 Markdown 归一化 + 渲染：供内部整段渲染与外部流式分块共用的唯一入口
@@ -42,7 +54,9 @@ const render = (text: string): string => md.render(normalizeAiMarkdown(text))
 
 const rendered = computed(() => {
   if (!props.markdown) return ''
-  // 先还原模型过度转义的 \*\* 等标记，再渲染，否则加粗等语法会以原始星号展示
+  // 先还原模型过度转义的 \*\* 等标记，再渲染，否则加粗等语法会以原始星号展示；
+  // 代码块外观设置变化时也一并重新渲染，让已有消息跟随设置。
+  void settings.codeBlockStyle
   return render(props.markdown)
 })
 
@@ -50,6 +64,22 @@ const rendered = computed(() => {
 // 通过事件委托同时覆盖整段 v-html 与流式分块两类渲染内容。
 const handleClick = (event: MouseEvent): void => {
   const target = event.target as HTMLElement | null
+
+  // 代码块右上角复制按钮：把对应代码块的正文写入剪贴板，并短暂提示复制成功
+  const copyButton = target?.closest('.code-copy-btn') as HTMLButtonElement | null
+  if (copyButton) {
+    const wrapper = copyButton.closest('.code-block-wrapper') as HTMLElement | null
+    const codeElement = wrapper?.querySelector('pre.code-block code') as HTMLElement | null
+    if (codeElement) {
+      void navigator.clipboard.writeText(codeElement.textContent ?? '')
+      copyButton.textContent = '已复制'
+      window.setTimeout(() => {
+        copyButton.textContent = '复制'
+      }, 1500)
+    }
+    return
+  }
+
   const anchor = target?.closest('a') as HTMLAnchorElement | null
   if (!anchor) return
   const href = anchor.getAttribute('href') ?? ''
@@ -138,25 +168,43 @@ defineExpose({ render })
 
 /* 代码块 */
 .ai-md :deep(.code-block-wrapper) {
-  position: relative;
   margin: 10px 0;
 }
 
-.ai-md :deep(.code-lang) {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  font-size: 10px;
-  color: var(--color-muted);
-  text-transform: uppercase;
+/* 代码块头部：语言标签居左、复制按钮居右 */
+.ai-md :deep(.code-block-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-width: 1px 1px 0;
+  border-style: solid;
+  border-radius: 8px 8px 0 0;
+  padding: 5px 10px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  z-index: 1;
+  font-size: 10px;
+}
+
+.ai-md :deep(.code-lang) {
+  text-transform: uppercase;
+}
+
+/* 复制按钮：底色与悬停反馈由代码块外观的控件类提供 */
+.ai-md :deep(.code-copy-btn) {
+  border: 0;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
 }
 
 .ai-md :deep(.code-block) {
   background: var(--color-paper);
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border-width: 0 1px 1px;
+  border-style: solid;
+  border-radius: 0 0 8px 8px;
   padding: 12px 14px;
   overflow-x: auto;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;

@@ -1,7 +1,7 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import { aiService } from "../services/aiService";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
-import type { AiChatMessage, AiChatRole } from "../types/ai";
+import type { AiChatMessage } from "../types/ai";
 
 export type AiChatStatus = "idle" | "streaming" | "done" | "error";
 
@@ -80,6 +80,8 @@ export const useAiChat = (options: AiChatOptions) => {
   const status = ref<AiChatStatus>("idle");
   const error = ref("");
   const activeRequestId = ref("");
+  // 记录真正收到完整回复的请求，停止或报错都不能清除输入草稿。
+  const completedRequestId = ref("");
 
   // 当前文件路径变化时加载对应对话历史
   const currentFilePath = computed(() => options.filePath());
@@ -95,11 +97,13 @@ export const useAiChat = (options: AiChatOptions) => {
   // 文件路径变化时重新加载
   watch(currentFilePath, () => loadHistory(), { immediate: true });
 
-  const addUserMessage = (content: string): AiChatMessage => {
+  const addUserMessage = (content: string, references: string[]): AiChatMessage => {
     const msg: AiChatMessage = {
       id: createMessageId(),
       role: "user",
       content,
+      // 复制数组，后续清空待发送选区不会改动历史中的正文快照。
+      ...(references.length ? { references: [...references] } : {}),
       timestamp: Date.now(),
     };
     messages.value = [...messages.value, msg];
@@ -135,10 +139,21 @@ export const useAiChat = (options: AiChatOptions) => {
   const sendMessage = async (
     content: string,
     context?: AiChatContextOverride,
-  ): Promise<void> => {
-    if (!content.trim() || isStreaming.value) return;
+    references: string[] = [],
+    reuseMessage = false,
+  ): Promise<boolean> => {
+    if (!content.trim() || isStreaming.value) return false;
 
-    addUserMessage(content.trim());
+    // 失败后直接再次点击发送，也复用同一条提问与引用。
+    const lastUser = [...messages.value].reverse().find((message) => message.role === "user");
+    if (status.value === "error" && lastUser?.content === content.trim() &&
+        JSON.stringify(lastUser.references ?? []) === JSON.stringify(references)) {
+      messages.value = messages.value.slice(0, messages.value.findIndex((message) => message.id === lastUser.id) + 1);
+      reuseMessage = true;
+      persistHistory();
+    }
+    // 重试复用已有提问，避免在历史里追加一条相同的用户消息。
+    if (!reuseMessage) addUserMessage(content.trim(), references);
 
     // 准备请求
     const requestId = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -152,14 +167,19 @@ export const useAiChat = (options: AiChatOptions) => {
     // 构建消息历史（排除 system 消息，由后端注入）
     const chatMessages = messages.value
       .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        ...(m.references ? { references: [...m.references] } : {}),
+      }));
 
     try {
       // 侧栏选择的模型覆盖值，仅在非空时携带，避免写入 undefined
       const modelOverride = options.getModelOverride?.();
       // 显式传入的上下文优先（含空字符串，表示刻意不带）；否则回退到默认取值
       const documentContext = context?.documentContext ?? options.getDocumentContext();
-      const selection = context?.selection ?? options.getSelection();
+      // 显式附件已包含完整选区，不再额外读取可能变化的编辑器选区。
+      const selection = references.length ? "" : context?.selection ?? options.getSelection();
       // 光标偏移：显式传入优先，否则取当前编辑器光标位置；null 表示不携带
       const cursorOffset = context?.cursorOffset ?? options.getCursorOffset();
       await aiService.chatInvoke({
@@ -178,11 +198,15 @@ export const useAiChat = (options: AiChatOptions) => {
         addSystemMessage(`错误：${error.value}`);
       }
     }
+    // IPC 在本轮流结束后返回；只有正常完成才允许输入区清除草稿。
+    return completedRequestId.value === requestId;
   };
 
   const cancel = (): void => {
     if (!activeRequestId.value) return;
     aiService.chatCancel(activeRequestId.value);
+    // 停止后的迟到事件不应把取消操作标记成发送成功。
+    activeRequestId.value = "";
     isStreaming.value = false;
     status.value = "done";
     // 将已收到的流式内容保存为 assistant 消息
@@ -193,17 +217,16 @@ export const useAiChat = (options: AiChatOptions) => {
     }
   };
 
-  const retry = (): void => {
+  const retry = async (): Promise<boolean> => {
+    if (isStreaming.value) return false;
     // 找到最后一条用户消息并重新发送
     const lastUserMsg = [...messages.value].reverse().find((m) => m.role === "user");
-    if (!lastUserMsg) return;
-    // 移除最后一条 assistant 消息（如果有）
-    const lastMsg = messages.value[messages.value.length - 1];
-    if (lastMsg?.role === "assistant") {
-      messages.value = messages.value.slice(0, -1);
-      persistHistory();
-    }
-    void sendMessage(lastUserMsg.content);
+    if (!lastUserMsg) return false;
+    // 去掉该提问之后的回复或错误提示，保留提问与它的引用快照。
+    const index = messages.value.findIndex((message) => message.id === lastUserMsg.id);
+    messages.value = messages.value.slice(0, index + 1);
+    persistHistory();
+    return sendMessage(lastUserMsg.content, undefined, lastUserMsg.references, true);
   };
 
   const clearHistory = (): void => {
@@ -258,6 +281,7 @@ export const useAiChat = (options: AiChatOptions) => {
     // 内容为空时兑底提示，避免“加载消失但无任何反馈”的静默失败
     if (streamingContent.value) {
       addAssistantMessage(streamingContent.value, streamingReasoning.value || undefined);
+      completedRequestId.value = event.requestId;
     } else {
       addSystemMessage("AI 返回了空回复，请重试；若持续出现请检查网络与 AI 设置。");
     }

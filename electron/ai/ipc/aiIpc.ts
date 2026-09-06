@@ -23,6 +23,7 @@ import { getAiAgentStatus, getChatAgent, getWriterAgent } from "../mastra";
 import { buildAiPrompt, buildChatSystemPrompt } from "../prompts";
 import { retrieve } from "../context/retriever";
 import { estimateTokens } from "../context/chunker";
+import { formatChatContext } from "../../../src/utils/aiChatContext";
 
 interface ActiveAiRequest {
   controller: AbortController;
@@ -424,6 +425,15 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
     if (!Array.isArray(request.messages) || request.messages.length === 0) {
       throw new Error("Chat 请求缺少消息列表");
     }
+    // 引用是独立的正文快照；格式错误直接拒绝，避免遗漏材料后继续回答。
+    for (const message of request.messages) {
+      if (!message || typeof message.content !== "string" || !["user", "assistant", "system"].includes(message.role)) {
+        throw new Error("Chat 消息格式不正确");
+      }
+      if (message.references !== undefined && (!Array.isArray(message.references) || message.references.some((text) => typeof text !== "string"))) {
+        throw new Error("Chat 引用格式不正确");
+      }
+    }
     // 模型覆盖参数为可选；携带时必须是去除空白后非空的字符串
     if (request.model !== undefined && (typeof request.model !== "string" || !request.model.trim())) {
       throw new Error("Chat 请求的模型参数不正确");
@@ -468,11 +478,16 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
 
     try {
       const agent = await getChatAgent(request.model);
+      // 只在主进程构造模型消息，引用同时计入上下文预算和检索查询。
+      const modelMessages = request.messages.map((message) => ({
+        role: message.role,
+        content: formatChatContext(message),
+      }));
 
       // 检索上下文：切块 + BM25 + token 预算内选块，
       // 用最近 6 条消息（约 3 轮对话）作为相关性 query
       const retrieved = retrieve({
-        query: request.messages
+        query: modelMessages
           .slice(-6)
           .map((m) => m.content)
           .join("\n"),
@@ -481,14 +496,14 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
         cursorOffset: request.cursorOffset ?? null,
         contextWindow: DEFAULT_CONTEXT_WINDOW_TOKENS,
         historyTokens: estimateTokens(
-          request.messages.map((m) => m.content).join("\n"),
+          modelMessages.map((m) => m.content).join("\n"),
         ),
         maxOutputTokens: request.options?.maxTokens ?? settings.maxTokens,
       });
 
       // 系统提示通过 system 参数传入，消息列表只保留 user/assistant 对话历史
       const systemPrompt = buildChatSystemPrompt(request, retrieved);
-      const messages = request.messages
+      const messages = modelMessages
         .filter((m) => m.role !== "system")
         .map((m, i) => ({
           role: m.role as "user" | "assistant",

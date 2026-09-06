@@ -165,6 +165,8 @@ export interface AiChatMessage {
   id: string
   role: AiChatRole
   content: string
+  /** 用户添加的正文快照，与提问分开保存；旧消息没有此字段。 */
+  references?: string[]
   /** 模型的思考过程（reasoning）；非思考模型或旧历史记录中不存在 */
   reasoning?: string
   timestamp: number
@@ -172,7 +174,7 @@ export interface AiChatMessage {
 
 export interface AiChatRequest {
   requestId: string
-  messages: Array<{ role: AiChatRole; content: string }>
+  messages: Array<{ role: AiChatRole; content: string; references?: string[] }>
   /** 完整文档原文（Markdown 源码，不再截断；切块/检索在主进程做） */
   documentContext?: string
   selection?: string

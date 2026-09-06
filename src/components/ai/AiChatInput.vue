@@ -10,17 +10,32 @@
           :key="index"
           class="flex max-w-fit items-center gap-1 rounded-md bg-selected py-0.5 pl-2 pr-1 text-[11px] text-secondary"
         >
-          <Icon icon="lucide:quote" :size="10" />
-          <span class="max-w-[120px] truncate">{{ truncateText(selection) }}</span>
+          <!-- 标签只展示摘要，点击后在输入框上方查看完整正文。 -->
+          <button
+            type="button"
+            class="flex min-w-0 cursor-pointer items-center gap-1 py-1 text-left hover:text-ink"
+            :aria-expanded="previewIndex === index"
+            @click="previewIndex = previewIndex === index ? null : index"
+          >
+            <Icon icon="lucide:quote" :size="10" />
+            <span class="shrink-0">引用 {{ index + 1 }} ·</span>
+            <span class="max-w-[120px] truncate">{{ truncateText(selection) }}</span>
+          </button>
           <button
             type="button"
             class="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:bg-control-hover hover:text-ink"
             title="移除"
-            @mousedown.prevent="$emit('remove-pending-selection', index)"
+            :disabled="isStreaming"
+            @click="removeSelection(index)"
           >
             <Icon icon="lucide:x" :size="10" />
           </button>
         </div>
+      </div>
+      <!-- 预览使用原始文本，正文中的 Markdown 或 HTML 不会被当作界面代码。 -->
+      <div v-if="previewIndex !== null && pendingSelections?.[previewIndex] !== undefined" class="mx-3 mt-2 flex flex-col gap-1 rounded-lg border border-line px-2.5 py-2">
+        <span class="text-[11px] text-muted">引用 {{ previewIndex + 1 }} · {{ pendingSelections[previewIndex].length }} 字符</span>
+        <div class="max-h-40 select-text overflow-y-auto whitespace-pre-wrap break-words text-[12px] leading-5 text-secondary">{{ pendingSelections[previewIndex] }}</div>
       </div>
 
       <!-- 输入区域 -->
@@ -78,12 +93,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   send: [content: string]
   cancel: []
-  'clear-pending-selections': []
   'remove-pending-selection': [index: number]
 }>()
 
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const inputText = ref('')
+// 同一时间只展开一段待发送引用，控制输入区域占用的高度。
+const previewIndex = ref<number | null>(null)
 
 // 输入框最大高度，超出后内部滚动
 const MAX_TEXTAREA_HEIGHT = 180
@@ -102,18 +118,23 @@ const placeholder = computed(() => {
 
 const handleSend = (): void => {
   if (!canSend.value) return
-  let content = inputText.value
-  // 如果有 pending selections，附加到消息中
-  if (props.pendingSelections && props.pendingSelections.length > 0) {
-    const selectionsText = props.pendingSelections
-      .map((s, i) => `选区${i + 1}：\n\`\`\`\n${s}\n\`\`\``)
-      .join('\n\n')
-    content = content + '\n\n' + selectionsText
-    emit('clear-pending-selections')
-  }
-  emit('send', content)
+  // 输入组件只发送用户问题；引用由侧栏独立传递，失败时保留草稿。
+  emit('send', inputText.value)
+}
+
+// 只有这次发送的草稿仍在输入框中时才清除，避免误删后来输入的内容。
+const clearDraft = (sentContent: string): boolean => {
+  if (inputText.value !== sentContent) return false
   inputText.value = ''
+  previewIndex.value = null
   nextTick(() => autoResize())
+  return true
+}
+
+// 删除引用后收起预览，避免索引变化导致展示另一段正文。
+const removeSelection = (index: number): void => {
+  previewIndex.value = null
+  emit('remove-pending-selection', index)
 }
 
 const handleKeydown = (event: KeyboardEvent): void => {
@@ -138,5 +159,5 @@ const focus = (): void => {
   inputRef.value?.focus()
 }
 
-defineExpose({ focus })
+defineExpose({ focus, clearDraft })
 </script>

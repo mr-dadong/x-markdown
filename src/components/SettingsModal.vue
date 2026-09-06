@@ -135,42 +135,53 @@
           </template>
 
           <template v-else-if="activeSection === 'changelog'">
-            <SectionTitle title="更新日志" description="查看 XMD 各版本的功能更新与改进。" :show-divider="false" />
-            <div v-if="updateLogsLoading" class="flex flex-1 items-center justify-center py-16 text-[13px] text-muted">
-              正在获取更新日志...
-            </div>
-            <div v-else-if="updateLogsError" class="flex flex-col items-center justify-center gap-4 py-16">
-              <div class="flex flex-col items-center gap-1 text-center">
-                <span class="text-[14px] font-medium text-ink">更新日志加载失败</span>
-                <span class="text-[12px] text-muted">{{ updateLogsError }}</span>
+            <div class="flex min-h-0 flex-1 flex-col">
+              <SectionTitle title="更新日志" description="查看 XMD 各版本的功能更新与改进。" :show-divider="false" />
+              <div v-if="updateLogsLoading" class="flex flex-1 items-center justify-center py-16 text-[13px] text-muted">
+                正在获取更新日志...
               </div>
-              <button type="button"
-                class="flex h-9 items-center gap-2 rounded-md border border-line px-3 text-[13px] font-medium text-secondary hover:bg-control-hover hover:text-ink"
-                @click="loadUpdateLogs">
-                <Icon icon="lucide:refresh-cw" :size="13" />
-                重新加载
-              </button>
-            </div>
-            <div v-else class="flex flex-col gap-4">
-              <article v-for="log in updateLogs" :key="log.version"
-                class="flex flex-col gap-5 rounded-lg border border-line bg-panel p-5">
-                <div class="flex items-center justify-between gap-5">
-                  <div class="flex min-w-0 items-center gap-3">
-                    <span
-                      class="flex h-6 shrink-0 items-center rounded-full bg-selected px-2.5 font-mono text-[10px] font-semibold tracking-wide text-accent">
-                      V{{ log.version }}
-                    </span>
-                    <h3 class="truncate text-[16px] font-semibold tracking-tight text-ink">{{ log.title }}</h3>
-                  </div>
-                  <time class="shrink-0 text-[11px] font-medium text-muted">{{ log.date }}</time>
+              <div v-else-if="updateLogsError" class="flex flex-col items-center justify-center gap-4 py-16">
+                <div class="flex flex-col items-center gap-1 text-center">
+                  <span class="text-[14px] font-medium text-ink">更新日志加载失败</span>
+                  <span class="text-[12px] text-muted">{{ updateLogsError }}</span>
                 </div>
-                <div class="flex flex-col gap-2.5 border-t border-line pt-4">
-                  <div v-for="item in log.content" :key="item" class="flex items-start gap-3">
-                    <span class="mt-[9px] flex h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                    <span class="text-[13px] leading-6 text-secondary">{{ item }}</span>
+                <button type="button"
+                  class="flex h-9 items-center gap-2 rounded-md border border-line px-3 text-[13px] font-medium text-secondary hover:bg-control-hover hover:text-ink"
+                  @click="loadUpdateLogs">
+                  <Icon icon="lucide:refresh-cw" :size="13" />
+                  重新加载
+                </button>
+              </div>
+              <!-- 懒加载列表：默认只渲染前 20 条，滚动接近底部时再追加一页 -->
+              <div v-else ref="changelogScrollRef"
+                class="editor-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1" @scroll="handleChangelogScroll">
+                <article v-for="log in visibleUpdateLogs" :key="log.version"
+                  class="flex flex-col gap-5 rounded-lg border border-line bg-panel p-5">
+                  <div class="flex items-center justify-between gap-5">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <span
+                        class="flex h-6 shrink-0 items-center rounded-full bg-selected px-2.5 font-mono text-[10px] font-semibold tracking-wide text-accent">
+                        V{{ log.version }}
+                      </span>
+                      <h3 class="truncate text-[16px] font-semibold tracking-tight text-ink">{{ log.title }}</h3>
+                    </div>
+                    <time class="shrink-0 text-[11px] font-medium text-muted">{{ log.date }}</time>
                   </div>
+                  <div class="flex flex-col gap-2.5 border-t border-line pt-4">
+                    <div v-for="item in log.content" :key="item" class="flex items-start gap-3">
+                      <span class="mt-[9px] flex h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                      <span class="text-[13px] leading-6 text-secondary">{{ item }}</span>
+                    </div>
+                  </div>
+                </article>
+                <!-- 列表底部状态：追加中、还有更多或已全部加载 -->
+                <div class="flex items-center justify-center py-3 text-[12px] text-muted">
+                  <span v-if="changelogLoadingMore">加载中…</span>
+                  <span v-else-if="updateLogs.length === 0">暂无更新日志</span>
+                  <span v-else-if="changelogAllLoaded">已显示全部 {{ updateLogs.length }} 条更新日志</span>
+                  <span v-else>继续滚动加载更多</span>
                 </div>
-              </article>
+              </div>
             </div>
           </template>
 
@@ -268,6 +279,37 @@ const updateLogs = ref<UpdateLog[]>([])
 const updateLogsLoading = ref(false)
 const updateLogsError = ref('')
 
+// 更新日志懒加载：默认只渲染 20 条，滚动接近底部时再追加一页。
+const CHANGELOG_PAGE_SIZE = 20
+const changelogScrollRef = ref<HTMLElement | null>(null)
+const visibleLogCount = ref(CHANGELOG_PAGE_SIZE)
+// 追加页的锁：同一轮滚动只追加一次，等新增条目渲染完成后再解锁。
+const changelogLoadingMore = ref(false)
+const visibleUpdateLogs = computed(() => updateLogs.value.slice(0, visibleLogCount.value))
+const changelogAllLoaded = computed(() => visibleLogCount.value >= updateLogs.value.length)
+
+const loadMoreLogs = (): void => {
+  if (changelogLoadingMore.value || changelogAllLoaded.value) return
+  changelogLoadingMore.value = true
+  visibleLogCount.value = Math.min(
+    visibleLogCount.value + CHANGELOG_PAGE_SIZE,
+    updateLogs.value.length,
+  )
+  // 等本轮新增条目渲染完成后再解锁，避免快速滚动到底时一次跳过多个分页。
+  void nextTick(() => {
+    changelogLoadingMore.value = false
+  })
+}
+
+// 滚动接近列表底部（剩余高度不足 80px）时触发下一页加载。
+const handleChangelogScroll = (): void => {
+  const el = changelogScrollRef.value
+  if (!el) return
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+    loadMoreLogs()
+  }
+}
+
 const navigationItems = [
   { id: 'general' as const, label: '通用', icon: 'lucide:sliders-horizontal' },
   { id: 'typography' as const, label: '排版', icon: 'lucide:type' },
@@ -290,10 +332,14 @@ const loadUpdateLogs = async (): Promise<void> => {
   }
 
   updateLogs.value = result.releases
+  // 重新加载后回到第一页，保证默认只渲染 20 条。
+  visibleLogCount.value = CHANGELOG_PAGE_SIZE
   updateLogsLoading.value = false
 }
 
 watch(activeSection, (section) => {
+  // 每次进入更新日志分区都从第一页开始渲染，保持默认 20 条的懒加载体验。
+  if (section === 'changelog') visibleLogCount.value = CHANGELOG_PAGE_SIZE
   if (section === 'changelog' && updateLogs.value.length === 0 && !updateLogsLoading.value) {
     void loadUpdateLogs()
   }
