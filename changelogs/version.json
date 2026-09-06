@@ -1,6 +1,84 @@
 {
-  "latest": "1.2.8",
+  "latest": "1.2.9",
   "releases": [
+    {
+      "version": "1.2.9",
+      "date": "2026-09-06",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：代码块头部工具栏新增自动换行切换按钮，与设置中的代码块自动换行开关同步；开启后代码自动折行显示、行号列自动隐藏，关闭时保持整行横向滚动",
+        "新增：代码语言选择菜单支持键盘导航，方向键循环选择、回车快速选中，鼠标悬停与键盘高亮一致，高亮项超出可视区时列表自动滚动定位",
+        "优化：文件侧栏不再依赖固定工作区目录，始终跟随当前打开的文档，打开或切换文档时自动刷新为文档所在目录的同级文件",
+        "优化：斜杠菜单在代码块与行内代码中不再触发，输入斜杠作为代码内容时不会误弹面板，不影响写代码",
+        "优化：斜杠菜单只在真正插入内容（输入、粘贴）时弹出，删除、换行、合并行等操作后光标停在斜杠命令后也不会再次弹出",
+        "优化：AI 动作条不再在代码块内弹出，选中代码块文本时不会出现润色、重写等对代码无意义的操作",
+        "优化：点击「添加到选取」后 AI 动作条立即隐藏，同一段选区不再反复弹出遮挡正文，重新选择其他文本后恢复显示",
+        "修复：斜杠菜单没有匹配命令时回车键不再被吞掉，会正常换行并关闭面板；空状态提示同步改为按 Esc 或 Enter 关闭",
+        "新增：光标位于标题开头时输入 # 可将标题升级一级（例如一级标题变为二级标题），与 Typora 的标题级别调整方式一致",
+        "优化：光标位于标题开头时按退格键不再把整个标题删除并并入上一行，而是让标题降级一级，一级标题直接转为普通段落"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.2.9-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Windows-x64.exe",
+              "sha256": "d84001f4df51fd8d0276239ada7e2696cf4f8b0c406a82ed98a74c24ba3be4f1"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.9-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-macOS-arm64.dmg",
+              "sha256": "46ad09df81370c62dc3a60989d646472bfbf2cf30a4c952a1394ea467d3a7e6c"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.2.9-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-macOS-x64.dmg",
+              "sha256": "704c58c58b07efb7658e9f25a6214d2a5d5cb186613619221acb9d5c9347f9c8"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.9-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Linux-x86_64.AppImage",
+              "sha256": "5f2891d1b5026439932bfe225ee03ba8ee89336f2ccedc729dafeaf7c17af028"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.2.9-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.9/XMD-1.2.9-Linux-arm64.AppImage",
+              "sha256": "a3875a99e92b53f8621e44ba84180761712de39f1c72646324a74231ab1324bd"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.2.8",
       "date": "2026-09-04",
