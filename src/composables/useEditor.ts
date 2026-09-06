@@ -20,6 +20,10 @@ import {
   getCellContentEndPosition,
   handleTableSelectAll,
 } from "../modules/tableInteraction";
+import {
+  handleHeadingBackspace,
+  handleHeadingPromote,
+} from "../modules/headingKeyboard";
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
@@ -1062,6 +1066,10 @@ export const useMarkdownEditor = (
     if (handleSlashMenuKeydown(event)) return true;
     if (handleEmojiMenuKeydown(event)) return true;
     if (event.isComposing) return false;
+    // Typora 风格：光标在标题开头时，Backspace 让标题降一级、输入 # 升一级，
+    // 而不是默认行为把整个标题删除并并进上一行。
+    if (handleHeadingBackspace(view, event)) return true;
+    if (handleHeadingPromote(view, event)) return true;
     if (handleCodeBlockSelectAll(view, event)) return true;
     if (handleCodeBlockTab(view, event)) return true;
     if (handleTableSelectAll(view, event)) return true;

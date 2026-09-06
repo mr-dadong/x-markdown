@@ -62,7 +62,7 @@
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { CodeBlockStyle } from '../../modules/codeBlockStyles'
-import { codeBlockLanguages, getCodeBlockLanguageLabel } from '../../modules/codeBlockLanguages'
+import { codeBlockLanguages, getCodeBlockLanguageLabel, type CodeBlockLanguage } from '../../modules/codeBlockLanguages'
 
 const props = defineProps<{ modelValue: string; style: CodeBlockStyle }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -83,9 +83,16 @@ const visibleLanguages = computed(() => {
 const filteredLanguages = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
   if (!query) return visibleLanguages.value
-  return visibleLanguages.value.filter((language) =>
-    language.label.toLocaleLowerCase().includes(query) || language.value.toLocaleLowerCase().includes(query),
-  )
+  // 首字母匹配：语言名称或标识以查询词开头（不区分大小写）。
+  const isPrefixMatch = (language: CodeBlockLanguage): boolean =>
+    language.label.toLocaleLowerCase().startsWith(query) || language.value.toLocaleLowerCase().startsWith(query)
+  const matched = visibleLanguages.value.filter((language) => {
+    const label = language.label.toLocaleLowerCase()
+    const value = language.value.toLocaleLowerCase()
+    return label.includes(query) || value.includes(query)
+  })
+  // 首字母匹配的语言排在前面，其余模糊匹配排在后面，各组内保持原有列表顺序。
+  return [...matched.filter(isPrefixMatch), ...matched.filter((language) => !isPrefixMatch(language))]
 })
 
 const toggleMenu = (): void => {
