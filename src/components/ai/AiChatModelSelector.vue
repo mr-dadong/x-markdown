@@ -3,7 +3,7 @@
     <!-- 触发按钮：带发丝线边框的模型芯片，类似 macOS 弹出按钮 -->
     <button
       type="button"
-      class="flex h-6 min-w-0 max-w-[180px] cursor-pointer items-center gap-1 rounded-full border border-line bg-paper px-2 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+      class="flex h-7 min-w-0 max-w-[160px] cursor-pointer items-center gap-1 rounded-lg border border-line bg-paper px-2 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
       :disabled="disabled"
       :title="buttonTitle"
       @click="toggleOpen"
@@ -15,17 +15,17 @@
 
     <!-- 下拉列表（向上弹出） -->
     <div v-if="open" class="absolute bottom-full right-0 z-50 mb-2 flex max-h-80 w-[240px] flex-col overflow-hidden rounded-xl border border-line bg-paper">
-      <!-- 头部：标题 + 刷新 -->
+      <!-- 头部：模型获取统一在设置中管理 -->
       <div class="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
         <span class="text-[11px] font-semibold text-muted">选择模型</span>
         <button
           type="button"
-          title="刷新模型列表"
+          title="在设置中管理模型"
           class="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
           :disabled="loading"
           @click="emit('refresh')"
         >
-          <Icon :icon="loading ? 'lucide:loader-2' : 'lucide:refresh-cw'" :size="13" :class="{ 'animate-spin': loading }" />
+          <Icon icon="lucide:settings-2" :size="13" />
         </button>
       </div>
 
@@ -38,8 +38,8 @@
 
         <!-- 加载态 -->
         <div v-else-if="loading" class="flex items-center gap-2 px-2 py-2 text-[12px] text-muted">
-          <Icon icon="lucide:loader-2" :size="13" class="animate-spin shrink-0" />
-          <span>正在获取模型…</span>
+          <Icon icon="lucide:loader-2" :size="13" class="shrink-0" />
+          <span>正在读取已保存模型…</span>
         </div>
 
         <template v-else>
@@ -109,7 +109,7 @@
             v-if="!error && models.length === 0 && customModels.length === 0"
             class="px-2 py-3 text-center text-[12px] text-muted"
           >
-            暂无可用模型，点击刷新重试
+            请在设置中获取并管理模型列表
           </div>
         </template>
       </div>
@@ -138,7 +138,7 @@ const emit = defineEmits<{
   /** 用户选择了某个模型；'' 表示回到默认 */
   select: [id: string]
   refresh: []
-  /** 下拉展开时触发，供父组件懒加载模型列表 */
+  /** 下拉展开时触发，供父组件处理展开状态 */
   open: []
 }>()
 
@@ -170,7 +170,7 @@ const choose = (id: string): void => {
   open.value = false
 }
 
-// 展开时通知父组件（懒加载模型列表），同时注册点击外部关闭监听
+// 展开时通知父组件，同时注册点击外部关闭监听
 watch(open, (value) => {
   if (value) {
     emit('open')

@@ -232,6 +232,7 @@
 <script setup lang="ts">
 import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
 import { NodeSelection } from '@tiptap/pm/state'
+import { blockMarqueeKey } from '../extensions/BlockMarquee'
 import type { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
@@ -555,6 +556,8 @@ watch(showAiWriterInput, (value) => {
 // AI 实时编写期间不弹出：操作由底部状态栏承接，弹出动作条会遮挡正在生成的内容。
 // 代码块内也允许选择文字类型，用户可以直接转回正文。
 const shouldShowAiMenu = (): boolean => {
+  // 块选区使用整块操作，隐藏基于旧文字选区定位的浮动菜单。
+  if (editor.value && blockMarqueeKey.getState(editor.value.state)?.length) return false
   if (props.modalOpen) return false
   // 刚取消时不显示，避免闪烁
   if (inlineAiJustCancelled.value) return false
@@ -616,15 +619,16 @@ interface BlockAction {
 }
 
 const blockActions: BlockAction[] = [
+  { icon: 'lucide:message-square-plus', label: '问问AI', title: '把内容块文本发送到 AI 聊天', run: askAiAboutBlock },
   { icon: 'lucide:arrow-up', label: '上移', title: '上移内容块', run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
   { icon: 'lucide:arrow-down', label: '下移', title: '下移内容块', run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
-  { icon: 'lucide:message-square-plus', label: '问问AI', title: '把内容块文本发送到 AI 聊天', run: askAiAboutBlock },
   { icon: 'lucide:copy', label: '复制', title: '复制内容块文本到剪贴板', run: copyActiveBlockText },
   { icon: 'lucide:trash-2', label: '删除', title: '删除内容块', run: deleteActiveBlock, danger: true },
 ]
 
-// 分隔“移动、询问/复制、删除”三组操作，风险从左到右递增，与表格工具栏的分组方式一致。
-const blockActionSeparators = [2, 4]
+// 分隔“问问AI、移动、复制、删除”四组操作，AI 询问放在最左边置顶，
+// 复制与删除各自独立成组，避免性质不同的功能混在同一组里。
+const blockActionSeparators = [1, 3, 4]
 
 const editorShell = ref<HTMLElement | null>(null)
 

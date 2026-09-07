@@ -1,19 +1,19 @@
 <template>
-  <!-- 原生选择框支持键盘操作，两个模式共用同一个底部入口。 -->
-  <select :value="modelValue" title="选择 AI 模式" :disabled="disabled"
-    class="h-7 shrink-0 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-xs text-secondary outline-none hover:bg-toolbar disabled:cursor-not-allowed disabled:opacity-50"
-    @change="selectMode">
-    <option value="chat">对话</option>
-    <option value="agent">Agent</option>
-  </select>
+  <!-- 直接展示两个模式，用实色标明当前选择，支持 Tab 聚焦和键盘点击。 -->
+  <div class="flex shrink-0 items-center gap-0.5 rounded-lg border border-line bg-paper p-0.5" title="选择 AI 模式">
+    <button v-for="item in modes" :key="item.value" type="button"
+      class="flex h-6 cursor-pointer items-center justify-center rounded-md px-2 text-[11px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+      :class="modelValue === item.value ? 'bg-selected text-ink' : 'text-muted hover:bg-toolbar hover:text-ink'"
+      :aria-pressed="modelValue === item.value" :disabled="disabled"
+      @click="emit('update:modelValue', item.value)">
+      {{ item.label }}
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 defineProps<{ modelValue: 'chat' | 'agent'; disabled: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: 'chat' | 'agent'] }>()
-// 只接受已定义的模式值，避免把任意输入当作模式。
-const selectMode = (event: Event): void => {
-  const value = (event.target as HTMLSelectElement).value
-  if (value === 'chat' || value === 'agent') emit('update:modelValue', value)
-}
+// 固定可选模式，保留原有双向绑定接口。
+const modes = [{ value: 'chat', label: '对话' }, { value: 'agent', label: 'Agent' }] as const
 </script>

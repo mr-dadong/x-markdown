@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref, watch } from 'vue';
-import type { DocumentAgentApi, DocumentPatch } from '../types/documentAgent';
+import type { DocumentAgentApi, DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage, DocumentPatch } from '../types/documentAgent';
 import { applyDocumentPatches, validateAgentDocument } from '../utils/documentAgent';
 
 /** 接受修改通过编辑器事务写入，任务本身不会直接保存文件。 */
@@ -22,6 +22,18 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   // 最近收到的事件决定状态条显示“思考、执行或整理结果”。
   const phase = ref<'thinking' | 'executing' | 'writing'>('thinking');
   const logs = ref<string[]>([]);
+  // 阶段、操作与目标分别存储，模型输出文字不会改变阶段。
+  const stages = ref<Array<{ id: DocumentAgentStage; title: string; state: 'pending' | 'running' | 'done' | 'interrupted' | 'skipped'; detail: string }>>([]);
+  const operations = ref<DocumentAgentOperation[]>([]);
+  const goals = ref<DocumentAgentGoal[]>([]);
+  const outcome = ref<'complete' | 'incomplete' | null>(null);
+  const startedAt = ref(0);
+  const endedAt = ref(0);
+  const step = ref(0);
+  const maxSteps = ref(0);
+  const taskMs = ref(0);
+  const budgetMessage = ref('');
+
   const patches = ref<ReviewPatch[]>([]);
   const issues = ref<string[]>([]);
   const checkTarget = ref('全部建议应用后');
@@ -39,11 +51,23 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const canReview = computed(() => status.value === 'review' || status.value === 'done');
   const canStart = computed(() => !running.value && !settling.value && (pending.value.length === 0 || !canReview.value));
 
+  // 终止时保留已收到的结果，将尚在执行的操作标记为中断。
+  const interruptProgress = (message: string): void => {
+    if (!endedAt.value) endedAt.value = Date.now();
+    stages.value.forEach(stage => {
+      if (stage.state === 'running') { stage.state = 'interrupted'; stage.detail = message; }
+    });
+    operations.value.forEach(operation => {
+      if (operation.state === 'running') { operation.state = 'error'; operation.detail = message; operation.endedAt = Date.now(); }
+    });
+  };
+
   const cancel = (): void => {
     if (!requestId.value) return;
     api.cancel(requestId.value);
     requestId.value = '';
     status.value = 'cancelled';
+    interruptProgress('任务已停止');
     logs.value.push('任务已停止，本轮建议不可应用');
   };
   // flush: sync 捕获“修改后又撤销”的变化，不能仅靠最终字符串相等判定版本。
@@ -52,6 +76,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (requestId.value) api.cancel(requestId.value);
     requestId.value = '';
     status.value = 'conflict';
+    interruptProgress('文档已变化');
     error.value = '文档已变化，本轮修改和任务撤销已停用。请重新读取并执行，已有正文不会被覆盖。';
   }, { flush: 'sync' });
 
@@ -68,6 +93,22 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     response.value = '';
     reasoning.value = '';
     phase.value = 'thinking';
+    stages.value = [
+      { id: 'understand', title: '理解目标', state: 'running', detail: '正在准备任务' },
+      { id: 'locate', title: '定位内容', state: 'pending', detail: '' },
+      { id: 'edit', title: '生成修改', state: 'pending', detail: '' },
+      { id: 'check', title: '检查结果', state: 'pending', detail: '' },
+      { id: 'review', title: '审阅修改', state: 'pending', detail: '' },
+    ];
+    operations.value = [];
+    goals.value = [];
+    outcome.value = null;
+    startedAt.value = Date.now();
+    endedAt.value = 0;
+    step.value = 0;
+    maxSteps.value = 0;
+    taskMs.value = 0;
+    budgetMessage.value = '';
     logs.value = [];
     patches.value = [];
     issues.value = [];
@@ -88,6 +129,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
         requestId.value = '';
         status.value = 'error';
         error.value = failure instanceof Error ? failure.message : String(failure);
+        interruptProgress(error.value);
       }
     } finally {
       settling.value = false;
@@ -97,6 +139,22 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
 
   const offEvent = api.onEvent(event => {
     if (event.requestId !== requestId.value) return;
+    if (event.type === 'stage') {
+      const stage = stages.value.find(item => item.id === event.stage);
+      if (stage) { stage.state = event.state; stage.detail = event.message; }
+    }
+    if (event.type === 'operation') {
+      const index = operations.value.findIndex(item => item.id === event.operation.id);
+      if (index === -1) operations.value.push(event.operation);
+      else operations.value[index] = event.operation;
+    }
+    if (event.type === 'goals') goals.value = event.goals;
+    if (event.type === 'budget') {
+      step.value = event.step;
+      maxSteps.value = event.maxSteps;
+      taskMs.value = event.taskMs;
+      budgetMessage.value = event.message;
+    }
     if (event.type === 'progress') {
       logs.value.push(event.message);
       phase.value = 'executing';
@@ -109,15 +167,31 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       response.value += event.text;
       phase.value = 'writing';
     }
-    if (event.type === 'patch') patches.value.push({ ...event.patch, decision: 'pending' });
+    if (event.type === 'patch') {
+      // 修订沿用同一建议 ID，替换旧预览而不是追加重复卡片。
+      const index = patches.value.findIndex(patch => patch.id === event.patch.id);
+      const patch: ReviewPatch = { ...event.patch, decision: 'pending' };
+      if (index === -1) patches.value.push(patch);
+      else patches.value[index] = patch;
+      const check = stages.value.find(stage => stage.id === 'check');
+      if (check) { check.state = 'pending'; check.detail = '修改已更新，等待最终检查'; }
+    }
     if (event.type === 'done') {
       issues.value = event.issues;
+      outcome.value = event.outcome ?? 'complete';
+      endedAt.value = Date.now();
+      stages.value.forEach(stage => {
+        if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = '本次未执行此阶段'; }
+      });
+      const review = stages.value.find(stage => stage.id === 'review');
+      if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? '等待你接受或拒绝建议' : '没有待应用的修改'; }
       status.value = pending.value.length ? 'review' : 'done';
       requestId.value = '';
     }
     if (event.type === 'error') {
       status.value = 'error';
       error.value = event.message;
+      interruptProgress(event.message);
       requestId.value = '';
     }
   });
@@ -169,6 +243,12 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     status.value = 'review';
     logs.value.push('已撤销本次任务接受的全部修改');
   };
-  onScopeDispose(() => { cancel(); offEvent(); offWatch(); });
-  return { status, instruction, response, reasoning, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted, canReview, canStart, start, cancel, accept, reject, undo };
+  // 审阅进度跟随用户的真实决定，全部处理后才完成这一阶段。
+  const offReviewWatch = watch([status, () => pending.value.length], () => {
+    if (!canReview.value) return;
+    const review = stages.value.find(stage => stage.id === 'review');
+    if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? `还有 ${pending.value.length} 处待审阅` : '所有建议已处理'; }
+  });
+  onScopeDispose(() => { offReviewWatch(); cancel(); offEvent(); offWatch(); });
+  return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, status, instruction, response, reasoning, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted, canReview, canStart, start, cancel, accept, reject, undo };
 }

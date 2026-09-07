@@ -8,9 +8,14 @@
         <button type="button" class="flex rounded-md border border-line px-3 py-2 text-left text-xs text-secondary hover:bg-selected" @click="send('检查标题层级和术语一致性，只修改必要位置，保留代码块。')">检查标题与术语，保留代码块</button>
       </div>
       <div v-if="instruction" class="flex flex-col gap-2">
-        <span class="text-[11px] text-muted">本次任务 · {{ labels[status] }}</span>
+        <span class="text-[11px] text-muted">本次任务 · {{ outcome === 'incomplete' && canReview ? '仍有未完成事项' : labels[status] }}</span>
         <p class="whitespace-pre-wrap break-words text-sm text-ink">{{ instruction }}</p>
       </div>
+      <AgentExecutionStatus v-if="status !== 'idle'" :running="running" :status="status" :outcome="outcome"
+        :stages="stages" :operations="operations" :goals="goals" :reasoning="reasoning"
+        :started-at="startedAt" :ended-at="endedAt" :step="step" :max-steps="maxSteps" :task-ms="taskMs" :budget-message="budgetMessage" />
+      <!-- 检查完成前允许查看建议，但不能将中断任务的内容写入文档。 -->
+      <p v-if="patches.length && !canReview" class="rounded-lg border border-line px-3 py-2 text-xs leading-5 text-muted">{{ running ? '建议正在生成，最终检查后可审阅应用。' : '任务未完成，以下建议尚未通过最终核对，仅供查看。' }}</p>
       <p v-if="response" class="whitespace-pre-wrap break-words text-xs leading-6 text-secondary">{{ response }}</p>
       <div v-if="error" role="alert" class="flex flex-col gap-2 rounded-md border border-danger p-3 text-xs leading-5 text-danger">
         <p>{{ error }}</p>
@@ -50,7 +55,7 @@
       </div>
     </div>
     <p v-if="canReview && pending.length" class="px-3 pt-2 text-[11px] text-muted">请先接受或拒绝本轮建议，再开始下一项任务。</p>
-    <AgentExecutionStatus v-if="status !== 'idle'" :running="running" :status="status" :phase="phase" :reasoning="reasoning" :logs="logs" />
+    <p v-if="running" class="px-3 pt-2 text-[11px] leading-5 text-muted">{{ stages.find(stage => stage.state === 'running')?.title ?? '模型正在处理下一步' }} · 已生成 {{ patches.length }} 处建议 · 可随时停止</p>
     <AiChatInput ref="input" :is-streaming="running" :disabled="!canStart && !running" @send="send" @cancel="cancel">
       <template #footer-left><slot name="footer-left" /></template>
       <template #footer-right><slot name="footer-right" :busy="running || settling" /></template>
@@ -68,7 +73,7 @@ import AgentExecutionStatus from './AgentExecutionStatus.vue'
 // 父级提供编辑器操作，面板本身不接触磁盘文件。
 const props = defineProps<{ options: DocumentAgentOptions }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
-const { status, instruction, response, reasoning, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted,
+const { status, instruction, response, reasoning, stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, patches, issues, checkTarget, error, running, settling, pending, accepted,
   canReview, canStart, start, cancel, accept, reject, undo } = useDocumentAgent(props.options)
 const input = ref<InstanceType<typeof AiChatInput> | null>(null)
 const labels = { idle: '就绪', running: '执行中', review: '等待审阅', done: '已完成', cancelled: '已停止', error: '失败', conflict: '文档已变化' }

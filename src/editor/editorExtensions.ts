@@ -38,6 +38,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { DEFAULT_CODE_BLOCK_LANGUAGE } from "../modules/codeBlockLanguages";
 import { SectionCollapse } from "../extensions/SectionCollapse";
+import { BlockMarquee } from "../extensions/BlockMarquee";
 import { Video } from "../extensions/Video";
 import { Attachment } from "../extensions/Attachment";
 import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
@@ -393,6 +394,7 @@ export const createEditorExtensions = (options: {
     TrailingParagraph,
     ReadableGapCursor,
     ClickableBlockGap,
+    BlockMarquee,
     SerializableHighlight.configure({
       multicolor: true,
     }),

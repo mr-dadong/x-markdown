@@ -76,3 +76,58 @@ describe('文档 Agent 工具执行', () => {
     assert.equal(runtime.patches.length, 0);
   });
 });
+
+// 批量提交与修订必须保持原文坐标契约，并以整批验证结果为准。
+describe('分阶段 Agent 的修改与目标', () => {
+  test('批量中一处原文不匹配时整批失败，不发送半批预览', async () => {
+    const events: DocumentAgentEvent[] = [];
+    const runtime = createDocumentAgentTools('甲乙', new AbortController().signal, event => events.push(event), 'batch');
+    runtime.overview();
+    await assert.rejects(runtime.tools.propose_document_patches.execute!({ patches: [
+      { start: 0, end: 1, before: '甲', after: 'A', reason: '替换甲' },
+      { start: 1, end: 2, before: '错误', after: 'B', reason: '替换乙' },
+    ] }, context), /原文不匹配/);
+    assert.equal(runtime.patches.length, 0);
+    assert.equal(events.filter(event => event.type === 'patch').length, 0);
+    assert.ok(events.some(event => event.type === 'operation' && event.operation.state === 'error'));
+  });
+  test('修订使用同一 ID，最终检查重新检查修订后的内容', async () => {
+    const runtime = createDocumentAgentTools('# 标题\n### 小节', new AbortController().signal, () => {}, 'revise');
+    runtime.overview();
+    await runtime.tools.plan_document_task.execute!({ goals: ['修复标题'] }, context);
+    await runtime.tools.propose_document_patches.execute!({ patches: [
+      { start: 5, end: 8, before: '###', after: '####', reason: '调整层级' },
+    ] }, context);
+    assert.deepEqual(await runtime.tools.validate_document.execute!({}, context), { issues: ['第 2 行：标题从 1 级跳到 4 级'] });
+    const id = runtime.patches[0].id;
+    await runtime.tools.revise_document_patch.execute!({ id, start: 5, end: 8, before: '###', after: '##', reason: '修复跳级' }, context);
+    assert.equal(runtime.patches.length, 1);
+    assert.equal(runtime.patches[0].id, id);
+    await runtime.tools.finish_document_task.execute!({ outcomes: [{ id: 'goal-1', state: 'done', detail: '建议将三级标题调整为二级' }] }, context);
+    assert.deepEqual(runtime.getIssues(), []);
+    assert.equal(runtime.getOutcome(), 'complete');
+    await assert.rejects(runtime.tools.read_document.execute!({ start: 0, end: 1 }, context), /已收尾/);
+  });
+  test('同一搜索第三次无进展停止，新增修改后允许重新检查', async () => {
+    const runtime = createDocumentAgentTools('旧名', new AbortController().signal, () => {}, 'repeat');
+    runtime.overview();
+    await runtime.tools.search_document.execute!({ query: '旧名', start: 0 }, context);
+    await runtime.tools.search_document.execute!({ query: '旧名', start: 0 }, context);
+    await assert.rejects(runtime.tools.search_document.execute!({ query: '旧名', start: 0 }, context), /重复 3 次/);
+    await runtime.tools.propose_document_patch.execute!({ start: 0, end: 2, before: '旧名', after: 'XMD', reason: '统一名称' }, context);
+    await runtime.tools.search_document.execute!({ query: '旧名', start: 0 }, context);
+  });
+  test('必须核对每个目标，预算收尾不能被标记成全部完成', async () => {
+    const runtime = createDocumentAgentTools('正文', new AbortController().signal, () => {}, 'goals');
+    runtime.overview();
+    await runtime.tools.plan_document_task.execute!({ goals: ['检查标题', '检查术语'] }, context);
+    await assert.rejects(runtime.tools.finish_document_task.execute!({ outcomes: [{ id: 'goal-1', state: 'done', detail: '无标题' }] }, context), /全部任务目标/);
+    assert.equal(runtime.isComplete(), false);
+    runtime.close('接近预算');
+    await runtime.tools.finish_document_task.execute!({ outcomes: [
+      { id: 'goal-1', state: 'done', detail: '无标题' },
+      { id: 'goal-2', state: 'done', detail: '未发现术语问题' },
+    ] }, context);
+    assert.equal(runtime.getOutcome(), 'incomplete');
+  });
+});

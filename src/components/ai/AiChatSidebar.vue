@@ -68,7 +68,7 @@
         <template #footer-right="{ busy }">
           <AiChatModelSelector :current="selectedModel" :default-model="defaultModel" :models="modelList"
             :custom-models="customModelList" :loading="modelsLoading" :error="modelsError" :disabled="busy"
-            @select="handleModelSelect" @refresh="fetchModelList" @open="handleModelDropdownOpen" />
+            @select="handleModelSelect" @refresh="emit('open-settings')" />
         </template>
       </DocumentAgentPanel>
       <div v-show="mode === 'chat'" class="flex min-h-0 flex-1 flex-col">
@@ -188,8 +188,8 @@
             :error="modelsError"
             :disabled="isStreaming"
             @select="handleModelSelect"
-            @refresh="fetchModelList"
-            @open="handleModelDropdownOpen"
+            @refresh="emit('open-settings')"
+
           />
         </template>
       </AiChatInput>
@@ -205,6 +205,7 @@ import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
 import { useAiChatContext } from '../../composables/useAiChatContext'
+import { modelCatalogRevision, readModelCatalog } from '../../services/aiModelCatalog'
 import { aiService } from '../../services/aiService'
 import type { AiModelInfo } from '../../types/ai'
 import AiChatMessage from './AiChatMessage.vue'
@@ -293,57 +294,34 @@ const modelList = ref<AiModelInfo[]>([])
 const customModelList = ref<string[]>([])
 const modelsLoading = ref(false)
 const modelsError = ref('')
-// 按厂商缓存已拉取的模型列表，避免每次展开下拉都请求厂商接口
-const modelsCache = new Map<string, AiModelInfo[]>()
+// 厂商切换时恢复该厂商的选择，保持原有模型覆盖规则。
+watch(currentProvider, (provider) => {
+  selectedModel.value = provider ? (readOverrideMap()[provider] ?? '') : ''
+}, { immediate: true })
 
-// 厂商变化（含首次状态加载完成）时，恢复该厂商记住的选择并重置列表
-watch(
-  currentProvider,
-  (provider) => {
-    selectedModel.value = provider ? (readOverrideMap()[provider] ?? '') : ''
-    modelList.value = modelsCache.get(provider) ?? []
-    customModelList.value = []
-    modelsError.value = ''
-  },
-  { immediate: true },
-)
-
-const fetchModelList = async (): Promise<void> => {
-  const provider = currentProvider.value
-  if (!provider || modelsLoading.value) return
+let catalogRequest = 0
+// 只读取本地配置和设置页保存的列表，不向厂商获取模型。
+const syncModelCatalog = async (): Promise<void> => {
+  const request = ++catalogRequest
   modelsLoading.value = true
   modelsError.value = ''
+  modelList.value = []
+  customModelList.value = []
   try {
-    // 模型列表按已保存的设置拉取，与 chat agent 使用的配置保持一致
-    const [modelsResult, settings] = await Promise.all([aiService.fetchModels(), aiService.getSettings()])
-    modelsCache.set(provider, modelsResult.models)
-    modelList.value = modelsResult.models
-    customModelList.value = settings.providers[provider]?.customModels ?? []
-    modelsError.value = modelsResult.error ?? ''
-  } catch (fetchError) {
-    modelsError.value = fetchError instanceof Error ? fetchError.message : String(fetchError)
+    const settings = await aiService.getSettings()
+    if (request !== catalogRequest) return
+    const config = settings.providers[settings.provider]
+    modelList.value = readModelCatalog(settings.provider, config.baseUrl ?? '')
+    customModelList.value = config.customModels ?? []
+  } catch (error) {
+    if (request === catalogRequest) modelsError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    modelsLoading.value = false
+    if (request === catalogRequest) modelsLoading.value = false
   }
 }
 
-// 首次展开时懒加载模型列表；已有缓存时仅同步该厂商的自定义模型
-const handleModelDropdownOpen = (): void => {
-  const provider = currentProvider.value
-  if (!provider || modelsLoading.value) return
-  if (modelsCache.has(provider)) {
-    void aiService
-      .getSettings()
-      .then((settings) => {
-        if (currentProvider.value === provider) {
-          customModelList.value = settings.providers[provider]?.customModels ?? []
-        }
-      })
-      .catch(() => {})
-    return
-  }
-  void fetchModelList()
-}
+// 首次加载和保存设置时提前同步，点击下拉框只展开已有列表。
+watch([status, modelCatalogRevision], () => { void syncModelCatalog() }, { immediate: true })
 
 const handleModelSelect = (id: string): void => {
   selectedModel.value = id

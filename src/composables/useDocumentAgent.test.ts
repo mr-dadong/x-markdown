@@ -30,7 +30,8 @@ function setup() {
   const proposal: DocumentPatch = { id: 'p1', start: 0, end: 2, before: '旧名', after: 'XMD', reason: '统一名称' };
   const propose = (patch: DocumentPatch = proposal) => listener({ requestId: request.requestId, type: 'patch', patch });
   const finish = () => { listener({ requestId: request.requestId, type: 'done', issues: [] }); resolve(); };
-  return { agent, document, id, scope, emit, propose, finish, cancelled, resolve: () => resolve() };
+  const event = (value: DocumentAgentEvent) => listener({ ...value, requestId: request.requestId });
+  return { event, agent, document, id, scope, emit, propose, finish, cancelled, resolve: () => resolve() };
 }
 
 describe('文档 Agent 审阅和生命周期', () => {
@@ -157,6 +158,44 @@ describe('文档 Agent 审阅和生命周期', () => {
     state.resolve();
     assert.equal(await task, false);
     assert.equal(state.agent.status.value, 'error');
+    state.scope.stop();
+  });
+});
+
+// 新的阶段协议与旧的审阅、取消接口共同工作。
+describe('Agent 阶段与修改预览', () => {
+  test('文字增量不改变真实阶段，同 ID 修订替换预览，中断禁止应用', async () => {
+    const state = setup();
+    const task = state.agent.start('整理文档');
+    state.event({ requestId: '', type: 'stage', stage: 'locate', state: 'done', message: '找到 2 处命中' });
+    state.emit('reasoning', '准备修改');
+    assert.equal(state.agent.stages.value.find(stage => stage.id === 'locate')?.detail, '找到 2 处命中');
+    state.propose();
+    state.propose({ id: 'p1', start: 0, end: 2, before: '旧名', after: '新名称', reason: '修订名称' });
+    assert.equal(state.agent.patches.value.length, 1);
+    assert.equal(state.agent.patches.value[0].after, '新名称');
+    state.event({ requestId: '', type: 'error', message: '模型无响应' });
+    state.resolve();
+    await task;
+    assert.equal(state.agent.canReview.value, false);
+    state.agent.accept();
+    assert.equal(state.document.value, '旧名，正文');
+    assert.ok(state.agent.endedAt.value > 0);
+    state.scope.stop();
+  });
+  test('部分完成保留未解决目标，审阅操作不把任务改成全部完成', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称并核实事实');
+    state.propose();
+    state.event({ requestId: '', type: 'goals', goals: [{ id: 'goal-1', title: '核实事实', state: 'unresolved', detail: '没有外部资料' }] });
+    state.event({ requestId: '', type: 'done', outcome: 'incomplete', issues: [] });
+    state.resolve();
+    await task;
+    assert.equal(state.agent.canReview.value, true);
+    state.agent.accept();
+    assert.equal(state.agent.outcome.value, 'incomplete');
+    assert.equal(state.agent.goals.value[0].state, 'unresolved');
+    assert.equal(state.document.value, 'XMD，正文');
     state.scope.stop();
   });
 });

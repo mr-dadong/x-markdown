@@ -26,6 +26,7 @@ import {
   handleHeadingPromote,
 } from "../modules/headingKeyboard";
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
+import { blockMarqueeKey, copyBlocks, handleBlockMarqueeKey } from "../extensions/BlockMarquee";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
 import {
@@ -1042,6 +1043,11 @@ export const useMarkdownEditor = (
     view: EditorView,
     event: KeyboardEvent,
   ): boolean => {
+    // 块框选优先处理删除和剪切，不沿用原光标所在标题或代码块的快捷键。
+    if (blockMarqueeKey.getState(view.state)?.length) {
+      if (handleBlockMarqueeKey(view, event)) return true;
+      if ((event.ctrlKey || event.metaKey) && ['c', 'x'].includes(event.key.toLowerCase())) return false;
+    }
     if (handleSlashMenuKeydown(event)) return true;
     if (handleEmojiMenuKeydown(event)) return true;
     if (event.isComposing) return false;
@@ -1203,6 +1209,8 @@ export const useMarkdownEditor = (
       },
       handleDOMEvents: {
         copy: (view, event) => {
+          // 块复制优先于局部文字和图片单选复制。
+          if (copyBlocks(view, event, false)) return true;
           const { selection } = view.state;
 
           if (selection instanceof TextSelection && !selection.empty && event.clipboardData) {

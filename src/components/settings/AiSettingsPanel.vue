@@ -119,6 +119,7 @@ import ToggleSwitch from './ToggleSwitch.vue'
 import IconSelect from './IconSelect.vue'
 import type { IconSelectOption } from './IconSelect.vue'
 import ModelSelector from './ModelSelector.vue'
+import { saveModelCatalog } from '../../services/aiModelCatalog'
 import { aiService } from '../../services/aiService'
 import { getApiKeyDisplay, prefillBaseUrls } from '../../utils/aiSettingsForm'
 import type { AiProvider, AiProviderPublicConfig, AiSettingsInput, AiTestConnectionResult } from '../../types/ai'
@@ -367,6 +368,8 @@ const onFetchModels = async () => {
     if (result.error) {
       modelSelectorRef.value.setError(result.error)
     } else {
+      // 复用设置中获取的模型，侧栏无需重复请求厂商。
+      saveModelCatalog(draft.provider!, draft.providers![draft.provider!].baseUrl ?? '', result.models)
       modelSelectorRef.value.setModels(result.models)
     }
   } catch (error) {
