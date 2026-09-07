@@ -1,23 +1,25 @@
 {
-  "latest": "1.2.10",
+  "latest": "1.3.0",
   "releases": [
     {
-      "version": "1.2.10",
-      "date": "2026-09-07",
+      "version": "1.3.0",
+      "date": "2026-09-08",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：选中文字后弹出文字格式工具栏，可一键把选区切换为正文、一级至三级标题、有序/无序/任务列表、代码块或引用块，当前类型带选中标记，切换类型时保留所选文字和后续段落",
-        "新增：文字格式工具栏集成加粗、删除线、斜体、下划线、高亮五种行内格式与超链接编辑，选中文字即可设置链接、修改或移除已有链接，无效地址会明确提示",
-        "新增：代码块内选中文字也会显示文字格式工具栏，可直接把代码内容转回正文或标题等文字类型，不再受代码块限制",
-        "优化：选中文字浮条由 AI 动作条升级为「问问 AI」入口：AI 已配置时点击即把选区发送到 AI 聊天提问，未配置时点击引导打开 AI 设置；未配置 AI 也能正常使用排版功能",
-        "新增：AI 聊天支持携带正文引用：添加到输入框的引用标签可点击预览完整原文，发送后消息下方显示「引用了 N 处正文」并可展开核对，引用与提问分开保存，不再拼贴在消息文本中",
-        "优化：AI 聊天发送失败或手动停止后，问题和引用保留在输入框可直接再次发送；失败后重发同一提问不会在历史中重复追加",
-        "优化：AI 聊天重新生成回复会自动沿用原提问附带的正文引用，并清除上一次的错误提示后重新生成",
-        "新增：AI 回复中的代码块支持语法高亮，配色与编辑器代码块一致，并随设置的代码块外观同步刷新",
-        "新增：AI 回复代码块头部新增语言标签与「复制」按钮，点击一键复制代码并提示已复制",
-        "优化：文字格式工具栏及其下拉面板会自动避开编辑区边缘，空间不足时向上展开，选中大段文字时也不会被顶部标签栏遮挡裁剪",
-        "优化：设置中的更新日志改为分区内滚动与分批加载，默认展示最近 20 条，继续向下滚动自动加载更多版本记录"
+        "新增：代码块内未选中文字时按 Ctrl+X（macOS 按 Cmd+X）可直接剪切光标所在整行，并将整行内容写入剪贴板，不会留空行",
+        "优化：内容块操作菜单移除「新增」「副本」两个入口，新增「问问AI」：点击即把整个内容块文本发送到 AI 聊天，可直接围绕该块内容提问",
+        "新增：AI 侧栏新增「Agent」模式：选择后 AI 会读取、搜索当前文档并自动提出局部修改建议，每处修改都展示修改前后对比，可逐条或全部接受/拒绝；接受的修改进入编辑器撤销历史，也支持一键撤销本次任务的全部修改",
+        "新增：Agent 任务执行过程分阶段实时展示，包含每步操作的结果与耗时，结束后提供目标核对与模型思考内容，执行更透明",
+        "新增：编辑器支持块框选：按住鼠标拖拽即可框选多个内容块（列表按条目选取），可对所选块整体复制、剪切或删除，按 Esc 取消",
+        "新增：外部文件修改提醒：其他程序改动当前打开的文件时，编辑器顶部显示横幅，可选择重新加载磁盘最新内容或忽略本次改动",
+        "新增：AI 聊天回复的代码块新增「自动换行」开关，默认开启，关闭后长代码行横向滚动查看",
+        "优化：AI 聊天回复正在生成的段落实时渲染排版效果（含代码块），不再以纯文本等待写完",
+        "优化：AI 聊天发送消息后输入框立即清空，方便继续输入下一条；发送失败时自动恢复原草稿，内容不丢失",
+        "优化：AI 回复代码块复制时自动去除代码首尾的多余空行，横向滚动条样式与编辑器保持一致",
+        "优化：查找替换仅作用于当前文档，避免「搜索横跨所有标签页、全部替换却只替换当前文件」的范围不一致问题",
+        "优化：设置中获取过的模型列表按厂商本地缓存，AI 侧栏可直接复用，无需重复请求",
+        "修复：源码模式下切换文档后按 Ctrl+Z 会回退到上一个文档内容的问题"
       ],
       "downloads": {
         "windows": {
@@ -28,9 +30,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.2.10-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Windows-x64.exe",
-              "sha256": "8a0605327a623a7490e4b434524da494fd6a0a3a777cdcf91492744d8411562d"
+              "filename": "XMD-1.3.0-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.0/XMD-1.3.0-Windows-x64.exe",
+              "sha256": "79bc84148f32edbc09695998c0699e84b61a523557ca96546fdbc0b9f7845ef9"
             }
           ]
         },
@@ -42,17 +44,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.10-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-macOS-arm64.dmg",
-              "sha256": "74aa0917bcf83eac5e0b1a6832ba6a651e13a153420ab1bf5e51c6b181eace7b"
+              "filename": "XMD-1.3.0-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.0/XMD-1.3.0-macOS-arm64.dmg",
+              "sha256": "abe738b7ffd62bfe9e835acaed4a06b8ec32bdcaa0b04a20104d26878dd42cdb"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.2.10-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-macOS-x64.dmg",
-              "sha256": "1883c8824dcfb7780fc4a6bcf19676a134fb0561749abebe546006fc1871b790"
+              "filename": "XMD-1.3.0-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.0/XMD-1.3.0-macOS-x64.dmg",
+              "sha256": "109b02c985703ad6ffabe738843109f6f03f369a18d53070da8bd83b002cc878"
             }
           ]
         },
@@ -64,17 +66,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.10-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Linux-x86_64.AppImage",
-              "sha256": "efd92c4d9084e6ab5f9e9a1fbe0125d70d2ff3d6f79e86021eafe08d4d3cecfc"
+              "filename": "XMD-1.3.0-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.0/XMD-1.3.0-Linux-x86_64.AppImage",
+              "sha256": "57159cfedd43b2110b5adbf34266c3512f55608009cbce041484c49d2e47f77b"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.2.10-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.2.10/XMD-1.2.10-Linux-arm64.AppImage",
-              "sha256": "03370c3049224cdc5ae9f0b68d891bf5ccda4ef7043e7002e2c5997f37fbc28c"
+              "filename": "XMD-1.3.0-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.0/XMD-1.3.0-Linux-arm64.AppImage",
+              "sha256": "86afab5f5c25d83a9dfbe1c7e603ed076d8cdb2c5d43eade3a5c45aea83fc34c"
             }
           ]
         }
