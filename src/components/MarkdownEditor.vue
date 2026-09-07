@@ -357,8 +357,6 @@ const {
   handleBlockControlLeave,
   toggleBlockMenu,
   closeBlockMenu,
-  addBlockAfter,
-  duplicateActiveBlock,
   deleteActiveBlock,
   moveActiveBlock,
   copyActiveBlockText,
@@ -596,6 +594,17 @@ const addToSelection = (): void => {
   emit('add-to-selection', text)
 }
 
+// 把当前内容块的文本发送到 AI Chat 输入框，供用户直接围绕这段内容提问。
+const askAiAboutBlock = (): void => {
+  if (!editor.value || !activeBlock.value) return
+  const node = editor.value.state.doc.nodeAt(activeBlock.value.position)
+  if (!node) return
+  const text = node.textContent
+  if (!text.trim()) return
+  closeBlockMenu()
+  emit('add-to-selection', text)
+}
+
 // 块菜单与表格浮动工具栏同为深色风格，图标旁直接展示短标签，完整含义放悬停提示。
 interface BlockAction {
   icon: string
@@ -609,14 +618,13 @@ interface BlockAction {
 const blockActions: BlockAction[] = [
   { icon: 'lucide:arrow-up', label: '上移', title: '上移内容块', run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
   { icon: 'lucide:arrow-down', label: '下移', title: '下移内容块', run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
-  { icon: 'lucide:file-plus-2', label: '新增', title: '在下方新增空段落', run: addBlockAfter },
+  { icon: 'lucide:message-square-plus', label: '问问AI', title: '把内容块文本发送到 AI 聊天', run: askAiAboutBlock },
   { icon: 'lucide:copy', label: '复制', title: '复制内容块文本到剪贴板', run: copyActiveBlockText },
-  { icon: 'lucide:copy-plus', label: '副本', title: '在下方生成内容块副本', run: duplicateActiveBlock },
   { icon: 'lucide:trash-2', label: '删除', title: '删除内容块', run: deleteActiveBlock, danger: true },
 ]
 
-// 分隔“移动、新增、复制、删除”四组操作，风险从左到右递增，与表格工具栏的分组方式一致。
-const blockActionSeparators = [2, 3, 5]
+// 分隔“移动、询问/复制、删除”三组操作，风险从左到右递增，与表格工具栏的分组方式一致。
+const blockActionSeparators = [2, 4]
 
 const editorShell = ref<HTMLElement | null>(null)
 

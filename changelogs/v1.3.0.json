@@ -6,7 +6,10 @@
       "date": "2026-09-06",
       "channel": "stable",
       "title": "版本更新",
-      "content": [],
+      "content": [
+        "新增：代码块内未选中文字时按 Ctrl+X（macOS 按 Cmd+X）可直接剪切光标所在整行，并将整行内容写入剪贴板，不会留空行",
+        "优化：内容块操作菜单移除「新增」「副本」两个入口，新增「问问AI」：点击即把整个内容块文本发送到 AI 聊天，可直接围绕该块内容提问"
+      ],
       "downloads": {
         "windows": {
           "available": true,

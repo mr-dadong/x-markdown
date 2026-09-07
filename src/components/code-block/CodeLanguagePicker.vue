@@ -98,9 +98,15 @@ const filteredLanguages = computed(() => {
 const toggleMenu = (): void => {
   menuOpen.value = !menuOpen.value
   search.value = ''
-  // 打开菜单时默认高亮第一个元素，直接回车即可选中。
-  highlightedIndex.value = 0
-  if (menuOpen.value) void nextTick(() => searchInput.value?.focus())
+  // 打开菜单时默认高亮当前已选中的语言，用户直接回车即可确认或改选；
+  // 当前语言不在可选列表时（自定义值，排在第一项），则高亮第一项。
+  highlightedIndex.value = Math.max(0, visibleLanguages.value.findIndex((language) => language.value === props.modelValue))
+  if (menuOpen.value) {
+    void nextTick(() => {
+      searchInput.value?.focus()
+      scrollHighlightedIntoView()
+    })
+  }
 }
 
 const selectLanguage = (language: string): void => {

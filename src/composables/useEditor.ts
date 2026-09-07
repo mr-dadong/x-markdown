@@ -13,6 +13,7 @@ import { ReplaceStep } from "@tiptap/pm/transform";
 import { CellSelection } from "@tiptap/pm/tables";
 import type { EditorView } from "@tiptap/pm/view";
 import {
+  handleCodeBlockCut,
   handleCodeBlockSelectAll,
   handleCodeBlockTab,
 } from "../modules/codeBlockKeyboard";
@@ -859,28 +860,6 @@ export const useMarkdownEditor = (
     };
   };
 
-  // 在当前内容块后创建普通空段落，光标直接落入新段落继续输入。
-  const addBlockAfter = (): void => {
-    if (!editor.value) return;
-    const range = getActiveBlockRange();
-    if (!range) return;
-    const paragraph = editor.value.schema.nodes.paragraph.create();
-    const transaction = editor.value.state.tr.insert(range.to, paragraph);
-    transaction.setSelection(TextSelection.create(transaction.doc, range.to + 1));
-    editor.value.view.dispatch(transaction.scrollIntoView());
-    closeBlockMenu();
-    editor.value.commands.focus();
-  };
-
-  const duplicateActiveBlock = (): void => {
-    if (!editor.value) return;
-    const range = getActiveBlockRange();
-    if (!range) return;
-    const content = editor.value.state.doc.slice(range.from, range.to).content;
-    editor.value.view.dispatch(editor.value.state.tr.insert(range.to, content).scrollIntoView());
-    closeBlockMenu();
-  };
-
   const deleteActiveBlock = (): void => {
     if (!editor.value) return;
     const range = getActiveBlockRange();
@@ -1071,6 +1050,7 @@ export const useMarkdownEditor = (
     if (handleHeadingBackspace(view, event)) return true;
     if (handleHeadingPromote(view, event)) return true;
     if (handleCodeBlockSelectAll(view, event)) return true;
+    if (handleCodeBlockCut(view, event)) return true;
     if (handleCodeBlockTab(view, event)) return true;
     if (handleTableSelectAll(view, event)) return true;
 
@@ -1435,8 +1415,6 @@ export const useMarkdownEditor = (
     handleBlockControlLeave,
     toggleBlockMenu,
     closeBlockMenu,
-    addBlockAfter,
-    duplicateActiveBlock,
     deleteActiveBlock,
     moveActiveBlock,
     copyActiveBlockText,

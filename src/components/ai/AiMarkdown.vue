@@ -33,17 +33,20 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
-// 自定义代码块渲染：统一语言标签 + 语法高亮 + 右上角复制按钮。
+// 自定义代码块渲染：语言标签 + 自动换行开关 + 复制按钮 + 语法高亮。
 // 颜色类名来自设置中的代码块外观，与编辑器代码块保持一致。
+// data-wrap 标记当前是否自动换行（默认 1=换行），交给 CSS 决定排版，点击切换按钮时更新。
 md.renderer.rules.fence = (tokens, idx) => {
   const token = tokens[idx]
   const lang = token.info.trim()
   const style = getCodeBlockStyle(settings.codeBlockStyle)
   const langLabel = `<span class="code-lang">${md.utils.escapeHtml(lang)}</span>`
+  const wrapButton = `<button type="button" title="关闭自动换行" class="code-wrap-btn is-active ${style.headerControlClass} ${style.headerHoverClass}">自动换行</button>`
   const copyButton = `<button type="button" class="code-copy-btn ${style.headerControlClass} ${style.headerHoverClass}">复制</button>`
   return (
-    `<div class="code-block-wrapper ${style.tokenClass}">` +
-    `<div class="code-block-header ${style.headerClass} ${style.headerTextClass}">${langLabel}${copyButton}</div>` +
+    `<div class="code-block-wrapper ${style.tokenClass}" data-wrap="1">` +
+    `<div class="code-block-header ${style.headerClass} ${style.headerTextClass}">${langLabel}` +
+    `<span class="code-header-actions">${wrapButton}${copyButton}</span></div>` +
     `<pre class="code-block ${style.preClass} ${style.codeClass}"><code>${highlightCode(lang, token.content)}</code></pre>` +
     `</div>`
   )
@@ -64,6 +67,23 @@ const rendered = computed(() => {
 // 通过事件委托同时覆盖整段 v-html 与流式分块两类渲染内容。
 const handleClick = (event: MouseEvent): void => {
   const target = event.target as HTMLElement | null
+
+  // 自动换行开关：在“自动换行/关闭换行”之间切换，并把高亮状态同步到按钮上。
+  // 状态写在 wrapper 的 data-wrap 上，CSS 据此切换代码块排版；重新渲染/刷新后默认回到自动换行。
+  const wrapButton = target?.closest('.code-wrap-btn') as HTMLButtonElement | null
+  if (wrapButton) {
+    const wrapper = wrapButton.closest('.code-block-wrapper') as HTMLElement | null
+    if (!wrapper) return
+    const isWrapped = wrapper.dataset.wrap === '1'
+    // 切换后新的换行状态与按钮文案一致：开启=显示“关闭换行”，关闭=显示“自动换行”
+    const nowWrapped = !isWrapped
+    wrapper.dataset.wrap = nowWrapped ? '1' : '0'
+    // 高亮状态跟随当前是否换行，方便一眼看出代码块当前是否自动换行
+    wrapButton.classList.toggle('is-active', nowWrapped)
+    wrapButton.textContent = nowWrapped ? '关闭换行' : '自动换行'
+    wrapButton.title = nowWrapped ? '关闭自动换行' : '开启自动换行'
+    return
+  }
 
   // 代码块右上角复制按钮：把对应代码块的正文写入剪贴板，并短暂提示复制成功
   const copyButton = target?.closest('.code-copy-btn') as HTMLButtonElement | null
@@ -189,7 +209,15 @@ defineExpose({ render })
   text-transform: uppercase;
 }
 
-/* 复制按钮：底色与悬停反馈由代码块外观的控件类提供 */
+/* 头部右侧动作区：自动换行开关 + 复制按钮，保持横向排列不换行 */
+.ai-md :deep(.code-header-actions) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 自动换行开关与复制按钮共用一套控件外观：底色/悬停由代码块外观的控件类提供 */
+.ai-md :deep(.code-wrap-btn),
 .ai-md :deep(.code-copy-btn) {
   border: 0;
   background: transparent;
@@ -200,17 +228,54 @@ defineExpose({ render })
   cursor: pointer;
 }
 
+/* 自动换行开启时的高亮状态：半透明底色在浅/深色头部上都能清晰辨认 */
+.ai-md :deep(.code-wrap-btn.is-active) {
+  background: rgba(127, 127, 127, 0.22);
+}
+
+/* 代码块正文：默认自动换行（data-wrap=1）时折行显示；关闭换行时保留整行横向滚动 */
+.ai-md :deep(.code-block-wrapper[data-wrap='1'] .code-block) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-md :deep(.code-block-wrapper[data-wrap='0'] .code-block) {
+  white-space: pre;
+  overflow-x: auto;
+}
+
 .ai-md :deep(.code-block) {
   background: var(--color-paper);
   border-width: 0 1px 1px;
   border-style: solid;
   border-radius: 0 0 8px 8px;
   padding: 12px 14px;
-  overflow-x: auto;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 12px;
   line-height: 1.6;
   tab-size: 2;
+}
+
+/* 关闭自动换行、出现横向滚动时的滚动条：细窄圆角滑块，配合分隔线条，避免默认粗条破坏视觉 */
+.ai-md :deep(.code-block) {
+  scrollbar-width: thin;
+}
+
+.ai-md :deep(.code-block::-webkit-scrollbar) {
+  height: 8px;
+}
+
+.ai-md :deep(.code-block::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.ai-md :deep(.code-block::-webkit-scrollbar-thumb) {
+  border-radius: 9999px;
+  background-color: var(--color-scrollbar);
+}
+
+.ai-md :deep(.code-block::-webkit-scrollbar-thumb:hover) {
+  background-color: var(--color-scrollbar-hover);
 }
 
 .ai-md :deep(code) {
