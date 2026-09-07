@@ -265,9 +265,16 @@ watch(
 watch(
   () => props.content,
   (newContent) => {
-    const editor = view.value
-    if (!editor || editor.state.doc.toString() === newContent) return
-    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: newContent } })
+    const sourceView = view.value
+    if (!sourceView || sourceView.state.doc.toString() === newContent) return
+    // 切换文档后重建整个编辑状态：history 字段随之重新初始化，清空上一个文档遗留的
+    // 撤销栈，否则源码模式下在新文档里按 Ctrl+Z 会回退到上一个文档的内容。
+    sourceView.setState(
+      EditorState.create({
+        doc: newContent,
+        extensions: buildExtensions(props.isDarkTheme),
+      }),
+    )
   },
 )
 

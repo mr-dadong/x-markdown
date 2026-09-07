@@ -1,13 +1,14 @@
-import { computed, nextTick, onUnmounted, ref, type Ref } from "vue";
+import { computed, onUnmounted, ref, type Ref } from "vue";
 import type { Editor } from "@tiptap/core";
 import type { EditorView } from "@codemirror/view";
 import type { SourceEditorHandle } from "../types/editor";
 import type { OpenDocument } from "../types";
+import { FIND_REPLACE_EDIT_META } from "../constants";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
-// 一次匹配在某个文档中的起止位置，字符偏移与 ProseMirror 文档位置一致。
-// documentId 标识匹配所属的标签页，跨文档查找时据此切换视图。
+// 一次匹配在当前文档中的起止位置，字符偏移与 ProseMirror 文档位置一致。
+// documentId 标识匹配所属的标签页；查找替换只针对当前文档，所有匹配属于同一标签页。
 export interface FindMatch {
   from: number;
   to: number;
@@ -101,10 +102,9 @@ export const useFindReplace = (
   getEditor: () => Editor | null,
   getSourceHandle: () => SourceEditorHandle | null,
   isSourceMode: Ref<boolean>,
-  // 跨标签页查找：读取全部打开的文档、当前文档 id，并切换到匹配所在的标签页。
+  // 读取打开的文档与当前文档 id，用于确认当前文件的内容。
   getDocuments: () => OpenDocument[],
   getActiveDocumentId: () => number | null,
-  activateDocument: (documentId: number) => void,
 ): FindReplaceController => {
   const isOpen = ref(false);
   const query = ref("");
@@ -116,32 +116,14 @@ export const useFindReplace = (
 
   const matchCount = computed(() => matches.value.length);
 
-  // 跨文档跳转后按“文档内第几处匹配”重新锚定：文档顺序变化不影响定位。
-  interface DocAnchor {
-    documentId: number;
-    ordinal: number;
-  }
-
   // 刷新合成器：替换后以替换起点为锚，跳到锚之后的第一个匹配；越界时回到开头。
   const resolveCurrentIndex = (
     collected: FindMatch[],
     anchor?: number,
-    docAnchor?: DocAnchor,
   ): number => {
     if (collected.length === 0) return 0;
-    if (docAnchor !== undefined) {
-      const docMatches = collected.filter(
-        (match) => match.documentId === docAnchor.documentId,
-      );
-      const target = docMatches[docAnchor.ordinal];
-      if (target) {
-        const index = collected.indexOf(target);
-        if (index !== -1) return index;
-      }
-      return 0;
-    }
     if (anchor !== undefined) {
-      // 锚点只用于当前文档（替换刚发生的位置），避免其他文档的偏移干扰判断。
+      // 锚点是当前文档内替换刚发生的位置，跳到其后第一个匹配。
       const activeId = getActiveDocumentId();
       const next = collected.findIndex(
         (match) => match.documentId === activeId && match.from >= anchor,
@@ -160,7 +142,6 @@ export const useFindReplace = (
   };
 
   // 把匹配集合渲染成行内高亮，当前项使用更醒目的颜色区分。
-  // current 为 -1 时表示当前匹配位于其他标签页，本视图内全部使用普通高亮。
   const setEditorDecorations = (
     editor: Editor,
     collected: FindMatch[],
@@ -178,52 +159,48 @@ export const useFindReplace = (
     );
   };
 
-  // 汇总所有标签页的匹配：当前文档优先（富文本用编辑器节点位置、源码用 CodeMirror
-  // 位置，保证选中与滚动精确），其余文档基于原始文本收集，位置按文档顺序排列。
+  // 汇总当前文档的匹配：查找、计数、高亮、替换全部只基于当前文件，
+  // 避免出现“搜索横跨所有标签页、全部替换却只替换当前文件”的范围不一致问题。
   const collectAllMatches = (): FindMatch[] => {
     const queryValue = query.value;
     if (!queryValue) return [];
-    const documents = getDocuments();
     const activeId = getActiveDocumentId();
+    if (activeId === null) return [];
     const collected: FindMatch[] = [];
-    const collectText = (text: string, documentId: number): void => {
+    const collectText = (text: string): void => {
       collectTextMatches(text, queryValue, caseSensitive.value).forEach(
-        (match) => collected.push({ ...match, documentId }),
+        (match) => collected.push({ ...match, documentId: activeId }),
       );
     };
 
-    const activeDoc = documents.find((doc) => doc.id === activeId) ?? null;
-    if (activeDoc) {
-      if (!isSourceMode.value) {
-        const editor = getEditor();
-        if (editor) {
-          collected.push(
-            ...collectEditorMatches(
-              editor,
-              queryValue,
-              caseSensitive.value,
-              activeDoc.id,
-            ),
-          );
-        } else {
-          collectText(activeDoc.content, activeDoc.id);
-        }
+    if (!isSourceMode.value) {
+      const editor = getEditor();
+      if (editor) {
+        collected.push(
+          ...collectEditorMatches(
+            editor,
+            queryValue,
+            caseSensitive.value,
+            activeId,
+          ),
+        );
       } else {
-        const sourceView = getSourceHandle()?.getView() ?? null;
-        if (sourceView) {
-          collectText(sourceView.state.doc.toString(), activeDoc.id);
-        } else {
-          collectText(activeDoc.content, activeDoc.id);
-        }
+        const activeDoc = getDocuments().find((doc) => doc.id === activeId);
+        if (activeDoc) collectText(activeDoc.content);
       }
-    }
-    for (const doc of documents) {
-      if (doc.id !== activeId) collectText(doc.content, doc.id);
+    } else {
+      const sourceView = getSourceHandle()?.getView() ?? null;
+      if (sourceView) {
+        collectText(sourceView.state.doc.toString());
+      } else {
+        const activeDoc = getDocuments().find((doc) => doc.id === activeId);
+        if (activeDoc) collectText(activeDoc.content);
+      }
     }
     return collected;
   };
 
-  // 只为当前文档渲染高亮；当前匹配位于其他标签页时，本视图内没有“当前项”。
+  // 为当前文档渲染高亮（查找只针对当前文档，匹配全部属于当前标签页）。
   const renderActiveDecorations = (): void => {
     const activeId = getActiveDocumentId();
     const activeMatches = matches.value.filter(
@@ -245,10 +222,10 @@ export const useFindReplace = (
   };
 
   // 立即刷新，替换等需要拿到最新匹配列表的操作必须走这里。
-  const refreshNow = (anchor?: number, docAnchor?: DocAnchor): void => {
+  const refreshNow = (anchor?: number): void => {
     if (!isOpen.value) return;
     matches.value = collectAllMatches();
-    currentIndex.value = resolveCurrentIndex(matches.value, anchor, docAnchor);
+    currentIndex.value = resolveCurrentIndex(matches.value, anchor);
     renderActiveDecorations();
   };
 
@@ -333,32 +310,10 @@ export const useFindReplace = (
     if (editor) goToEditorMatch(editor, match);
   };
 
-  // 切换标签页后等待编辑器重新载入目标文档内容。
-  // 用微任务 + 宏任务组合等待，避免依赖 requestAnimationFrame——
-  // 窗口隐藏或最小化时 rAF 不会触发，跳转会被永久卡住。
-  const waitForDocumentSwitch = async (): Promise<void> => {
-    await nextTick();
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    await nextTick();
-  };
-
-  // 跳转到当前匹配：匹配在其他标签页时先切换文档，再按文档内序号重新定位。
+  // 跳转到当前匹配：查找只针对当前文档，匹配必定在本视图内，直接滚动定位。
   const jumpToCurrent = async (): Promise<void> => {
     const match = matches.value[currentIndex.value];
     if (!match) return;
-    if (match.documentId !== getActiveDocumentId()) {
-      const docMatches = matches.value.filter(
-        (candidate) => candidate.documentId === match.documentId,
-      );
-      const ordinal = Math.max(0, docMatches.indexOf(match));
-      activateDocument(match.documentId);
-      await waitForDocumentSwitch();
-      if (getActiveDocumentId() !== match.documentId) return;
-      refreshNow(undefined, { documentId: match.documentId, ordinal });
-      const current = matches.value[currentIndex.value];
-      if (current) scrollToMatch(current);
-      return;
-    }
     scrollToMatch(match);
   };
 
@@ -385,18 +340,9 @@ export const useFindReplace = (
   };
 
   const replaceCurrent = (): void => {
+    // 查找只针对当前文档，匹配必定在当前视图内，直接替换即可。
     const match = matches.value[currentIndex.value];
     if (!match) return;
-    // 当前匹配在其他标签页时先跳转过去，再在目标文档中执行替换。
-    if (match.documentId !== getActiveDocumentId()) {
-      void (async () => {
-        await jumpToCurrent();
-        const current = matches.value[currentIndex.value];
-        if (!current || current.documentId !== getActiveDocumentId()) return;
-        performReplaceCurrent(current);
-      })();
-      return;
-    }
     performReplaceCurrent(match);
   };
 
@@ -417,8 +363,12 @@ export const useFindReplace = (
     } else {
       if (!editor) return;
       // 一次事务完成替换，撤销时能一步回到替换前的内容。
+      // 查找输入框持有焦点时编辑器未聚焦，带上 FIND_REPLACE_EDIT_META 标记，
+      // 让 onUpdate 仍把这次替换当作用户编辑同步给文档层。
       editor.view.dispatch(
-        editor.state.tr.insertText(replacement.value, match.from, match.to),
+        editor.state.tr
+          .setMeta(FIND_REPLACE_EDIT_META, true)
+          .insertText(replacement.value, match.from, match.to),
       );
     }
 
@@ -460,7 +410,8 @@ export const useFindReplace = (
     );
     if (collected.length === 0) return;
     // 从后往前合并进同一个事务，前面的位置不受后面替换的影响。
-    let tr = editor.state.tr;
+    // 编辑器未聚焦时也要让这次替换同步给文档层，标记作用同“替换当前匹配”。
+    let tr = editor.state.tr.setMeta(FIND_REPLACE_EDIT_META, true);
     for (let i = collected.length - 1; i >= 0; i--) {
       tr = tr.insertText(replacement.value, collected[i].from, collected[i].to);
     }

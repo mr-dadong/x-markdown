@@ -4,8 +4,10 @@ import { Extension, type Editor } from "@tiptap/core";
 import { DOMSerializer } from "@tiptap/pm/model";
 import {
   AllSelection,
+  EditorState,
   NodeSelection,
   Plugin,
+  PluginKey,
   TextSelection,
   type Transaction,
 } from "@tiptap/pm/state";
@@ -1323,6 +1325,38 @@ export const useMarkdownEditor = (
     },
   });
 
+  // 加载/切换新文档后清空撤销与重做历史。
+  // TipTap 的 setContent 只替换正文，不会重置 history 插件的撤销栈，导致在 A 文档里
+  // 输入后切到 B 文档并按 Ctrl+Z，会把 A 的内容一步步回退到当前 B 里。这里把 history
+  // 插件的撤销栈整体替换成一个空的历史状态，让新文档从“干净的撤销起点”开始。
+  const resetHistoryAfterDocumentLoad = (currentEditor: Editor): void => {
+    // 找到 history 插件：其 PluginKey 的 getState 返回带 done/undone 分支的历史状态，
+    // 通过 done.eventCount 是否为数字来识别，避免依赖 PluginKey 内部未公开的 key 字段。
+    const historyPlugin = currentEditor.state.plugins.find(
+      (plugin) =>
+        plugin.spec.key instanceof PluginKey &&
+        typeof plugin.spec.key.getState(currentEditor.state)?.done?.eventCount ===
+          "number",
+    );
+    if (!historyPlugin) return;
+    const historyKey = historyPlugin.spec.key as PluginKey;
+
+    // 用当前文档新建一个编辑状态：history 插件在此以“初始化”身份运行，得到空的历史。
+    const freshState = EditorState.create({
+      schema: currentEditor.schema,
+      doc: currentEditor.state.doc,
+      plugins: currentEditor.state.plugins,
+    });
+    const emptyHistory = historyKey.getState(freshState);
+    if (!emptyHistory) return;
+
+    // 通过事务元数据整体替换历史状态（与 undo/redo 命令同一机制），改动会正确同步
+    // 到编辑器的 state；撤销/重做栈被清空，但正文、选区保持不变。
+    currentEditor.view.dispatch(
+      currentEditor.state.tr.setMeta(historyKey, { historyState: emptyHistory }),
+    );
+  };
+
   // 富文本视图重新显示或切换标签时才同步内容，源码输入期间不解析隐藏的编辑器。
   watch(
     [getContent, getIsActive, () => getCurrentDocumentPath?.() ?? null],
@@ -1349,6 +1383,8 @@ export const useMarkdownEditor = (
       editor.value.commands.setContent(newContent, false);
       // setContent 之后文档与 newContent 一致，重建原文基准。
       baseline = captureBaseline(editor.value, newContent);
+      // 清空上一个文档遗留的撤销/重做历史，避免新文档里 Ctrl+Z 回退到上一个文档内容。
+      resetHistoryAfterDocumentLoad(editor.value);
     },
   );
 

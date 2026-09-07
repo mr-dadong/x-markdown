@@ -134,9 +134,9 @@
               :streaming="!streamingContent"
             />
             <AiMarkdown v-if="streamingContent" ref="aiMarkdownRef">
-              <!-- 已完成段落：独立缓存节点，key 稳定复用，不重建、不打断选中/复制；尾段：纯文本降级渲染 -->
+              <!-- 已完成段落：独立缓存节点，key 稳定复用，不重建、不打断选中/复制；尾段：渲染成样式的进行中内容 -->
               <div v-for="block in streamingBlocks" :key="block.id" class="ai-md-block" v-html="block.html" />
-              <div v-if="streamingTail" class="ai-md-tail">{{ streamingTail }}</div>
+              <div v-if="streamingTail" class="ai-md-tail" v-html="streamingTail" />
             </AiMarkdown>
             <!-- 流式中右下角停止按钮 -->
             <div class="mt-2 flex justify-end">
@@ -430,8 +430,9 @@ watch(
         html: aiMarkdownRef.value?.render(done[i]) ?? '',
       })
     }
-    // 尾块用 textContent 展示，未闭合代码块 / 写到一半的标记以原文出现，不炸渲染
-    streamingTail.value = tail
+    // 尾段也实时渲染成样式（renderTail 对未闭合代码围栏单独降级为等宽代码块），
+    // 让正在写入的段落即时显示排版效果，而非以原始 md 标记等待写完后才转换。
+    streamingTail.value = aiMarkdownRef.value?.renderTail(tail) ?? ''
   },
   { flush: 'post' },
 )
@@ -447,22 +448,24 @@ const sendMessage = async (content: string): Promise<void> => {
   const resolved = resolveReferences(content)
   // 发送前复制引用，生成期间新增的选区不属于本轮请求。
   const references = [...(props.pendingSelections ?? [])]
+  // 发送后立即清空输入框，让用户能立刻输入下一条问题，不必等到 AI 回复完。
   // 选区由附件或显式 @选区 提供；移除附件后不再暗中读取编辑器选区。
+  inputRef.value?.clearDraft(content)
   const succeeded = await rawSendMessage(resolved.message, {
     documentContext: resolved.documentContext,
     selection: resolved.selection,
     ...(resolved.cursorOffset !== null ? { cursorOffset: resolved.cursorOffset } : {}),
   }, references)
-  if (!succeeded) return
-  clearSentDraft(content, references)
+  if (!succeeded) {
+    // 发送失败（网络/模型报错）：把清空掉的草稿放回输入框，避免内容丢失。
+    inputRef.value?.restoreDraft(content)
+    return
+  }
+  clearSentReferences(references)
 }
 
-// 发送与重试成功后共用清理步骤，失败时问题和引用仍留在输入区。
-const clearSentDraft = (content: string, references: string[], onlyMatchingDraft = false): void => {
-  const cleared = inputRef.value?.clearDraft(content)
-  // 重新生成历史回复时，不清除用户为下一轮准备的引用。
-  if (onlyMatchingDraft && !cleared) return
-  // 从后往前移除本轮引用，保留生成期间用户新添加的材料。
+// 成功发送后，移除本轮已发送的引用标签；从后往前移除，避免索引错位。
+const clearSentReferences = (references: string[]): void => {
   for (let index = references.length - 1; index >= 0; index--) {
     if (props.pendingSelections?.[index] === references[index]) emit('remove-pending-selection', index)
   }
@@ -472,7 +475,8 @@ const clearSentDraft = (content: string, references: string[], onlyMatchingDraft
 const retry = async (): Promise<void> => {
   const message = [...messages.value].reverse().find((item) => item.role === 'user')
   if (!message) return
-  if (await rawRetry()) clearSentDraft(message.content, message.references ?? [], true)
+  // 重试成功后，若该条草稿仍留在输入框（如上次失败被恢复回来）则一并清空；不清除引用。
+  if (await rawRetry()) inputRef.value?.clearDraft(message.content)
 }
 
 // 空状态快捷提问：提示词均围绕当前文档，点击即发送

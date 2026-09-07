@@ -15,4 +15,7 @@ export const fileSystemService = {
   watchWorkspace: (directoryPath: string) => window.electronAPI.watchWorkspace(directoryPath),
   unwatchWorkspace: () => window.electronAPI.unwatchWorkspace(),
   onWorkspaceChanged: (callback: () => void) => window.electronAPI.onWorkspaceChanged(callback),
+  watchExternalFiles: (filePaths: string[]) => window.electronAPI.watchExternalFiles(filePaths),
+  onExternalFileChanged: (callback: (filePath: string) => void) =>
+    window.electronAPI.onExternalFileChanged(callback),
 };

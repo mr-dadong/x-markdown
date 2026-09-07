@@ -286,6 +286,15 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.workspaceChanged, listener)
   },
 
+  watchExternalFiles: (filePaths: string[]): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.watchExternalFiles, filePaths),
+
+  onExternalFileChanged: (callback: (filePath: string) => void) => {
+    const listener = (_event: unknown, filePath: string): void => callback(filePath)
+    ipcRenderer.on(IPC_CHANNELS.externalFileChanged, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.externalFileChanged, listener)
+  },
+
   confirmExit: (openCount: number, modifiedCount: number): Promise<'save' | 'discard' | 'cancel'> =>
     ipcRenderer.invoke(IPC_CHANNELS.confirmExit, { openCount, modifiedCount }),
 

@@ -26,11 +26,6 @@
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <!-- 明确提示代码块退出方式，避免后续正文继续落在当前语言块内。 -->
-        <span class="hidden items-center gap-1 font-mono text-[9px] text-[#777b83] group-hover:flex dark:text-[#8f949e]">
-          <kbd class="flex h-5 items-center rounded border border-[#d0d0d0] px-1.5 dark:border-[#4b4e55]">Ctrl ↵</kbd>
-          <span>结束代码块</span>
-        </span>
         <!-- 换行切换按钮：与设置面板的“代码块内自动换行”共用同一个开关，
              开启时用选中底色高亮，方便一眼看出当前状态。 -->
         <button

@@ -20,6 +20,25 @@ function validateFileTreeName(name: string): string {
 
 export function registerWorkspaceIpc({ getMainWindow }: WorkspaceIpcDependencies): void {
   let workspaceWatcher: FSWatcher | null = null;
+  // 单独监听已打开文档本身，用于检测“XMD 之外的程序”（如记事本）对同一文件的改写。
+  // 工作区监听只负责文件树刷新，无法覆盖不在工作区内的单个文件，因此用独立监听。
+  let externalFileWatcher: FSWatcher | null = null;
+  // 每个监听文件一个去抖定时器，避免写入过程中的多次变更通知重复打扰用户。
+  const externalNotifyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const notifyExternalFileChanged = (filePath: string): void => {
+    const existing = externalNotifyTimers.get(filePath);
+    if (existing) clearTimeout(existing);
+    externalNotifyTimers.set(
+      filePath,
+      setTimeout(() => {
+        externalNotifyTimers.delete(filePath);
+        getMainWindow()?.webContents.send(
+          IPC_CHANNELS.externalFileChanged,
+          filePath,
+        );
+      }, 120),
+    );
+  };
 
   ipcMain.handle(IPC_CHANNELS.selectWorkspace, async () => {
     const mainWindow = getMainWindow();
@@ -69,6 +88,34 @@ export function registerWorkspaceIpc({ getMainWindow }: WorkspaceIpcDependencies
     await workspaceWatcher?.close();
     workspaceWatcher = null;
   });
+
+  // 渲染层每次已打开文件集合变化时全量注册需要监听的文件路径。
+  // 主进程据此重建监听，保证新增文件被纳入、关闭文件后停止监听。
+  ipcMain.handle(
+    IPC_CHANNELS.watchExternalFiles,
+    async (_event, filePaths: string[]) => {
+      await externalFileWatcher?.close();
+      externalFileWatcher = null;
+      // 清理旧路径的残留定时器，避免关闭文档后仍触发无意义的事件。
+      for (const timer of externalNotifyTimers.values()) clearTimeout(timer);
+      externalNotifyTimers.clear();
+      if (filePaths.length === 0) return;
+
+      const authorizedPaths = filePaths.map((filePath) =>
+        assertAuthorizedPath(filePath),
+      );
+      externalFileWatcher = chokidar.watch(authorizedPaths, {
+        ignoreInitial: true,
+        followSymlinks: false,
+        // 写入完成后稳定一段时间再通知，避免记事本分多次写文件时产生多条事件。
+        awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 80 },
+      });
+      // 只关心文件内容的修改事件；删除由关闭标签或最近文件清理流程单独处理。
+      externalFileWatcher.on("change", (filePath: string) => {
+        notifyExternalFileChanged(filePath);
+      });
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.readDirectory, async (_event, dirPath: string) => {
     try {

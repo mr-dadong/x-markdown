@@ -565,6 +565,9 @@ const shouldShowAiMenu = (): boolean => {
   if (inlineWriterStatus.value !== 'idle') return false
   // 如果正在流式处理或有结果，也显示
   if (inlineAiStreaming.value || inlineAiResult.value || inlineAiError.value) return true
+  // 查找替换打开时编辑器未聚焦（焦点在查找输入框），跳转匹配项建立的程序化文字选区
+  // 不应弹出 AI 动作条，否则按 Ctrl+F 会在已有内容上露出一块“选中文字”工具栏。
+  if (!editor.value?.isFocused) return false
   const { selection } = editor.value?.state ?? {}
   if (!selection || selection.empty) {
     // 选区清空视为结束上一次“添加到选取”的隐藏状态，下次选中文本时恢复弹出。

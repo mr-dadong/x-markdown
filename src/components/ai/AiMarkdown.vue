@@ -1,10 +1,11 @@
 <template>
   <!-- AI 对话的 Markdown 渲染器：统一 markdown-it 配置、代码块渲染、外链拦截与排版样式。
-       既支持整段渲染（markdown prop），也支持流式分块渲染（默认插槽传入已完成块/尾段）。 -->
+       既支持整段渲染（markdown prop），也支持流式分块渲染（默认插槽传入已完成块/尾段）。
+       尾段通过 renderTail() 预渲染成样式，未闭合的代码围栏单独降级为纯文本代码块。 -->
   <div class="ai-md markdown-body" @click="handleClick">
     <!-- 整段渲染：由本组件一次性 v-html 输出 -->
     <div v-if="markdown !== undefined" v-html="rendered" />
-    <!-- 流式分块渲染：调用方通过 ref.render() 预渲染块后放入默认插槽 -->
+    <!-- 流式分块渲染：调用方通过 ref.render() / renderTail() 预渲染块后放入默认插槽 -->
     <slot v-else />
   </div>
 </template>
@@ -12,7 +13,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
+import { extractUnclosedFence, normalizeAiMarkdown } from '../../utils/aiMarkdown'
 import { windowService } from '../../services/windowService'
 import { highlightCode } from '../../modules/codeBlockHighlight'
 import { getCodeBlockStyle } from '../../modules/codeBlockStyles'
@@ -33,27 +34,42 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
-// 自定义代码块渲染：语言标签 + 自动换行开关 + 复制按钮 + 语法高亮。
+// 构造代码块 HTML：正常渲染（highlighted=true 走语法高亮）与流式尾段的未闭合围栏降级（highlighted=false 纯文本）共用。
 // 颜色类名来自设置中的代码块外观，与编辑器代码块保持一致。
 // data-wrap 标记当前是否自动换行（默认 1=换行），交给 CSS 决定排版，点击切换按钮时更新。
-md.renderer.rules.fence = (tokens, idx) => {
-  const token = tokens[idx]
-  const lang = token.info.trim()
+const makeFenceHtml = (lang: string, content: string, highlighted: boolean): string => {
   const style = getCodeBlockStyle(settings.codeBlockStyle)
   const langLabel = `<span class="code-lang">${md.utils.escapeHtml(lang)}</span>`
   const wrapButton = `<button type="button" title="关闭自动换行" class="code-wrap-btn is-active ${style.headerControlClass} ${style.headerHoverClass}">自动换行</button>`
   const copyButton = `<button type="button" class="code-copy-btn ${style.headerControlClass} ${style.headerHoverClass}">复制</button>`
+  const code = highlighted ? highlightCode(lang, content) : md.utils.escapeHtml(content)
   return (
     `<div class="code-block-wrapper ${style.tokenClass}" data-wrap="1">` +
     `<div class="code-block-header ${style.headerClass} ${style.headerTextClass}">${langLabel}` +
     `<span class="code-header-actions">${wrapButton}${copyButton}</span></div>` +
-    `<pre class="code-block ${style.preClass} ${style.codeClass}"><code>${highlightCode(lang, token.content)}</code></pre>` +
+    `<pre class="code-block ${style.preClass} ${style.codeClass}"><code>${code}</code></pre>` +
     `</div>`
   )
 }
 
+// 自定义代码块渲染：语言标签 + 自动换行开关 + 复制按钮 + 语法高亮。
+md.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx]
+  return makeFenceHtml(token.info.trim(), token.content, true)
+}
+
 // 片段的 Markdown 归一化 + 渲染：供内部整段渲染与外部流式分块共用的唯一入口
 const render = (text: string): string => md.render(normalizeAiMarkdown(text))
+
+// 流式尾段（正在写入的最后一段）渲染：
+// 普通内容直接按 markdown 渲染成样式，让进行中的段落也实时显示排版效果；
+// 若处于未闭合的代码围栏内（``` 尚无配对闭合行），整段交给 markdown-it 会把代码行当成普通段落，
+// 破坏换行与高亮，因此降级为不带语法高亮的等宽代码块，围栏一旦闭合即由分块逻辑收进已完成块。
+const renderTail = (text: string): string => {
+  const fence = extractUnclosedFence(text)
+  if (fence) return makeFenceHtml(fence.lang, fence.body, false)
+  return render(text)
+}
 
 const rendered = computed(() => {
   if (!props.markdown) return ''
@@ -85,13 +101,19 @@ const handleClick = (event: MouseEvent): void => {
     return
   }
 
-  // 代码块右上角复制按钮：把对应代码块的正文写入剪贴板，并短暂提示复制成功
+  // 代码块右上角复制按钮：把对应代码块的正文写入剪贴板，并短暂提示复制成功。
+  // 模型输出的代码块常在围栏后多一个空行（正文以换行开头），若原样粘贴会多出一个空行；
+  // 这里去掉首尾的整行空白，只保留有效代码行，兼顾缩进不变与内部换行。
   const copyButton = target?.closest('.code-copy-btn') as HTMLButtonElement | null
   if (copyButton) {
     const wrapper = copyButton.closest('.code-block-wrapper') as HTMLElement | null
     const codeElement = wrapper?.querySelector('pre.code-block code') as HTMLElement | null
     if (codeElement) {
-      void navigator.clipboard.writeText(codeElement.textContent ?? '')
+      // 去除开头的整行空白（如模型在首行前多出的空行）与末尾的换行，中间内容原样保留
+      const codeText = (codeElement.textContent ?? '')
+        .replace(/^\s*\n/, '')
+        .replace(/\n\s*$/, '')
+      void navigator.clipboard.writeText(codeText)
       copyButton.textContent = '已复制'
       window.setTimeout(() => {
         copyButton.textContent = '复制'
@@ -109,7 +131,7 @@ const handleClick = (event: MouseEvent): void => {
   void windowService.openExternalLink(href)
 }
 
-defineExpose({ render })
+defineExpose({ render, renderTail })
 </script>
 
 <style scoped>
@@ -129,10 +151,9 @@ defineExpose({ render })
   margin-bottom: 0;
 }
 
-/* 流式尾段：纯文本降级，保留换行与缩进，长串自动换行 */
-.ai-md :deep(.ai-md-tail) {
-  white-space: pre-wrap;
-  word-break: break-word;
+/* 流式尾段：进行中内容已渲染成样式，作为最后一块贴底不残留空隙 */
+.ai-md :deep(.ai-md-tail) :deep(> :last-child) {
+  margin-bottom: 0;
 }
 
 /* 标题 */
@@ -256,9 +277,12 @@ defineExpose({ render })
   tab-size: 2;
 }
 
-/* 关闭自动换行、出现横向滚动时的滚动条：细窄圆角滑块，配合分隔线条，避免默认粗条破坏视觉 */
+/* 关闭自动换行、出现横向滚动时的滚动条：细窄圆角滑块。
+   与编辑器全局滚动条保持一致：thumb 用透明边框 + background-clip 收紧出内边距，
+   视觉上更轻盈，避免默认粗壮实心条破坏代码块观感。 */
 .ai-md :deep(.code-block) {
   scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
 }
 
 .ai-md :deep(.code-block::-webkit-scrollbar) {
@@ -270,12 +294,19 @@ defineExpose({ render })
 }
 
 .ai-md :deep(.code-block::-webkit-scrollbar-thumb) {
+  min-width: 32px;
+  border: 2px solid transparent;
   border-radius: 9999px;
   background-color: var(--color-scrollbar);
+  background-clip: content-box;
 }
 
 .ai-md :deep(.code-block::-webkit-scrollbar-thumb:hover) {
   background-color: var(--color-scrollbar-hover);
+}
+
+.ai-md :deep(.code-block::-webkit-scrollbar-corner) {
+  background: transparent;
 }
 
 .ai-md :deep(code) {

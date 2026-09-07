@@ -13,27 +13,18 @@ const isAtHeadingStart = (view: EditorView): boolean => {
 }
 
 /**
- * Typora 风格：光标在标题开头按 Backspace 时，标题级别降一级。
- * 例如 ## 标题 → # 标题；一级标题去掉唯一的 #，转为普通段落。
- * 不再触发默认行为（把整个标题并进上一行）。
+ * 光标在标题开头按 Backspace 时，无论几级标题都直接转为普通段落（正文模式）。
+ * 不再逐级降级（## → # → 正文），也不触发默认行为（把整个标题并进上一行）。
  */
 export const handleHeadingBackspace = (view: EditorView, event: KeyboardEvent): boolean => {
   if (event.key !== 'Backspace' || !isAtHeadingStart(view)) return false
 
   event.preventDefault()
   const { $from } = view.state.selection
-  const heading = $from.parent
   const headingPos = $from.before($from.depth)
-  const level = Number(heading.attrs.level)
 
-  const transaction = view.state.tr
-  if (level > 1) {
-    // 多级标题去掉一个 #：保留原标题属性，只改级别。
-    transaction.setNodeMarkup(headingPos, undefined, { ...heading.attrs, level: level - 1 })
-  } else {
-    // 一级标题唯一的 # 被移除后，块类型变为普通段落。
-    transaction.setNodeMarkup(headingPos, view.state.schema.nodes.paragraph)
-  }
+  // 把当前标题块改为普通段落：唯一的标题标记被移除，内容保持不变。
+  const transaction = view.state.tr.setNodeMarkup(headingPos, view.state.schema.nodes.paragraph)
   // setNodeMarkup 不改变节点位置，内容起点仍是 块位置 + 1，光标保持原位。
   transaction.setSelection(TextSelection.create(transaction.doc, headingPos + 1))
   view.dispatch(transaction)

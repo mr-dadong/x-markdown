@@ -183,6 +183,10 @@ export interface ElectronAPI {
   watchWorkspace: (directoryPath: string) => Promise<void>;
   unwatchWorkspace: () => Promise<void>;
   onWorkspaceChanged: (callback: () => void) => () => void;
+  /** 监听一批已打开文档的磁盘变化；外部程序写入后会发送 externalFileChanged 事件。 */
+  watchExternalFiles: (filePaths: string[]) => Promise<void>;
+  /** 监听单个已打开文档的外部修改通知，返回取消监听的函数。 */
+  onExternalFileChanged: (callback: (filePath: string) => void) => () => void;
   confirmExit: (
     openCount: number,
     modifiedCount: number,

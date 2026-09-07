@@ -1,6 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { GapCursor } from "@tiptap/pm/gapcursor";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { FIND_REPLACE_EDIT_META } from "../constants";
 
 type TemporaryParagraphMeta =
   | { add: number }
@@ -19,13 +20,19 @@ interface MetaReadableTransaction {
 /**
  * 只有真实编辑才允许把重新序列化的 Markdown 发送给文档层。
  * preventUpdate 是 TipTap 加载外部内容时的明确标记，即使编辑器仍有焦点也必须优先拦截。
+ * 查找替换在编辑器未聚焦（焦点在查找输入框）时执行，替换事务显式带上
+ * FIND_REPLACE_EDIT_META 标记，表示这是一次真实的用户编辑，仍须同步给文档层。
  */
 export const shouldEmitMarkdownUpdate = (
   transaction: MetaReadableTransaction,
   editorIsFocused: boolean,
 ): boolean => {
   if (transaction.getMeta("preventUpdate") === true) return false;
-  return editorIsFocused || transaction.getMeta("uiEvent") !== undefined;
+  return (
+    editorIsFocused ||
+    transaction.getMeta("uiEvent") !== undefined ||
+    transaction.getMeta(FIND_REPLACE_EDIT_META) === true
+  );
 };
 
 export const shouldPreventAppendedUpdate = (

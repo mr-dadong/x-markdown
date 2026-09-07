@@ -14,6 +14,8 @@
                     @close-left="closeLeftDocuments" @close-right="closeRightDocuments" @close-all="closeAllDocuments"
                     @close-saved="closeSavedDocuments" @save="saveFile()" @save-as="saveFile(true)"
                     @show-in-explorer="showDocumentInExplorer" />
+                <ExternalChangeBanner v-if="currentExternalChangeVisible" :title="externalChangeTitle"
+                    @reload="handleReloadExternal" @dismiss="handleDismissExternal" />
                 <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
@@ -116,6 +118,7 @@ import AppStatusBar from '../components/AppStatusBar.vue'
 import AiChatSidebar from '../components/ai/AiChatSidebar.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import DocumentBar from '../components/DocumentBar.vue'
+import ExternalChangeBanner from '../components/ExternalChangeBanner.vue'
 import FindReplacePanel from '../components/FindReplacePanel.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownSourceEditor from '../components/MarkdownSourceEditor.vue'
@@ -163,8 +166,6 @@ interface DocumentViewState {
   sourceLine: number | null
 }
 const viewStates = new Map<number, DocumentViewState>()
-// 跨标签查找跳转时由查找面板负责定位，跳过自动恢复避免互相覆盖。
-let findReplaceNavigation = false
 // 快速连续切换标签时只恢复最后一次激活的文档，避免旧回调覆盖新位置。
 let restoreSequence = 0
 const { isDarkTheme, toggleTheme } = useTheme()
@@ -184,8 +185,7 @@ isAiChatOpen.value = !isAiChatOpen.value
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
 // getSourceHandle 返回源码编辑器完整的 handle 引用，包括搜索装饰等方法。
-// 文档状态（打开列表、当前标签、切换标签）也交给控制器，实现跨标签页查找：
-// 关键词不在当前文档时，点击“下一个”会自动切换到包含匹配的标签页并定位。
+// 查找替换只针对当前文档：搜索、计数、高亮与替换均不跨标签页。
 const getSourceHandle = (): SourceEditorHandle | null => {
     return sourceEditorRef.value as SourceEditorHandle | null
 }
@@ -301,6 +301,9 @@ const {
     handleOpenFileFromSidebar,
     handleOpenRecentFile,
     saveFile,
+    hasExternalChange,
+    dismissExternalChange,
+    reloadExternalChange,
 } = useDocument()
 
 const findReplaceController = useFindReplace(
@@ -309,12 +312,32 @@ const findReplaceController = useFindReplace(
     isSourceMode,
     () => documents.value,
     () => activeDocumentId.value,
-    // 跨标签查找跳转时由查找面板负责定位，设置标志让标签恢复逻辑跳过自动恢复。
-    (documentId: number) => {
-        findReplaceNavigation = true
-        activateDocument(documentId)
-    },
 )
+
+// 当前激活文档的外部改写横幅：仅在检测到磁盘新版本且该文档处于激活状态时显示。
+const currentExternalChangeVisible = computed(() =>
+    activeDocumentId.value !== null &&
+    hasExternalChange(activeDocumentId.value),
+)
+const externalChangeTitle = computed(() =>
+    activeDocumentId.value !== null
+        ? getDocumentTitle(
+            documents.value.find((item) => item.id === activeDocumentId.value) ?? null,
+        )
+        : '',
+)
+
+const handleReloadExternal = (): void => {
+    if (activeDocumentId.value !== null) {
+        void reloadExternalChange(activeDocumentId.value)
+    }
+}
+
+const handleDismissExternal = (): void => {
+    if (activeDocumentId.value !== null) {
+        dismissExternalChange(activeDocumentId.value)
+    }
+}
 
 const { recentFiles, loadRecentFiles, removeRecentFile, clearRecentFiles } = useRecentFiles()
 
@@ -417,11 +440,6 @@ const saveViewState = (documentId: number): void => {
 // 用微任务 + 宏任务组合等待，避免依赖 requestAnimationFrame——窗口隐藏或最小化时 rAF 不触发。
 const restoreViewState = async (documentId: number): Promise<void> => {
     const sequence = ++restoreSequence
-    // 跨标签查找跳转由查找面板负责定位，本次自动恢复直接跳过。
-    if (findReplaceNavigation) {
-        findReplaceNavigation = false
-        return
-    }
     await nextTick()
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
     await nextTick()

@@ -134,6 +134,14 @@ const clearDraft = (sentContent: string): boolean => {
   return true
 }
 
+// 发送失败后把清空掉的草稿放回输入框，避免用户辛苦输入的内容丢失。
+// 仅当输入框仍为空（用户尚未输入新内容）时才恢复，避免覆盖用户刚写的新内容。
+const restoreDraft = (sentContent: string): void => {
+  if (inputText.value !== '') return
+  inputText.value = sentContent
+  nextTick(() => autoResize())
+}
+
 // 删除引用后收起预览，避免索引变化导致展示另一段正文。
 const removeSelection = (index: number): void => {
   previewIndex.value = null
@@ -162,5 +170,5 @@ const focus = (): void => {
   inputRef.value?.focus()
 }
 
-defineExpose({ focus, clearDraft })
+defineExpose({ focus, clearDraft, restoreDraft })
 </script>

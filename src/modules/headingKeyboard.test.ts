@@ -86,7 +86,7 @@ const placeCursor = (editor: Editor, from: number): void => {
   editor.commands.setTextSelection(from);
 };
 
-test("Backspace：光标在二级标题开头时降为一级，而不是并入上一行", () => {
+test("Backspace：光标在标题开头时无论几级都直接转为正文段落", () => {
   const editor = createEditor("# 一级标题\n\n## 二级标题");
   try {
     const h2Start = findHeadingContentStart(editor, 2);
@@ -99,14 +99,14 @@ test("Backspace：光标在二级标题开头时降为一级，而不是并入�
     // 会在末尾补一个空段落，与本次改动无关。
     assert.deepEqual(blockSummaries(editor).slice(0, 2), [
       { type: "heading", level: 1, text: "一级标题" },
-      { type: "heading", level: 1, text: "二级标题" },
+      { type: "paragraph", level: null, text: "二级标题" },
     ]);
-    // 光标仍停在第二个标题的开头，正文没有被删除。
+    // 光标仍停在第二个块的开头，正文没有被删除。
     assert.equal(editor.state.selection.from, blockContentStart(editor, 1));
-    // 序列化结果应输出一级标题，证明标题级别变化可正常落盘。
+    // 序列化结果应输出普通段落，证明标题转正功能可正常落盘。
     const markdown = editor.storage.markdown.getMarkdown();
     assert.match(markdown, /^# 一级标题/);
-    assert.match(markdown, /# 二级标题/);
+    assert.match(markdown, /二级标题/);
   } finally {
     editor.destroy();
   }

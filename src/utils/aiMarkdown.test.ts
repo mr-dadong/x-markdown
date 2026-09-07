@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { normalizeAiMarkdown } from "./aiMarkdown";
+import { extractUnclosedFence, normalizeAiMarkdown } from "./aiMarkdown";
 
 describe("normalizeAiMarkdown", () => {
   test("还原加粗标记的过度转义", () => {
@@ -30,5 +30,31 @@ describe("normalizeAiMarkdown", () => {
     assert.equal(normalizeAiMarkdown("LaTeX \\(x\\) 与 \\[y\\] 不变"), "LaTeX \\(x\\) 与 \\[y\\] 不变");
     assert.equal(normalizeAiMarkdown("无转义文本 **加粗** 正常"), "无转义文本 **加粗** 正常");
     assert.equal(normalizeAiMarkdown(""), "");
+  });
+});
+
+describe("extractUnclosedFence", () => {
+  test("无代码围栏时返回 null，按普通 markdown 渲染", () => {
+    assert.equal(extractUnclosedFence("普通段落文字"), null);
+    assert.equal(extractUnclosedFence("## 标题\n\n- 列表项"), null);
+  });
+
+  test("未闭合围栏返回语言与正文（围栏之后内容）", () => {
+    assert.deepEqual(extractUnclosedFence("```ts\nconst a = 1"), {
+      lang: "ts",
+      body: "const a = 1",
+    });
+    assert.deepEqual(extractUnclosedFence("```js"), { lang: "js", body: "" });
+    assert.deepEqual(extractUnclosedFence("```   \n几行代码\n没写完"), { lang: "", body: "几行代码\n没写完" });
+  });
+
+  test("围栏已闭合时返回 null", () => {
+    assert.equal(extractUnclosedFence("```py\nprint(1)\n```"), null);
+    assert.equal(extractUnclosedFence("上文\n```go\nb()\n```\n后续"), null);
+  });
+
+  test("多个围栏、仅最后一个未闭合时提取该围栏", () => {
+    const fence = extractUnclosedFence("```a\n1\n```\n```b\n2");
+    assert.deepEqual(fence, { lang: "b", body: "2" });
   });
 });

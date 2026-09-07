@@ -3,6 +3,7 @@ import {
   nextTick,
   onMounted,
   onUnmounted,
+  reactive,
   ref,
   watch,
 } from "vue";
@@ -15,6 +16,7 @@ import {
 import { useConfirmDialog } from "./useConfirmDialog";
 import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
+import { fileSystemService } from "../services/fileSystemService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
 import { useSettings } from "./useSettings";
 import { useRecentFiles } from "./useRecentFiles";
@@ -33,6 +35,88 @@ export const useDocument = () => {
   let draftSaveQueue: Promise<void> = Promise.resolve();
   // 自动保存按文档维护定时器：内容持续变化时顺延，停止输入满间隔后才写入磁盘。
   const autoSaveTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+  // 记录“磁盘上存在外部程序改写的新版本、等待用户决定是否重新加载”的文档。
+  // 按文档 id 标记，与 documents 解耦，避免污染触发自动保存/草稿的深度监听。
+  const externalChangeDocuments = reactive(new Map<number, boolean>());
+  let stopExternalFileListener: (() => void) | null = null;
+  // 已注册到主进程监听的文件路径签名，仅在其真正变化时才重建监听。
+  let watchedFilePathsSignature = "";
+
+  const hasExternalChange = (documentId: number): boolean =>
+    externalChangeDocuments.get(documentId) ?? false;
+
+  // 忽略某文档的外部修改提示，直到下一次外部改写再次触发提醒。
+  const dismissExternalChange = (documentId: number): void => {
+    externalChangeDocuments.delete(documentId);
+  };
+
+  // 已打开且有保存路径的文档集合，交给主进程逐文件监听磁盘变化。
+  const watchedFilePaths = computed(() =>
+    documents.value
+      .map((document) => document.filePath)
+      .filter((filePath): filePath is string => filePath !== null),
+  );
+
+  // 集合变化时才重建主进程监听；内容输入不会改变文件路径，因此不会频繁重建。
+  watch(
+    watchedFilePaths,
+    (filePaths) => {
+      const signature = filePaths.join("\n");
+      if (signature === watchedFilePathsSignature) return;
+      watchedFilePathsSignature = signature;
+      void fileSystemService.watchExternalFiles(filePaths);
+    },
+    { immediate: true },
+  );
+
+  // 收到外部改写通知后，读取磁盘最新 mtime 与 XMD 记录的 modifiedTime 比对。
+  // 二者一致说明是 XMD 自己刚写入（保存后 modifiedTime 已同步），仅外部程序
+  // 改写才视为外部变更，据此过滤自身写入避免误报。
+  const handleExternalFileChanged = (filePath: string): void => {
+    const document = documents.value.find(
+      (item) => item.filePath === filePath,
+    );
+    if (!document) return;
+    void documentService.readFile(filePath).then((result) => {
+      // 处理期间文档可能已被关闭或另存为其他路径，丢弃迟到的结果。
+      const latest = documents.value.find((item) => item.id === document.id);
+      if (!latest || latest.filePath !== filePath) return;
+      if (!result.success || result.modifiedTime === undefined) return;
+      if (result.modifiedTime === latest.modifiedTime) return;
+      externalChangeDocuments.set(latest.id, true);
+    });
+  };
+
+  // 重新加载磁盘最新内容；文档存在未保存修改时先让用户明确确认丢弃。
+  const reloadExternalChange = async (documentId: number): Promise<void> => {
+    const document = documents.value.find((item) => item.id === documentId);
+    if (!document || !document.filePath) return;
+
+    if (document.isModified) {
+      const shouldReload = await requestConfirmation({
+        title: "重新加载将丢弃未保存的修改？",
+        message: `“${getDocumentTitle(document)}”在 XMD 中的修改尚未保存，重新加载将从磁盘载入最新内容并丢弃这些修改。`,
+        confirmLabel: "重新加载",
+        tone: "danger",
+      });
+      if (!shouldReload) return;
+    }
+
+    const result = await documentService.readFile(document.filePath);
+    if (!result.success || result.content === undefined) {
+      await documentService.showErrorMessage(
+        "重新加载失败",
+        result.error ?? "无法读取磁盘上的最新内容。",
+      );
+      return;
+    }
+    document.content = result.content;
+    document.savedContent = result.content;
+    document.modifiedTime = result.modifiedTime ?? document.modifiedTime;
+    document.isModified = false;
+    externalChangeDocuments.delete(document.id);
+  };
 
   // 草稿必须严格按照触发顺序写入，避免较慢的旧快照覆盖较新的编辑内容。
   const enqueueDraftSave = (drafts: RecoveryDraftData[]): Promise<void> => {
@@ -443,6 +527,8 @@ export const useDocument = () => {
     document.savedContent = savedContent;
     document.modifiedTime = result.modifiedTime ?? document.modifiedTime;
     document.isModified = document.content !== document.savedContent;
+    // 保存成功（含覆盖外部改写）后，磁盘已是当前内容，清除对应的外部修改提示。
+    externalChangeDocuments.delete(document.id);
     return true;
   };
 
@@ -640,6 +726,11 @@ export const useDocument = () => {
     documentService.onWindowCloseRequest(handleWindowCloseRequest);
     window.addEventListener("keydown", handleSaveShortcut, true);
 
+    // 监听外部程序对已打开文档的改写，用于展示“重新加载”横幅。
+    stopExternalFileListener = fileSystemService.onExternalFileChanged(
+      handleExternalFileChanged,
+    );
+
     let initializationError: unknown = null;
     try {
       // 监听器注册后立即完成握手，再恢复草稿和启动文件，主进程可安全发送后续事件。
@@ -675,6 +766,9 @@ export const useDocument = () => {
     if (draftSaveTimer) clearTimeout(draftSaveTimer);
     for (const timer of autoSaveTimers.values()) clearTimeout(timer);
     autoSaveTimers.clear();
+    stopExternalFileListener?.();
+    // 停止对已打开文件的监听，避免组件销毁后主进程仍收到外部变化通知。
+    void fileSystemService.watchExternalFiles([]);
     documentService.removeListeners(IPC_CHANNELS.menuNewFile);
     documentService.removeListeners(IPC_CHANNELS.menuOpenFile);
     documentService.removeListeners(IPC_CHANNELS.menuSaveFile);
@@ -712,5 +806,8 @@ export const useDocument = () => {
     saveFile,
     applyOpenedFile,
     applyOpenedFiles,
+    hasExternalChange,
+    dismissExternalChange,
+    reloadExternalChange,
   };
 };

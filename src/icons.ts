@@ -23,6 +23,7 @@ import listIcon from '@iconify-icons/lucide/list'
 import listChecksIcon from '@iconify-icons/lucide/list-checks'
 import listOrderedIcon from '@iconify-icons/lucide/list-ordered'
 import listTreeIcon from '@iconify-icons/lucide/list-tree'
+import lightbulbIcon from '@iconify-icons/lucide/lightbulb'
 import minusIcon from '@iconify-icons/lucide/minus'
 import moonIcon from '@iconify-icons/lucide/moon'
 import panelLeftIcon from '@iconify-icons/lucide/panel-left'
@@ -60,6 +61,7 @@ import panelRightOpenIcon from '@iconify-icons/lucide/panel-right-open'
 import combineIcon from '@iconify-icons/lucide/combine'
 import splitSquareHorizontalIcon from '@iconify-icons/lucide/split-square-horizontal'
 import sparklesIcon from '@iconify-icons/lucide/sparkles'
+import spellCheckIcon from '@iconify-icons/lucide/spell-check'
 import wand2Icon from '@iconify-icons/lucide/wand-2'
 import languagesIcon from '@iconify-icons/lucide/languages'
 import wrenchIcon from '@iconify-icons/lucide/wrench'
@@ -116,6 +118,7 @@ addIcon('lucide:list', listIcon)
 addIcon('lucide:list-checks', listChecksIcon)
 addIcon('lucide:list-ordered', listOrderedIcon)
 addIcon('lucide:list-tree', listTreeIcon)
+addIcon('lucide:lightbulb', lightbulbIcon)
 addIcon('lucide:minus', minusIcon)
 addIcon('lucide:moon', moonIcon)
 addIcon('lucide:panel-left', panelLeftIcon)
@@ -153,6 +156,7 @@ addIcon('lucide:panel-right-open', panelRightOpenIcon)
 addIcon('lucide:combine', combineIcon)
 addIcon('lucide:split-square-horizontal', splitSquareHorizontalIcon)
 addIcon('lucide:sparkles', sparklesIcon)
+addIcon('lucide:spell-check', spellCheckIcon)
 addIcon('lucide:wand-2', wand2Icon)
 addIcon('lucide:languages', languagesIcon)
 addIcon('lucide:wrench', wrenchIcon)

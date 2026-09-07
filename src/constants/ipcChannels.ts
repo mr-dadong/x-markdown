@@ -49,6 +49,8 @@ export const IPC_CHANNELS = {
   watchWorkspace: "watch-workspace",
   unwatchWorkspace: "unwatch-workspace",
   workspaceChanged: "workspace-changed",
+  watchExternalFiles: "watch-external-files",
+  externalFileChanged: "external-file-changed",
   confirmExit: "confirm-exit",
   loadRecoveryDrafts: "load-recovery-drafts",
   saveRecoveryDrafts: "save-recovery-drafts",
