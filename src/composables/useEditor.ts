@@ -1266,6 +1266,54 @@ export const useMarkdownEditor = (
             });
           return true;
         },
+        /*
+         * 剪切与复制共用同一套"局部文字只写纯文本"的剪贴板逻辑，
+         * 避免代码块等块级节点的围栏标签被一起写入剪贴板。
+         * 复制完成后额外删除选区内容，完成剪切语义。
+         */
+        cut: (view, event) => {
+          // 块剪切优先于局部文字剪切。
+          if (copyBlocks(view, event, true)) return true;
+          const { selection } = view.state;
+
+          if (selection instanceof TextSelection && !selection.empty && event.clipboardData) {
+            let sharedTableCellDepth: number | null = null;
+            for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
+              const nodeName = selection.$from.node(depth).type.name;
+              if (
+                (nodeName === "tableCell" || nodeName === "tableHeader") &&
+                depth <= selection.$to.depth &&
+                selection.$from.before(depth) === selection.$to.before(depth)
+              ) {
+                sharedTableCellDepth = depth;
+                break;
+              }
+            }
+
+            const isLocalTextSelection = selection.$from.parent === selection.$to.parent;
+            if (isLocalTextSelection || sharedTableCellDepth !== null) {
+              const selectedSlice = selection.content();
+              const container = document.createElement("div");
+              container.appendChild(
+                DOMSerializer.fromSchema(view.state.schema).serializeFragment(selectedSlice.content),
+              );
+
+              // 局部文字只剪切实际选中的内容，不让块级围栏标签混入剪贴板。
+              event.preventDefault();
+              event.clipboardData.setData(
+                "text/plain",
+                view.state.doc.textBetween(selection.from, selection.to, "\n"),
+              );
+              event.clipboardData.setData("text/html", container.innerHTML);
+
+              // 写入剪贴板后删除选区内容，完成剪切。
+              view.dispatch(view.state.tr.deleteSelection());
+              return true;
+            }
+          }
+
+          return false;
+        },
         blur: (view, event) => {
           // 焦点移到菜单内部时不要关闭，否则点击滚动条或菜单项会丢失菜单。
           const related = event.relatedTarget as Node | null;

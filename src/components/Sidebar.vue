@@ -3,9 +3,9 @@
     <div class="flex shrink-0 flex-col border-b border-line px-4 py-3">
       <div class="flex h-8 items-center rounded-md border border-line/60 bg-paper p-0.5">
         <button v-for="tab in tabs" :key="tab.id" type="button"
-          class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
+          class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 first:rounded-l-[3px] first:rounded-r-[1px] last:rounded-r-[3px] last:rounded-l-[1px] text-[12px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
           :class="activeTab === tab.id
-            ? 'border border-transparent bg-control text-secondary'
+            ? 'border border-control bg-control text-secondary'
             : 'border border-transparent bg-transparent text-muted hover:bg-control/50 hover:text-secondary'" @click="activeTab = tab.id">
           <Icon :icon="tab.icon" :size="14" />
           <span>{{ tab.label }}</span>
