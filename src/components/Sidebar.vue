@@ -286,7 +286,8 @@ const parseHeadings = (): void => {
   const newHeadings: Heading[] = []
   let codeFence: { marker: string; length: number } | null = null
 
-  props.content.split('\n').forEach((line, lineIndex) => {
+  // 先将 CRLF 统一转换为 LF，防止 \r 残留在行尾导致标题匹配失败
+  props.content.replace(/\r\n/g, '\n').split('\n').forEach((line, lineIndex) => {
     const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/)
     if (fenceMatch) {
       const marker = fenceMatch[1][0]
