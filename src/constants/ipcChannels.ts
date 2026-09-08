@@ -49,6 +49,9 @@ export const IPC_CHANNELS = {
   watchWorkspace: "watch-workspace",
   unwatchWorkspace: "unwatch-workspace",
   workspaceChanged: "workspace-changed",
+  // 上次打开文件夹路径的读写，供文件打开对话框定位 defaultPath 使用。
+  getLastOpenedFolder: "get-last-opened-folder",
+  setLastOpenedFolder: "set-last-opened-folder",
   watchExternalFiles: "watch-external-files",
   externalFileChanged: "external-file-changed",
   confirmExit: "confirm-exit",

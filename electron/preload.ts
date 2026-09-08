@@ -252,6 +252,12 @@ const electronAPI: ElectronAPI = {
 
   clearRecentFiles: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.recentFilesClear),
 
+  getLastOpenedFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.getLastOpenedFolder),
+
+  setLastOpenedFolder: (dirPath: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.setLastOpenedFolder, dirPath),
+
   removeAllListeners: (channel: IpcChannel) => {
     ipcRenderer.removeAllListeners(channel)
   },

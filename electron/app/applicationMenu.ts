@@ -1,6 +1,10 @@
 import { app, dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
 import path from "path";
 import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
+import {
+  getLastOpenedFolderPath,
+  setLastOpenedFolderPath,
+} from "../services/lastOpenedFolder";
 
 interface OpenDocumentData {
   filePath: string;
@@ -114,6 +118,8 @@ function buildApplicationMenu(): void {
             const mainWindow = getMainWindow();
             if (!mainWindow) return;
             const result = await dialog.showOpenDialog(mainWindow, {
+              // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
+              defaultPath: getLastOpenedFolderPath() ?? undefined,
               properties: ["openFile", "multiSelections"],
               filters: [
                 { name: "Markdown", extensions: ["md", "markdown", "txt"] },
@@ -121,6 +127,8 @@ function buildApplicationMenu(): void {
               ],
             });
             if (result.canceled) return;
+            // 记录本次打开的目录，供下次打开对话框跳转。
+            await setLastOpenedFolderPath(path.dirname(result.filePaths[0]));
             const files = await readDocuments(result.filePaths);
             files.forEach((file) => getMainWindow()?.webContents.send(IPC_CHANNELS.menuOpenFile, file));
           },

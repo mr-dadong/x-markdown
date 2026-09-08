@@ -165,6 +165,10 @@ export interface ElectronAPI {
   addRecentFiles: (filePaths: string[]) => Promise<void>;
   removeRecentFile: (filePath: string) => Promise<void>;
   clearRecentFiles: () => Promise<void>;
+  /** 获取上次打开的文件夹路径，供打开文件对话框定位；无记录时返回 null。 */
+  getLastOpenedFolder: () => Promise<string | null>;
+  /** 记录本次打开的文件夹路径，持久化供下次打开对话框跳转。 */
+  setLastOpenedFolder: (dirPath: string) => Promise<void>;
   removeAllListeners: (channel: IpcChannel) => void;
   exportHtml: (data: ExportHtmlData) => Promise<ExportResult>;
   exportPdf: (data: ExportHtmlData) => Promise<ExportResult>;

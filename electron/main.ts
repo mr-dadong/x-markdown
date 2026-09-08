@@ -24,9 +24,14 @@ import {
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
+import { registerLastOpenedFolderIpc } from "./ipc/lastOpenedFolderIpc";
 import { registerAiIpc } from "./ai/ipc/aiIpc";
 import { getAiAgentStatus } from "./ai/mastra";
 import { getRecentFiles } from "./services/recentFiles";
+import {
+  getLastOpenedFolderPath,
+  setLastOpenedFolderPath,
+} from "./services/lastOpenedFolder";
 import {
   createApplicationMenu,
   setConfiguredShortcuts,
@@ -976,6 +981,8 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
   if (!mainWindow) return null;
 
   const result = await dialog.showOpenDialog(mainWindow, {
+    // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
+    defaultPath: getLastOpenedFolderPath() ?? undefined,
     properties: ["openFile", "multiSelections"],
     filters: [
       { name: "Markdown", extensions: ["md", "markdown", "txt"] },
@@ -983,6 +990,9 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
     ],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
+
+  // 记录本次打开的目录，供下次打开对话框跳转。
+  await setLastOpenedFolderPath(path.dirname(result.filePaths[0]));
 
   return Promise.all(
     result.filePaths.map(async (filePath) => {
@@ -1092,6 +1102,7 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
 
 registerWorkspaceIpc({ getMainWindow: () => mainWindow });
 registerRecentFilesIpc();
+registerLastOpenedFolderIpc();
 registerAiIpc({ getMainWindow: () => mainWindow });
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
