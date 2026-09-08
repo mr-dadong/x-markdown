@@ -5,7 +5,7 @@ import type { DocumentPatch } from '../types/documentAgent';
 
 // 用中文、插入、删除和长度变化验证原文坐标不会漂移。
 const patch = (start: number, end: number, before: string, after: string): DocumentPatch => ({
-  id: `${start}`, start, end, before, after, reason: '测试修改',
+  id: `${start}`, baseVersion: 'test-version', start, end, before, after, reason: '测试修改',
 });
 describe('文档 Agent 修改', () => {
   test('多处修改按原文坐标应用，未修改的代码块保持逐字一致', () => {

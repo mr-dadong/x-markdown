@@ -3,6 +3,7 @@ export interface DocumentAgentRequest {
   requestId: string;
   instruction: string;
   document: string;
+  documentVersion: string;
   selection: string;
   model?: string;
 }
@@ -10,6 +11,7 @@ export interface DocumentAgentRequest {
 /** 所有位置都基于任务开始时的原文，end 不包含在修改范围内。 */
 export interface DocumentPatch {
   id: string;
+  baseVersion: string;
   start: number;
   end: number;
   before: string;
@@ -36,6 +38,12 @@ export interface DocumentAgentGoal {
   detail: string;
 }
 
+/** 最终结果同时作为 IPC 返回值交付，避免完成事件与 invoke 结束发生先后竞态。 */
+export type DocumentAgentResult = { requestId: string } & (
+  | { type: 'done'; issues: string[]; outcome?: 'complete' | 'incomplete' }
+  | { type: 'error'; message: string }
+);
+
 /** 新事件保留原有文本、修改与完成接口，普通对话不受影响。 */
 export type DocumentAgentEvent = { requestId: string } & (
   | { type: 'progress'; message: string }
@@ -45,14 +53,14 @@ export type DocumentAgentEvent = { requestId: string } & (
   | { type: 'budget'; step: number; maxSteps: number; taskMs: number; message: string }
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string }
+  | { type: 'draft'; text: string }
   | { type: 'patch'; patch: DocumentPatch }
-  | { type: 'done'; issues: string[]; outcome?: 'complete' | 'incomplete' }
-  | { type: 'error'; message: string }
+  | DocumentAgentResult
 );
 
 /** 独立接口保留原有对话协议。 */
 export interface DocumentAgentApi {
-  invoke: (request: DocumentAgentRequest) => Promise<void>;
+  invoke: (request: DocumentAgentRequest) => Promise<DocumentAgentResult>;
   cancel: (requestId: string) => void;
   onEvent: (callback: (event: DocumentAgentEvent) => void) => () => void;
 }

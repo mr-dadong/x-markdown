@@ -23,10 +23,10 @@
       </div>
       <div class="flex items-center gap-0.5">
         <button
-          v-if="mode === 'chat'"
           type="button"
-          class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
-          title="清空对话"
+          class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          :title="mode === 'agent' ? '清空 Agent 记录' : '清空对话'"
+          :disabled="mode === 'agent' && agentBusy"
           @mousedown.prevent="handleClear"
         >
           <Icon icon="lucide:trash-2" :size="13" />
@@ -61,7 +61,7 @@
 
     <!-- 对话区域 -->
     <template v-else>
-      <DocumentAgentPanel v-show="mode === 'agent'" :options="agentOptions" @busy="agentBusy = $event">
+      <DocumentAgentPanel ref="agentPanelRef" v-show="mode === 'agent'" :options="agentOptions" @busy="agentBusy = $event">
         <template #footer-left>
           <AiModeSelector v-model="mode" :disabled="isStreaming || agentBusy" />
         </template>
@@ -360,6 +360,7 @@ const {
 // 消息列表引用
 const messagesRef = ref<HTMLElement | null>(null)
 const inputRef = ref<InstanceType<typeof AiChatInput> | null>(null)
+const agentPanelRef = ref<InstanceType<typeof DocumentAgentPanel> | null>(null)
 
 // 显示的消息（排除流式中的临时内容）
 const displayMessages = computed(() => messages.value)
@@ -491,8 +492,12 @@ const handleQuickAction = (prompt: string): void => {
   sendMessage(prompt)
 }
 
-// 清空对话
+// 根据当前模式清除对应记录；Agent 已写入编辑器的修改不会被回滚。
 const handleClear = (): void => {
+  if (mode.value === 'agent') {
+    agentPanelRef.value?.clear()
+    return
+  }
   clearHistory()
 }
 

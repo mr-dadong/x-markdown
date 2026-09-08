@@ -1,10 +1,11 @@
 import { ipcMain } from 'electron';
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '../../../src/constants/ipcChannels';
-import type { DocumentAgentEvent, DocumentAgentRequest } from '../../../src/types/documentAgent';
+import type { DocumentAgentEvent, DocumentAgentRequest, DocumentAgentResult } from '../../../src/types/documentAgent';
 import { getAiSettings } from '../aiSettings';
 import { buildModelConfig } from '../mastra';
 import { runDocumentAgent } from '../documentAgentRun';
+import { fingerprintDocument } from '../../../src/utils/documentAgentBlocks';
 
 /** 主进程只处理当前快照，不向模型开放文件系统或任意 IPC。 */
 export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEvent | IpcMainEvent) => void): void {
@@ -14,15 +15,18 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
     if (!request || typeof request.requestId !== 'string' || !request.requestId ||
         typeof request.instruction !== 'string' || !request.instruction.trim() || request.instruction.length > 12000 ||
         typeof request.document !== 'string' || request.document.length > 300000 ||
+        typeof request.documentVersion !== 'string' || request.documentVersion !== fingerprintDocument(request.document) ||
         typeof request.selection !== 'string' || request.selection.length > 12000 ||
         (request.model !== undefined && (typeof request.model !== 'string' || !request.model.trim()))) throw new Error('Agent 请求无效：文档最多 30 万字符，指令和选区最多 12000 字符');
     const sender = event.sender;
     if (active.has(sender.id)) throw new Error('已有文档任务正在执行，请先停止');
     const controller = new AbortController();
+    let result: DocumentAgentResult | null = null;
     active.set(sender.id, { requestId: request.requestId, controller });
     const destroyed = (): void => controller.abort();
     sender.once('destroyed', destroyed);
     const report = (payload: DocumentAgentEvent): void => {
+      if (payload.type === 'done' || payload.type === 'error') result = payload;
       if (!sender.isDestroyed() && !controller.signal.aborted) sender.send(IPC_CHANNELS.documentAgentEvent, payload);
     };
     try {
@@ -34,12 +38,18 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
         timeoutMs: settings.timeoutMs, maxTokens: settings.maxTokens, temperature: settings.temperature,
         controller, report,
       });
+      // 完成结果在 report 回调中赋值，显式恢复联合类型供 TypeScript 正确收窄。
+      const completed = result as DocumentAgentResult | null;
+      if (completed?.type !== 'done') throw new Error('Agent 未返回完成结果');
+      return completed;
     } catch (error) {
       // 用户取消的事件由前端处理；超时和其他错误必须明确显示。
       const reason = controller.signal.aborted ? controller.signal.reason : error;
       // 主动结束后台循环，避免前端显示失败后仍有模型或工具继续工作。
       if (!controller.signal.aborted) controller.abort(reason);
-      if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.documentAgentEvent, { requestId: request.requestId, type: 'error', message: reason instanceof Error ? reason.message : String(reason) } satisfies DocumentAgentEvent);
+      const failure = { requestId: request.requestId, type: 'error', message: reason instanceof Error ? reason.message : String(reason) } satisfies DocumentAgentResult;
+      if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.documentAgentEvent, failure);
+      return failure;
     } finally {
       sender.removeListener('destroyed', destroyed);
       active.delete(sender.id);

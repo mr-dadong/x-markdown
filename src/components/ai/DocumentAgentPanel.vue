@@ -2,18 +2,40 @@
   <!-- 任务区按阅读顺序展示目标、操作记录和待审阅改动。 -->
   <div class="flex min-h-0 flex-1 flex-col">
     <div class="flex min-h-0 flex-1 select-text flex-col gap-4 overflow-y-auto px-3 py-4">
-      <div v-if="status === 'idle'" class="flex flex-col gap-3 rounded-lg border border-line p-4">
-        <span class="text-sm font-semibold text-ink">让 AI 直接整理当前文档</span>
-        <p class="text-xs leading-6 text-secondary">AI 会读取、搜索并提出局部修改。你查看修改前后，再决定是否写入。</p>
-        <button type="button" class="flex rounded-md border border-line px-3 py-2 text-left text-xs text-secondary hover:bg-selected" @click="send('检查标题层级和术语一致性，只修改必要位置，保留代码块。')">检查标题与术语，保留代码块</button>
+      <!-- 空状态沿用普通对话的居中结构，让两种模式切换时保持一致的视觉重心。 -->
+      <div v-if="status === 'idle'" class="flex flex-1 flex-col items-center justify-center px-3 py-8 text-center">
+        <span class="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-accent text-inverse">
+          <Icon icon="lucide:sparkles" :size="30" />
+        </span>
+        <p class="mb-1.5 text-[16px] font-semibold text-ink">整理当前文档</p>
+        <p class="mb-5 max-w-[260px] text-[12px] leading-relaxed text-secondary">
+          描述整理目标，Agent 会检查文档并提出局部修改，由你审阅后再写入。
+        </p>
+        <!-- 常用任务保持单列轻量入口，点击后直接开始执行。 -->
+        <div class="flex w-full max-w-[260px] flex-col gap-2">
+          <button v-for="action in quickActions" :key="action.label" type="button"
+            class="group flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-panel px-3 py-2.5 text-left text-[12px] text-secondary hover:bg-toolbar hover:text-ink"
+            @click="send(action.prompt)">
+            <span class="shrink-0 text-muted group-hover:text-accent">
+              <Icon :icon="action.icon" :size="14" />
+            </span>
+            <span>{{ action.label }}</span>
+          </button>
+        </div>
       </div>
-      <div v-if="instruction" class="flex flex-col gap-2">
-        <span class="text-[11px] text-muted">本次任务 · {{ outcome === 'incomplete' && canReview ? '仍有未完成事项' : labels[status] }}</span>
-        <p class="whitespace-pre-wrap break-words text-sm text-ink">{{ instruction }}</p>
+      <!-- 用户目标作为右侧消息展示，运行记录自然接在其下方。 -->
+      <div v-if="instruction" class="flex flex-col items-end gap-1.5">
+        <span class="text-[10px] text-muted">你 · {{ outcome === 'incomplete' && canReview ? '仍有未完成事项' : labels[status] }}</span>
+        <p class="max-w-[88%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-selected px-3.5 py-2.5 text-[13px] leading-5 text-ink">{{ instruction }}</p>
       </div>
       <AgentExecutionStatus v-if="status !== 'idle'" :running="running" :status="status" :outcome="outcome"
         :stages="stages" :operations="operations" :goals="goals" :reasoning="reasoning"
         :started-at="startedAt" :ended-at="endedAt" :step="step" :max-steps="maxSteps" :task-ms="taskMs" :budget-message="budgetMessage" />
+      <!-- 修改工具仍在接收参数时，先展示已经生成的正文，不必等整次工具调用结束。 -->
+      <div v-if="running && draft" class="flex flex-col gap-2 rounded-lg border border-line p-3">
+        <span class="text-[11px] text-muted">正在生成修改预览</span>
+        <pre class="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded bg-selected p-2 font-mono text-xs leading-5 text-ink">{{ draft }}</pre>
+      </div>
       <!-- 检查完成前允许查看建议，但不能将中断任务的内容写入文档。 -->
       <p v-if="patches.length && !canReview" class="rounded-lg border border-line px-3 py-2 text-xs leading-5 text-muted">{{ running ? '建议正在生成，最终检查后可审阅应用。' : '任务未完成，以下建议尚未通过最终核对，仅供查看。' }}</p>
       <p v-if="response" class="whitespace-pre-wrap break-words text-xs leading-6 text-secondary">{{ response }}</p>
@@ -65,6 +87,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { Icon } from '@iconify/vue/offline'
 import { useDocumentAgent } from '../../composables/useDocumentAgent'
 import type { DocumentAgentOptions } from '../../composables/useDocumentAgent'
 import AiChatInput from './AiChatInput.vue'
@@ -73,13 +96,21 @@ import AgentExecutionStatus from './AgentExecutionStatus.vue'
 // 父级提供编辑器操作，面板本身不接触磁盘文件。
 const props = defineProps<{ options: DocumentAgentOptions }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
-const { status, instruction, response, reasoning, stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, patches, issues, checkTarget, error, running, settling, pending, accepted,
-  canReview, canStart, start, cancel, accept, reject, undo } = useDocumentAgent(props.options)
+const { status, instruction, response, reasoning, draft, stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, patches, issues, checkTarget, error, running, settling, pending, accepted,
+  canReview, canStart, start, cancel, clear, accept, reject, undo } = useDocumentAgent(props.options)
 const input = ref<InstanceType<typeof AiChatInput> | null>(null)
 const labels = { idle: '就绪', running: '执行中', review: '等待审阅', done: '已完成', cancelled: '已停止', error: '失败', conflict: '文档已变化' }
 const decisions = { pending: '待审阅', accepted: '已接受', rejected: '已拒绝' }
+// 快捷任务只提供明确、可审阅的文档整理目标，避免用户首次进入时不知道如何描述任务。
+const quickActions = [
+  { icon: 'lucide:list-tree', label: '检查标题层级与结构', prompt: '检查标题层级和文档结构，只修改必要位置，保留代码块。' },
+  { icon: 'lucide:spell-check', label: '统一术语与表达', prompt: '检查全文术语和表达是否一致，只修改不一致的位置，保留原意。' },
+  { icon: 'lucide:wand-2', label: '精简重复和冗余内容', prompt: '检查全文重复和冗余的内容，只精简必要位置，不改变文章结构和原意。' },
+]
 watch(() => running.value || settling.value, value => emit('busy', value))
 const send = async (text: string): Promise<void> => {
   if (await start(text)) input.value?.clearDraft(text)
 }
+// 标题栏通过此方法清除 Agent 记录，不直接操作面板内部状态。
+defineExpose({ clear })
 </script>

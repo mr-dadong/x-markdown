@@ -2,7 +2,8 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { effectScope, ref } from 'vue';
 import { useDocumentAgent } from './useDocumentAgent';
-import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentRequest, DocumentPatch } from '../types/documentAgent';
+import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentRequest, DocumentAgentResult, DocumentPatch } from '../types/documentAgent';
+import { fingerprintDocument } from '../utils/documentAgentBlocks';
 
 /** 可控 IPC：测试真实状态转换，不连接收费模型。 */
 function setup() {
@@ -10,10 +11,10 @@ function setup() {
   const id = ref<number | null>(1);
   let listener!: (event: DocumentAgentEvent) => void;
   let request!: DocumentAgentRequest;
-  let resolve!: () => void;
+  let resolve!: (result: DocumentAgentResult) => void;
   const cancelled: string[] = [];
   const api: DocumentAgentApi = {
-    invoke: value => { request = value; return new Promise<void>(done => { resolve = done; }); },
+    invoke: value => { request = value; return new Promise<DocumentAgentResult>(done => { resolve = done; }); },
     cancel: value => { cancelled.push(value); },
     onEvent: callback => { listener = callback; return () => {}; },
   };
@@ -27,11 +28,15 @@ function setup() {
     },
   }, api))!;
   const emit = (type: 'reasoning' | 'text', text: string) => listener({ type, text, requestId: request.requestId });
-  const proposal: DocumentPatch = { id: 'p1', start: 0, end: 2, before: '旧名', after: 'XMD', reason: '统一名称' };
+  const proposal: DocumentPatch = { id: 'p1', baseVersion: fingerprintDocument('旧名，正文'), start: 0, end: 2, before: '旧名', after: 'XMD', reason: '统一名称' };
   const propose = (patch: DocumentPatch = proposal) => listener({ requestId: request.requestId, type: 'patch', patch });
-  const finish = () => { listener({ requestId: request.requestId, type: 'done', issues: [] }); resolve(); };
+  const done = (): DocumentAgentResult => ({ requestId: request.requestId, type: 'done', issues: [] });
+  const finish = () => { const result = done(); listener(result); resolve(result); };
+  // 模拟 Electron 先返回 invoke 结果、稍后才派发同一个完成事件。
+  const finishViaResult = () => resolve(done());
   const event = (value: DocumentAgentEvent) => listener({ ...value, requestId: request.requestId });
-  return { event, agent, document, id, scope, emit, propose, finish, cancelled, resolve: () => resolve() };
+  return { event, agent, document, id, scope, emit, propose, finish, finishViaResult, cancelled,
+    resolve: () => resolve(undefined as never) };
 }
 
 describe('文档 Agent 审阅和生命周期', () => {
@@ -60,7 +65,7 @@ describe('文档 Agent 审阅和生命周期', () => {
     const state = setup();
     const task = state.agent.start('调整名称和正文');
     state.propose();
-    state.propose({ id: 'p2', start: 3, end: 5, before: '正文', after: '新的正文', reason: '补充内容' });
+    state.propose({ id: 'p2', baseVersion: fingerprintDocument('旧名，正文'), start: 3, end: 5, before: '正文', after: '新的正文', reason: '补充内容' });
     state.finish();
     await task;
     assert.equal(await state.agent.start('另一个任务'), false);
@@ -77,7 +82,7 @@ describe('文档 Agent 审阅和生命周期', () => {
     const state = setup();
     state.document.value = '# 标题\n### 小节';
     const task = state.agent.start('修复标题');
-    state.propose({ id: 'heading', start: 5, end: 8, before: '###', after: '##', reason: '标题层级' });
+    state.propose({ id: 'heading', baseVersion: fingerprintDocument('# 标题\n### 小节'), start: 5, end: 8, before: '###', after: '##', reason: '标题层级' });
     state.finish();
     await task;
     state.agent.reject();
@@ -160,6 +165,43 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(state.agent.status.value, 'error');
     state.scope.stop();
   });
+  test('拒绝不属于当前文档版本的修改，并停止后台任务', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称');
+    state.propose({ id: 'stale', baseVersion: 'stale-version', start: 0, end: 2, before: '旧名', after: 'XMD', reason: '过期修改' });
+    assert.equal(state.agent.status.value, 'conflict');
+    assert.equal(state.agent.patches.value.length, 0);
+    assert.equal(state.cancelled.length, 1);
+    state.resolve();
+    await task;
+    state.scope.stop();
+  });
+  test('IPC 完成返回值先于完成事件到达时仍进入审阅，不误报连接结束', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称');
+    state.propose();
+    state.finishViaResult();
+    assert.equal(await task, true);
+    assert.equal(state.agent.status.value, 'review');
+    assert.equal(state.agent.error.value, '');
+    state.scope.stop();
+  });
+  test('清除本轮记录后回到初始状态，但不撤销已经接受的文档修改', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称');
+    assert.equal(state.agent.clear(), false);
+    state.propose();
+    state.finish();
+    await task;
+    state.agent.accept();
+    assert.equal(state.document.value, 'XMD，正文');
+    assert.equal(state.agent.clear(), true);
+    assert.equal(state.agent.status.value, 'idle');
+    assert.equal(state.agent.instruction.value, '');
+    assert.equal(state.agent.patches.value.length, 0);
+    assert.equal(state.document.value, 'XMD，正文');
+    state.scope.stop();
+  });
 });
 
 // 新的阶段协议与旧的审阅、取消接口共同工作。
@@ -171,7 +213,7 @@ describe('Agent 阶段与修改预览', () => {
     state.emit('reasoning', '准备修改');
     assert.equal(state.agent.stages.value.find(stage => stage.id === 'locate')?.detail, '找到 2 处命中');
     state.propose();
-    state.propose({ id: 'p1', start: 0, end: 2, before: '旧名', after: '新名称', reason: '修订名称' });
+    state.propose({ id: 'p1', baseVersion: fingerprintDocument('旧名，正文'), start: 0, end: 2, before: '旧名', after: '新名称', reason: '修订名称' });
     assert.equal(state.agent.patches.value.length, 1);
     assert.equal(state.agent.patches.value[0].after, '新名称');
     state.event({ requestId: '', type: 'error', message: '模型无响应' });
