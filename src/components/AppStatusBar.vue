@@ -25,7 +25,6 @@
         {{ isModified ? '未保存' : '已保存' }}
       </span>
       <span class="flex h-4 items-center border-l border-line pl-3">{{ lineCount }} 行</span>
-      <span class="ml-4">{{ wordCount }} 词</span>
       <span class="ml-4">{{ characterCount }} 字符</span>
     </div>
   </footer>
@@ -39,7 +38,6 @@ const { settings } = useSettings()
 
 defineProps<{
   lineCount: number
-  wordCount: number
   characterCount: number
   isModified: boolean
   sidebarVisible: boolean

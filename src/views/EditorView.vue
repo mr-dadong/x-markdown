@@ -99,8 +99,8 @@
                 @close="isAiChatOpen = false" @open-settings="openAiSettings" />
         </div>
 
-        <AppStatusBar :line-count="documentStats.lineCount" :word-count="documentStats.wordCount"
-            :character-count="documentStats.characterCount" :is-modified="isModified"
+        <AppStatusBar :line-count="documentStats.lineCount" :character-count="documentStats.characterCount"
+            :is-modified="isModified"
             :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode" :document-open="isDocumentOpen"
             @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
         <SettingsModal />

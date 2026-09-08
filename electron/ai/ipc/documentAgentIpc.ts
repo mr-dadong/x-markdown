@@ -36,6 +36,7 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
       await runDocumentAgent(request, {
         model: buildModelConfig(settings, request.model) as Parameters<typeof runDocumentAgent>[1]['model'],
         timeoutMs: settings.timeoutMs, maxTokens: settings.maxTokens, temperature: settings.temperature,
+        agentMaxSteps: settings.agentMaxSteps, agentTaskMs: settings.agentTaskMs,
         controller, report,
       });
       // 完成结果在 report 回调中赋值，显式恢复联合类型供 TypeScript 正确收窄。

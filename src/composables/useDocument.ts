@@ -146,7 +146,6 @@ export const useDocument = () => {
   const isModified = computed(() => currentDocument.value?.isModified ?? false);
   const documentStats = ref<DocumentStats>({
     lineCount: 0,
-    wordCount: 0,
     characterCount: 0,
   });
   let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;

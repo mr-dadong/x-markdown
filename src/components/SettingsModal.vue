@@ -238,27 +238,16 @@ import appIcon from '../../build/icons/256x256.png'
 import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
 import { overlayState } from '../modules/overlayState'
-import { useConfirmDialog } from '../composables/useConfirmDialog'
 
 const settingsOpen = overlayState.settingsOpen
 const settingsSection = overlayState.settingsSection
 
-const { requestConfirmation } = useConfirmDialog()
-
-// AI 分区是唯一需要显式保存的表单（其余分区即时生效），切走或关闭前检查脏状态。
+// AI 配置在无操作约 1 秒后自动保存；关闭设置前先立即落盘最后一批编辑，避免停顿窗口未结束就离开导致丢失。
 const aiPanelRef = ref<InstanceType<typeof AiSettingsPanel> | null>(null)
 
 const closeSettings = async (): Promise<void> => {
-  if (aiPanelRef.value?.isDirty) {
-    const confirmed = await requestConfirmation({
-      title: '放弃未保存的 AI 设置？',
-      message: 'AI 分区有尚未保存的更改，关闭后这些更改将被丢弃。',
-      confirmLabel: '放弃更改',
-      tone: 'danger',
-    })
-    if (!confirmed) return
-    aiPanelRef.value?.resetToSaved()
-  }
+  // 关闭前把尚未触发的自动保存立即落盘（无改动时是空操作）。
+  await aiPanelRef.value?.flushNow()
   settingsOpen.value = false
   settingsSection.value = 'general'
 }
@@ -345,17 +334,10 @@ watch(activeSection, (section) => {
   }
 })
 
-// 离开 AI 分区前检查未保存的更改：确认放弃才真正切换，取消则停留在 AI。
+// 离开 AI 分区前先立即落盘尚未触发的自动保存，避免停顿窗口未结束就切换导致丢失。
 const tryChangeSection = async (section: SettingsSection): Promise<void> => {
-  if (activeSection.value === 'ai' && section !== 'ai' && aiPanelRef.value?.isDirty) {
-    const confirmed = await requestConfirmation({
-      title: '放弃未保存的 AI 设置？',
-      message: 'AI 分区有尚未保存的更改，离开后这些更改将被丢弃。',
-      confirmLabel: '放弃更改',
-      tone: 'danger',
-    })
-    if (!confirmed) return
-    aiPanelRef.value?.resetToSaved()
+  if (activeSection.value === 'ai' && section !== 'ai') {
+    await aiPanelRef.value?.flushNow()
   }
   activeSection.value = section
 }

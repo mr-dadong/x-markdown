@@ -62,9 +62,11 @@ const defaultAiSettings = (): AiSettings => ({
     },
   },
   temperature: 0.7,
-  maxTokens: 8192,
-  timeoutMs: 120000,
+  maxTokens: 16384,
+  timeoutMs: 180000,
   allowLocalRequests: false,
+  agentMaxSteps: 12,
+  agentTaskMs: 5 * 60 * 1000,
 });
 
 interface StoredAiSettings {
@@ -115,6 +117,14 @@ export function normalizeSettings(
       typeof input.allowLocalRequests === "boolean"
         ? input.allowLocalRequests
         : fallback.allowLocalRequests,
+    agentMaxSteps:
+      typeof input.agentMaxSteps === "number" && input.agentMaxSteps > 0
+        ? Math.floor(input.agentMaxSteps)
+        : fallback.agentMaxSteps,
+    agentTaskMs:
+      typeof input.agentTaskMs === "number" && input.agentTaskMs > 0
+        ? Math.floor(input.agentTaskMs)
+        : fallback.agentTaskMs,
   };
 }
 
@@ -260,15 +270,25 @@ async function readStoredSettings(): Promise<StoredAiSettings | null> {
             temperature:
               typeof config.temperature === "number" ? config.temperature : 0.7,
             maxTokens:
-              typeof config.maxTokens === "number" ? config.maxTokens : 8192,
+              typeof config.maxTokens === "number" ? config.maxTokens : 16384,
             timeoutMs:
               typeof config.timeoutMs === "number" && config.timeoutMs > 0
                 ? Math.floor(config.timeoutMs)
-                : 120000,
+                : 180000,
             allowLocalRequests:
               typeof config.allowLocalRequests === "boolean"
                 ? config.allowLocalRequests
                 : false,
+            // 旧格式没有 Agent 参数，迁移时补上当前默认值。
+            agentMaxSteps:
+              typeof (config as Partial<AiSettings>).agentMaxSteps === "number"
+                ? Number((config as Partial<AiSettings>).agentMaxSteps)
+                : 12,
+            agentTaskMs:
+              typeof (config as Partial<AiSettings>).agentTaskMs === "number" &&
+              Number((config as Partial<AiSettings>).agentTaskMs) > 0
+                ? Number((config as Partial<AiSettings>).agentTaskMs)
+                : 5 * 60 * 1000,
           },
           encryptedApiKeys: oldEncryptedApiKeys,
         };
@@ -336,6 +356,14 @@ export async function getAiSettings(): Promise<AiSettings> {
     maxTokens: config.maxTokens,
     timeoutMs: config.timeoutMs,
     allowLocalRequests: config.allowLocalRequests,
+    agentMaxSteps:
+      typeof config.agentMaxSteps === "number" && config.agentMaxSteps > 0
+        ? Math.floor(config.agentMaxSteps)
+        : defaultAiSettings().agentMaxSteps,
+    agentTaskMs:
+      typeof config.agentTaskMs === "number" && config.agentTaskMs > 0
+        ? Math.floor(config.agentTaskMs)
+        : defaultAiSettings().agentTaskMs,
   };
   return cachedSettings;
 }
@@ -373,6 +401,8 @@ export async function saveAiSettings(
       maxTokens: merged.maxTokens,
       timeoutMs: merged.timeoutMs,
       allowLocalRequests: merged.allowLocalRequests,
+      agentMaxSteps: merged.agentMaxSteps,
+      agentTaskMs: merged.agentTaskMs,
     },
     encryptedApiKeys,
   };
@@ -437,6 +467,8 @@ export function toPublicSettings(settings: AiSettings): AiPublicSettings {
     maxTokens: settings.maxTokens,
     timeoutMs: settings.timeoutMs,
     allowLocalRequests: settings.allowLocalRequests,
+    agentMaxSteps: settings.agentMaxSteps,
+    agentTaskMs: settings.agentTaskMs,
   };
 }
 

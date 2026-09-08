@@ -53,16 +53,30 @@
       </div>
     </div>
 
+    <!-- 文档 Agent 执行参数：与上方连接/生成参数分开，专门控制长任务的轮数和总时长。 -->
+    <div class="flex flex-col rounded-lg border border-line bg-panel">
+      <div class="flex flex-col gap-1 px-5 pb-3 pt-4">
+        <h4 class="text-[13px] font-semibold text-ink">文档 Agent</h4>
+        <p class="text-[12px] text-muted">控制后台 Agent 处理文档的轮数与总时长，复杂任务请适当调大。</p>
+      </div>
+      <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <span class="text-[13px] font-medium text-ink">最大轮数</span>
+          <span class="text-[12px] text-muted">Agent 最多执行的工具步骤数，越高越能处理复杂修改。</span>
+        </div>
+        <input v-model.number="agentMaxSteps" type="number" min="1" max="100" step="1" class="ai-control !bg-paper" />
+      </div>
+      <div class="flex items-center justify-between gap-8 px-5 py-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <span class="text-[13px] font-medium text-ink">任务总时长</span>
+          <span class="text-[12px] text-muted">整个 Agent 任务允许的最长时间，单位：分钟。</span>
+        </div>
+        <input v-model.number="agentTaskMinutes" type="number" min="1" max="120" step="1" class="ai-control !bg-paper" />
+      </div>
+    </div>
+
     <div class="flex items-center gap-3">
-      <!-- 保存按钮随时可点（保存是幂等的）：不依赖「有改动」才亮，
-           避免测试成功自动保存后按钮变灰、用户想手动保存却点不了的困惑。 -->
-      <button type="button"
-        class="flex h-9 items-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="saving" @click="save">
-        <Icon icon="lucide:save" :size="16" />
-        {{ saving ? '保存中…' : '保存' }}
-      </button>
-      <!-- 测试连接：把当前表单草稿（未保存也可）发给主进程临时配置做 1 token 真实请求。 -->
+      <!-- 测试连接：把当前表单草稿发给主进程临时配置做 1 token 真实请求。 -->
       <button type="button"
         class="flex h-9 items-center gap-2 rounded-md border border-line bg-paper px-4 text-[13px] font-medium text-secondary hover:border-accent hover:bg-selected hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="testing || saving" @click="runConnectionTest">
@@ -70,9 +84,10 @@
           :class="testing ? 'animate-spin' : ''" />
         {{ testing ? '测试中…' : '测试连接' }}
       </button>
+      <!-- 自动保存：表单停顿约 1 秒后整体提交，不覆盖用户正在编辑的中间态。 -->
       <span v-if="isDirty && !message && !testResult" class="flex items-center gap-1.5 text-[12px] text-accent">
         <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-        有未保存的更改
+        更改将自动保存
       </span>
       <button v-if="isDirty" type="button"
         class="flex h-9 items-center rounded-md px-2.5 text-[12px] text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
@@ -98,11 +113,6 @@
       <div v-if="testResult.ok && testResult.latencyMs !== undefined" class="text-[12px] text-secondary">
         端到端延迟 {{ testResult.latencyMs }} ms
         <span v-if="testResult.sampleTokenCount" class="ml-2">已收到模型响应</span>
-      </div>
-      <!-- 测试通过后的保存状态说明：自动保存结果 / 表单本来就是保存状态。 -->
-      <div v-if="testResult.ok && testSaveNote" class="text-[12px]"
-        :class="hasError ? 'text-danger' : 'text-[#2c7a3d]'">
-        {{ testSaveNote }}
       </div>
       <div v-if="!testResult.ok" class="break-all text-[12px] leading-5 text-secondary">{{ testResult.error }}</div>
     </div>
@@ -152,8 +162,11 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
 const enabled = ref(false)
 const provider = ref<AiProvider>('openai')
 const temperature = ref(0.7)
-const maxTokens = ref(8192)
-const timeoutSeconds = ref(30)
+const maxTokens = ref(16384)
+const timeoutSeconds = ref(180)
+// 文档 Agent 的执行上限：轮数（步）与任务总时长（分钟）。
+const agentMaxSteps = ref(12)
+const agentTaskMinutes = ref(5)
 const saving = ref(false)
 const message = ref('')
 const hasError = ref(false)
@@ -162,8 +175,6 @@ const hasError = ref(false)
 const testing = ref(false)
 const testResult = ref<AiTestConnectionResult | null>(null)
 const testResultRef = ref<HTMLElement | null>(null)
-// 测试成功后关于保存状态的说明（自动保存结果 / 已是保存状态）。
-const testSaveNote = ref('')
 
 // 测试结果位于设置页底部，渲染完成后主动滚动弹窗内部容器，确保完整结果立即可见。
 watch(testResult, (result) => {
@@ -186,11 +197,11 @@ const apiKeyDraft = ref('')
 const apiKeyEditing = ref(false)
 
 /**
- * 最近一次加载/保存成功时的表单快照，用于脏检查。
+ * 最近一次自动保存成功时的表单快照，用于脏检查。
  * AI 配置必须原子提交（provider + model + baseUrl + key 是一个组合），
- * 不能像普通设置那样边改边存：编辑中间态会把 configured=false 泄漏给
+ * 不能像普通设置那样改一个就落盘一个：编辑中间态会把 configured=false 泄漏给
  * 主进程，导致选区 AI 工具栏在用户还没改完时就闪回「配置 AI 后使用」。
- * 因此这里保留显式保存按钮，用快照判断「有没有真正改动」。
+ * 因此这里在表单停顿约 1 秒后把完整组合整体自动保存，避免中间态落盘。
  */
 interface AiFormSnapshot {
   enabled: boolean
@@ -198,6 +209,8 @@ interface AiFormSnapshot {
   temperature: number
   maxTokens: number
   timeoutSeconds: number
+  agentMaxSteps: number
+  agentTaskMinutes: number
   // Key 不含 apiKey（草稿为空表示保留原值），但含 hasApiKey 以反映密钥有无。
   providers: Record<string, AiProviderPublicConfig>
   apiKeyDraft: string
@@ -209,6 +222,8 @@ const snapshotForm = (): AiFormSnapshot => ({
   temperature: temperature.value,
   maxTokens: maxTokens.value,
   timeoutSeconds: timeoutSeconds.value,
+  agentMaxSteps: agentMaxSteps.value,
+  agentTaskMinutes: agentTaskMinutes.value,
   providers: JSON.parse(JSON.stringify(providersConfig.value)) as Record<string, AiProviderPublicConfig>,
   apiKeyDraft: apiKeyDraft.value,
 })
@@ -224,6 +239,8 @@ const isDirty = computed(() => {
     current.temperature !== savedSnapshot.temperature ||
     current.maxTokens !== savedSnapshot.maxTokens ||
     current.timeoutSeconds !== savedSnapshot.timeoutSeconds ||
+    current.agentMaxSteps !== savedSnapshot.agentMaxSteps ||
+    current.agentTaskMinutes !== savedSnapshot.agentTaskMinutes ||
     current.apiKeyDraft !== savedSnapshot.apiKeyDraft
   ) return true
   return JSON.stringify(current.providers) !== JSON.stringify(savedSnapshot.providers)
@@ -238,15 +255,48 @@ const resetToSaved = (): void => {
   temperature.value = savedSnapshot.temperature
   maxTokens.value = savedSnapshot.maxTokens
   timeoutSeconds.value = savedSnapshot.timeoutSeconds
+  agentMaxSteps.value = savedSnapshot.agentMaxSteps
+  agentTaskMinutes.value = savedSnapshot.agentTaskMinutes
   providersConfig.value = JSON.parse(JSON.stringify(savedSnapshot.providers)) as Record<string, AiProviderPublicConfig>
   apiKeyDraft.value = savedSnapshot.apiKeyDraft
   apiKeyEditing.value = false
   message.value = ''
   hasError.value = false
   testResult.value = null
-  testSaveNote.value = ''
   nextTick(() => { suppressTestReset = false })
 }
+
+// ── 自动保存 ──
+// 表单停顿约 1 秒后把完整组合整体落盘。停顿窗口保证用户在编辑中间态
+// （如刚切厂商还没填 Key）时不会有半成品写入，也就不会让 configured
+// 短暂变为 false、引发选区 AI 工具栏闪回。
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  [
+    enabled,
+    provider,
+    temperature,
+    maxTokens,
+    timeoutSeconds,
+    agentMaxSteps,
+    agentTaskMinutes,
+    apiKeyDraft,
+    // providersConfig（厂商模型/地址/自定义模型）为嵌套对象，深度监听。
+    providersConfig,
+  ],
+  () => {
+    // 加载/保存/还原流程正在刷新表单时，不触发新的自动保存；配置尚未加载完成前也无从保存。
+    if (suppressTestReset || !savedSnapshot) return
+    if (autoSaveTimer) clearTimeout(autoSaveTimer)
+    autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = null
+      // 只在真正有改动时保存，避免循环保存。
+      if (isDirty.value && !saving.value) void save()
+    }, 1000)
+  },
+  { deep: true },
+)
 
 // 模型选择器引用
 const modelSelectorRef = ref<InstanceType<typeof ModelSelector> | null>(null)
@@ -305,14 +355,12 @@ watch(provider, () => {
   apiKeyEditing.value = false
   modelSelectorRef.value?.setModels([])
   testResult.value = null
-  testSaveNote.value = ''
 })
 
 // 启用开关、模型、API 地址、Key 草稿任一变化都会让旧的测试结果失效，立即撤下成功/失败提示。
 watch([enabled, currentModel, currentBaseUrl, apiKeyDraft], () => {
   if (suppressTestReset) return
   testResult.value = null
-  testSaveNote.value = ''
 })
 
 // ── 获取模型列表 ──
@@ -347,9 +395,13 @@ const buildDraftPayload = (): AiSettingsInput => {
     provider: provider.value,
     providers: providersPayload,
     temperature: typeof temperature.value === 'number' ? temperature.value : 0.7,
-    maxTokens: typeof maxTokens.value === 'number' ? Math.max(1, Math.floor(maxTokens.value)) : 8192,
-    timeoutMs: typeof timeoutMs.value === 'number' ? Math.max(1, Math.floor(timeoutMs.value)) : 30000,
+    maxTokens: typeof maxTokens.value === 'number' ? Math.max(1, Math.floor(maxTokens.value)) : 16384,
+    timeoutMs: typeof timeoutMs.value === 'number' ? Math.max(1, Math.floor(timeoutMs.value)) : 180000,
     allowLocalRequests: Boolean(allowLocalRequests.value),
+    agentMaxSteps: typeof agentMaxSteps.value === 'number' ? Math.max(1, Math.floor(agentMaxSteps.value)) : 12,
+    agentTaskMs: typeof agentTaskMinutes.value === 'number' && agentTaskMinutes.value > 0
+      ? Math.max(60000, Math.floor(agentTaskMinutes.value * 60 * 1000))
+      : 5 * 60 * 1000,
   }
   // 最后一次保险：序列化再反序列化彻底清掉 Proxy、Symbol、循环引用。
   // 副作用是把任何无法 JSON 化的字段全部去掉，保证跨 IPC 一定可克隆。
@@ -400,6 +452,8 @@ const load = async (): Promise<void> => {
     temperature.value = settings.temperature
     maxTokens.value = settings.maxTokens
     timeoutSeconds.value = Math.round(settings.timeoutMs / 1000)
+    agentMaxSteps.value = settings.agentMaxSteps
+    agentTaskMinutes.value = Math.max(1, Math.round(settings.agentTaskMs / 60000))
     savedSnapshot = snapshotForm()
     apiKeyDraft.value = ''
   } catch (error) {
@@ -413,6 +467,11 @@ const save = async (): Promise<void> => {
   hasError.value = false
   message.value = ''
   suppressTestReset = true
+  // 取消可能仍在等待中的自动保存定时器，避免保存后再次触发做无用保存。
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
   try {
     // 复用 buildDraftPayload() 构造纯净的可克隆 payload（含未保存的 Key 草稿）。
     const payload = buildDraftPayload()
@@ -424,9 +483,7 @@ const save = async (): Promise<void> => {
     // 「配置 AI 后使用」切换为正常动作按钮，无需重启应用。
     await refreshAiStatus()
     savedSnapshot = snapshotForm()
-    message.value = 'AI 设置已保存'
-    // 测试结果面板显示时按钮行的 message 会被面板遮住，同步刷新面板里的保存说明
-    if (testResult.value?.ok) testSaveNote.value = '配置已保存并生效'
+    message.value = 'AI 设置已自动保存'
   } catch (error) {
     hasError.value = true
     message.value = error instanceof Error ? error.message : String(error)
@@ -439,25 +496,17 @@ const save = async (): Promise<void> => {
 /**
  * 真实请求级别的连通性测试：让主进程用「当前表单草稿 + 已保存密钥合并」
  * 的临时配置发一次 1 token 的聊天补全（max_tokens=1，费用可忽略）。
- * 测试通过后如果表单有改动会立即自动保存并生效——测试通过说明这套配置
- * 真实可用，省去再点一次「保存」，也避免「没改动时保存按钮是灰色」的困惑。
+ * 表单改动会由上面的自动保存单独提交，测试只负责验证连通性并展示结果，
+ * 不再重复落盘。
  */
 const runConnectionTest = async (): Promise<void> => {
   testing.value = true
   testResult.value = null
-  testSaveNote.value = ''
   hasError.value = false
   message.value = ''
   try {
     const draft = buildDraftPayload()
     testResult.value = await aiService.testConnectionWithDraft(draft)
-    if (!testResult.value.ok) return
-    if (!isDirty.value) {
-      testSaveNote.value = '当前配置已是保存状态'
-      return
-    }
-    await save()
-    testSaveNote.value = hasError.value ? `自动保存失败：${message.value}` : '配置已自动保存并生效'
   } catch (error) {
     testResult.value = {
       ok: false,
@@ -470,11 +519,26 @@ const runConnectionTest = async (): Promise<void> => {
   }
 }
 
+/**
+ * 立即落盘当前表单（若有改动）。供父级在切分区或关闭设置前调用，
+ * 确保停顿窗口还没结束时用户离开也能保住最后一批编辑。
+ */
+const flushNow = (): Promise<void> => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  if (isDirty.value) return save()
+  return Promise.resolve()
+}
+
 defineExpose({
-  /** 当前是否有未保存的更改（供父级在切分区或关闭前提示）。 */
+  /** 当前是否有未保存的更改（供父级在切分区或关闭前决定是否落盘）。 */
   get isDirty() { return isDirty.value },
   /** 还原到最近一次保存的状态。 */
   resetToSaved,
+  /** 立即落盘当前表单（若有改动）。 */
+  flushNow,
 })
 
 onMounted(() => void load())

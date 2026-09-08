@@ -70,6 +70,10 @@ export function createAgentDeadline(controller: AbortController, limits: { idleM
 export async function runDocumentAgent(request: DocumentAgentRequest, options: {
   model: ConstructorParameters<typeof Agent>[0]['model'];
   timeoutMs: number; maxTokens: number; temperature: number;
+  /** 覆盖默认按 profile 分配的 Agent 最大轮数；缺省时回落到 profile 默认值。 */
+  agentMaxSteps?: number;
+  /** 覆盖默认按 profile 分配的任务总时长（毫秒）；缺省时回落到 profile 默认值。 */
+  agentTaskMs?: number;
   controller: AbortController;
   report: (event: DocumentAgentEvent) => void;
 }): Promise<void> {
@@ -77,8 +81,14 @@ export async function runDocumentAgent(request: DocumentAgentRequest, options: {
   controller.signal.throwIfAborted();
   const profile = getDocumentAgentExecutionProfile(request);
   const fullDocumentProvided = profile !== 'large';
-  const maxSteps = profile === 'fast' ? 5 : profile === 'standard' ? 8 : 16;
-  const taskMs = profile === 'fast' ? 90 * 1000 : profile === 'standard' ? 3 * 60 * 1000 : 10 * 60 * 1000;
+  // Agent 轮数和总时长为用户可配置项：显式传入时统一对三种 profile 生效，
+  // 未传入时按任务类型回落到各自默认值（保证旧调用与测试行为不变）。
+  const maxSteps = options.agentMaxSteps && options.agentMaxSteps > 0
+    ? Math.floor(options.agentMaxSteps)
+    : profile === 'fast' ? 5 : profile === 'standard' ? 8 : 16;
+  const taskMs = options.agentTaskMs && options.agentTaskMs > 0
+    ? Math.floor(options.agentTaskMs)
+    : profile === 'fast' ? 90 * 1000 : profile === 'standard' ? 3 * 60 * 1000 : 10 * 60 * 1000;
   const startedAt = Date.now();
   let currentStage: DocumentAgentStage = 'understand';
   let stepNumber = 0;

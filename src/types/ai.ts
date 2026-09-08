@@ -42,6 +42,10 @@ export interface AiSettings {
   maxTokens: number;
   timeoutMs: number;
   allowLocalRequests: boolean;
+  /** 文档 Agent 每一轮的最大执行步数（轮数上限） */
+  agentMaxSteps: number;
+  /** 文档 Agent 整个任务的总时长（毫秒） */
+  agentTaskMs: number;
 }
 
 export interface AiSettingsInput {
@@ -52,6 +56,8 @@ export interface AiSettingsInput {
   maxTokens?: number;
   timeoutMs?: number;
   allowLocalRequests?: boolean;
+  agentMaxSteps?: number;
+  agentTaskMs?: number;
 }
 
 export interface AiPublicSettings {
@@ -63,6 +69,8 @@ export interface AiPublicSettings {
   maxTokens: number;
   timeoutMs: number;
   allowLocalRequests: boolean;
+  agentMaxSteps: number;
+  agentTaskMs: number;
 }
 
 export interface AiStatus {
