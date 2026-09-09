@@ -1195,6 +1195,25 @@ export const useMarkdownEditor = (
           editor.value?.chain().focus().insertContentAt(startPosition, text).run();
           return true;
         }
+
+        // 当粘贴到标题节点时，如果剪贴板HTML包含块级元素（如代码块的<pre><code>），
+        // 则只使用纯文本粘贴，避免将标题转换为代码块等块级节点。
+        if (files.length === 0 && text && selection instanceof TextSelection) {
+          const parentNode = selection.$from.parent;
+          const isHeading = parentNode.type.name === "heading";
+          if (isHeading) {
+            const html = event.clipboardData?.getData("text/html") ?? "";
+            // 检测HTML中是否包含块级元素（代码块、段落、列表等）
+            const hasBlockElements = /<(pre|p|div|ul|ol|li|h[1-6]|blockquote|table|hr)\b/i.test(html);
+            if (hasBlockElements) {
+              event.preventDefault();
+              // 只插入纯文本，保留标题节点不变
+              editor.value?.chain().focus().insertContent(text).run();
+              return true;
+            }
+          }
+        }
+
         if (files.length === 0) return false;
 
         // Ctrl+V 可能来自资源管理器，也可能是截图，二者由统一入口分别读取路径或二进制。

@@ -359,7 +359,9 @@ export const createEditorExtensions = (options: {
       html: true,
       // 普通文本中的单个换行也应在编辑器中显示为换行，符合所见即所得的使用习惯。
       breaks: true,
-      transformPastedText: true,
+      // 禁用粘贴文本的 Markdown 转换：编辑器之间的复制粘贴使用 HTML 数据（ProseMirror 优先解析），
+      // 而从外部应用（如终端、配置文件）粘贴纯文本时不应被错误地转义（如 [Unit] → \[Unit\]）。
+      transformPastedText: false,
       transformCopiedText: true,
     }),
     // 序列化输出前放宽惰性转义（Typora 风格：两侧皆空白的 \* 不再转义）
