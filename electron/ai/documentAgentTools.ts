@@ -24,6 +24,17 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
   let completed = false;
   let closingReason = '';
   let finalIssues: string[] = [];
+  // 批次状态只由宿主程序和工具更新，模型文字不能推进任务。
+  const batches: string[][] = [];
+  let batchIndex = 0;
+  const completedBlockIds = new Set<string>();
+  let checkpointRevision = 0;
+  const patchBlockIds = new Map<string, string>();
+  const checkpoints: Array<{ revision: number; patchIds: string[]; completedBlockIds: string[]; goals: DocumentAgentGoal[] }> = [];
+  const saveCheckpoint = (): void => {
+    checkpointRevision++;
+    checkpoints.push({ revision: checkpointRevision, patchIds: patches.map(patch => patch.id), completedBlockIds: [...completedBlockIds], goals: goals.map(goal => ({ ...goal })) });
+  };
   const documentVersion = fingerprintDocument(document);
   const blocks = indexDocumentBlocks(document);
   const blockMap = new Map(blocks.map(block => [block.id, block]));
@@ -81,6 +92,9 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
       report({ requestId, type: 'progress', message: retryable
         ? `工具参数需要修正：${error.message}；${error.hint}`
         : `同一工具错误已出现 3 次，停止重试：${error.message}` });
+      report({ requestId, type: 'activity', title: retryable ? '正在修正修改参数' : '参数修正未成功', detail: retryable
+        ? `${error.message}；${error.hint}；下一轮将重新提交`
+        : `${error.message}；已停止重复尝试` });
       if (!retryable) {
         closingReason = `同一工具参数连续失败 3 次：${error.message}`;
         finalIssues = validateAgentDocument(applyDocumentPatches(document, patches));
@@ -259,17 +273,27 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
     blockId?: string; find?: string; replacement?: string; expected?: string; content?: string;
     occurrence?: number; level?: number; reason?: string;
   };
-  const semanticEdit = createTool({
-    id: 'propose_semantic_edits',
-    description: '提交完整的语义修改计划。使用 blockId 定位，不提供字符坐标。replace_text 精确替换块内文字；set_heading_level 调整标题或将单行段落设为标题；replace_block/delete_block 必须提供完整 expected；insert_before/insert_after/append_document 插入完整 Markdown。一次提交所有不重叠修改。',
-    inputSchema: { type: 'object', properties: { operations: { type: 'array', minItems: 1, maxItems: 30, items: { type: 'object', properties: {
-      type: { type: 'string', enum: ['replace_text', 'replace_block', 'set_heading_level', 'insert_before', 'insert_after', 'delete_block', 'append_document'] },
+  // 标题工具只接受真实标题或单行段落，将合法块直接写入模型可见的参数约束。
+  const headingBlockIds = blocks.filter(block => block.type === 'heading' || (block.type === 'paragraph' && !block.text.trimEnd().includes('\n'))).map(block => block.id);
+  // 普通批次和短文档整次提交共用操作定义，防止两种入口的编辑规则不一致。
+  const operationSchema: NonNullable<Parameters<typeof createTool>[0]['inputSchema']> = { type: 'object', properties: {
+      type: { type: 'string', enum: ['replace_text', 'replace_block', ...(headingBlockIds.length ? ['set_heading_level'] : []), 'insert_before', 'insert_after', 'delete_block', 'append_document'] },
       blockId: { type: 'string' }, find: { type: 'string' }, replacement: { type: 'string' }, expected: { type: 'string' }, content: { type: 'string' }, occurrence: { type: 'integer' }, level: { type: 'integer', minimum: 1, maximum: 6 }, reason: { type: 'string' },
-    }, required: ['type', 'reason'], additionalProperties: false } } }, required: ['operations'], additionalProperties: false },
-    execute: async (value: unknown) => executeProduction('edit', '生成精准修改', () => {
+    }, required: ['type', 'reason'], additionalProperties: false,
+    // 按操作类型声明必填参数，让模型生成时就知道 replacement 等字段不可省略。
+    anyOf: [
+      { properties: { type: { enum: ['replace_text'] } }, required: ['blockId', 'find', 'replacement'] },
+      { properties: { type: { enum: ['replace_block'] } }, required: ['blockId', 'expected', 'replacement'] },
+      { properties: { type: { enum: ['delete_block'] } }, required: ['blockId', 'expected'] },
+      ...(headingBlockIds.length ? [{ properties: { type: { enum: ['set_heading_level'] }, blockId: { enum: headingBlockIds } }, required: ['blockId', 'level'] }] : []),
+      { properties: { type: { enum: ['insert_before', 'insert_after'] } }, required: ['blockId', 'content'] },
+      { properties: { type: { enum: ['append_document'] } }, required: ['content'] },
+    ] };
+  // 校验整批修改后再提交，任一操作失败都不会留下半批建议。
+  const submitEdits = (value: unknown) => {
       const input = value as { operations?: SemanticOperation[] };
       const operations = input?.operations;
-      if (!Array.isArray(operations) || !operations.length || operations.length > 30) throw new DocumentAgentToolInputError('INVALID_INPUT', '语义修改需包含 1–30 项操作', '提供非空 operations 数组');
+      if (!Array.isArray(operations) || !operations.length || operations.length > 5) throw new DocumentAgentToolInputError('INVALID_INPUT', '语义修改需包含 1–5 项操作', '把修改拆成小批次，每次提供不超过 5 项操作');
       const added = operations.map((operation, index): DocumentPatch => {
         const reason = operation.reason;
         if (typeof reason !== 'string' || !reason.trim()) throw new DocumentAgentToolInputError('INVALID_INPUT', `第 ${index + 1} 项修改缺少原因`, '为该操作提供简短 reason');
@@ -280,6 +304,7 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
           const separator = document && !document.endsWith('\n') ? '\n\n' : document.endsWith('\n\n') || !document ? '' : '\n';
           return { id, baseVersion: documentVersion, start: document.length, end: document.length, before: '', after: separator + content, reason };
         }
+        if (batches.length && !batches[batchIndex]?.includes(operation.blockId ?? '')) throw new DocumentAgentToolInputError('INVALID_INPUT', '修改目标不属于当前批次', '只修改当前批次提供的 blockId，其他内容将在后续批次处理');
         const block = getBlock(operation.blockId);
         if (operation.type === 'replace_text') {
           if (block.type === 'code') throw new DocumentAgentToolInputError('CODE_BLOCK_PROTECTED', '代码块不能局部替换', '用户明确要求修改代码时，使用 replace_block 并提供完整 expected');
@@ -320,11 +345,41 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
       });
       try {
         commit([...patches, ...added], added);
+        added.forEach((patch, index) => patchBlockIds.set(patch.id, operations[index].blockId ?? 'document'));
+        saveCheckpoint();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new DocumentAgentToolInputError('OVERLAPPING_EDIT', message, '移除已经成功提交的操作，只保留尚未完成且互不重叠的修改');
       }
       return { result: { ids: added.map(patch => patch.id) }, detail: `已生成 ${added.length} 处精准修改，尚未写入` };
+  };
+  const semanticEdit = createTool({
+    id: 'propose_semantic_edits',
+    description: '提交当前一小批语义修改，每次最多 5 项。使用 blockId 定位，不提供字符坐标。replace_text 精确替换块内文字；set_heading_level 调整标题或将单行段落设为标题；replace_block 必须提供完整 expected 和 replacement，delete_block 必须提供完整 expected；insert_before/insert_after/append_document 插入完整 Markdown。还有内容时分多轮提交，不要在调用工具前输出长篇分析。',
+    inputSchema: { type: 'object', properties: { operations: { type: 'array', minItems: 1, maxItems: 5, items: operationSchema } }, required: ['operations'], additionalProperties: false },
+    execute: async (value: unknown) => executeProduction('edit', '生成精准修改', () => submitEdits(value)),
+  });
+  const completeBatch = createTool({
+    id: 'complete_document_batch',
+    description: '确认当前批次已经核对完毕。reviewedBlockIds 必须完整包含当前批次全部 blockId；即使无需修改也必须调用。summary 简短说明本批结果。',
+    inputSchema: { type: 'object', properties: {
+      reviewedBlockIds: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+      summary: { type: 'string' },
+    }, required: ['reviewedBlockIds', 'summary'], additionalProperties: false },
+    execute: async (value: unknown) => executeProduction('edit', '完成当前文档批次', () => {
+      const input = value as { reviewedBlockIds?: unknown[]; summary?: unknown };
+      const current = batches[batchIndex] ?? [];
+      if (!Array.isArray(input.reviewedBlockIds) || input.reviewedBlockIds.length !== current.length ||
+          !current.every(id => input.reviewedBlockIds!.includes(id))) throw new DocumentAgentToolInputError('INVALID_INPUT', '必须核对当前批次的全部文档块', '按当前批次原样提供全部 reviewedBlockIds');
+      if (typeof input.summary !== 'string' || !input.summary.trim() || input.summary.length > 500) throw new DocumentAgentToolInputError('INVALID_INPUT', '批次结论无效', '提供不超过 500 字的非空 summary');
+      current.forEach(id => completedBlockIds.add(id));
+      batchIndex++;
+      saveCheckpoint();
+      const next = batches[batchIndex] ?? [];
+      return { result: { goals: goals.map(goal => ({ id: goal.id, title: goal.title })), nextAction: batchIndex >= batches.length ? 'finish_document_task' : 'review_next_batch', completedBlockIds: [...completedBlockIds], nextBatch: next.map(id => {
+        const block = blockMap.get(id)!;
+        return { id: block.id, type: block.type, headingPath: block.headingPath, text: block.text };
+      }) }, detail: `已核对 ${completedBlockIds.size} 个文档块，剩余 ${batches.slice(batchIndex).flat().length} 个` };
     }),
   });
   const plan = createTool({
@@ -340,18 +395,26 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
       return { result: { goals }, detail: `已明确 ${goals.length} 项目标` };
     }),
   });
+  // 收尾元数据先校验，防止修改成功后才发现目标列表缺失。
+  const checkOutcomes = (input: { outcomes?: Array<{ id: string; state: 'done' | 'unresolved'; detail: string }> }) => {
+      if (!goals.length || !input || !Array.isArray(input.outcomes) || input.outcomes.length !== goals.length || new Set(input.outcomes.map(item => item.id)).size !== goals.length) throw new DocumentAgentToolInputError('INVALID_INPUT', '必须逐项报告全部任务目标', `必须提供 ${goals.length} 项 outcomes，目标列表：${JSON.stringify(goals.map(goal => ({ id: goal.id, title: goal.title })))}；每项包含原始 id、state（done 或 unresolved）和中文 detail，不能把文档条目拆成任务目标`);
+      const next = goals.map(goal => {
+        const outcome = input.outcomes!.find(item => item.id === goal.id);
+        if (!outcome || !['done', 'unresolved'].includes(outcome.state) || typeof outcome.detail !== 'string' || !outcome.detail.trim() || outcome.detail.length > 2000) throw new DocumentAgentToolInputError('INVALID_INPUT', '目标完成状态或说明无效', `目标 id 必须原样使用 ${goal.id}，state 使用 done 或 unresolved，并提供非空中文 detail`);
+        return { ...goal, ...outcome };
+      });
+    return next;
+  };
+  const outcomesSchema = { type: 'array', minItems: 1, maxItems: 6, items: { type: 'object', properties: { id: { type: 'string' }, state: { type: 'string', enum: ['done', 'unresolved'] }, detail: { type: 'string' } }, required: ['id', 'state', 'detail'], additionalProperties: false } } satisfies NonNullable<Parameters<typeof createTool>[0]['inputSchema']>;
   const finish = createTool({
     id: 'finish_document_task',
     description: '结束任务前必须逐项报告全部目标：done 表示建议已准备好或经核对无需修改，unresolved 表示未解决。detail 说明依据或阻碍，不能把达到预算当作成功。此工具会对最终建议重新运行结构检查，调用后不能再修改。',
-    inputSchema: { type: 'object', properties: { outcomes: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'object', properties: { id: { type: 'string' }, state: { type: 'string', enum: ['done', 'unresolved'] }, detail: { type: 'string' } }, required: ['id', 'state', 'detail'], additionalProperties: false } } }, required: ['outcomes'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { outcomes: outcomesSchema }, required: ['outcomes'], additionalProperties: false },
     execute: async (value: unknown) => executeProduction('check', '核对目标与最终修改', () => {
       const input = value as { outcomes?: Array<{ id: string; state: 'done' | 'unresolved'; detail: string }> };
-      if (!goals.length || !input || !Array.isArray(input.outcomes) || input.outcomes.length !== goals.length || new Set(input.outcomes.map(item => item.id)).size !== goals.length) throw new DocumentAgentToolInputError('INVALID_INPUT', '必须逐项报告全部任务目标', '按目标列表逐项提供唯一 id、state 和 detail');
-      const next = goals.map(goal => {
-        const outcome = input.outcomes!.find(item => item.id === goal.id);
-        if (!outcome || !['done', 'unresolved'].includes(outcome.state) || typeof outcome.detail !== 'string' || !outcome.detail.trim() || outcome.detail.length > 2000) throw new DocumentAgentToolInputError('INVALID_INPUT', '目标完成状态或说明无效', 'state 使用 done 或 unresolved，并提供非空 detail');
-        return { ...goal, ...outcome };
-      });
+      // 不允许模型跳过尚未核对的批次就声明任务完成。
+      if (batchIndex < batches.length) throw new DocumentAgentToolInputError('INVALID_INPUT', '还有文档批次未核对', '先调用 complete_document_batch 核对全部批次，再提交目标结论');
+      const next = checkOutcomes(input);
       finalIssues = validateAgentDocument(applyDocumentPatches(document, patches));
       validatedRevision = revision;
       goals.splice(0, goals.length, ...next);
@@ -360,14 +423,61 @@ export function createDocumentAgentTools(document: string, signal: AbortSignal,
       return { result: { issues: finalIssues, goals, closingReason }, detail: `已核对 ${goals.length} 项目标、${patches.length} 处建议；结构问题 ${finalIssues.length} 个` };
     }),
   });
+  // 短文档把编辑、批次确认和目标结论放在同一次模型回复中，省去两次网络往返。
+  const submitReview = createTool({
+    id: 'submit_document_review',
+    description: '短文档优先使用：一次提交本次剩余修改和最终结论。operations 使用语义修改规则，每次最多 5 项，无需修改时传 []；reviewedBlockIds 完整包含当前批次全部块；outcomes 按已提供的目标列表原样填写 id、state 和中文 detail。程序自动检查结构并结束任务，不必再调用确认批次或收尾工具。',
+    inputSchema: { type: 'object', properties: {
+      operations: { type: 'array', minItems: 0, maxItems: 5, items: operationSchema },
+      reviewedBlockIds: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+      outcomes: outcomesSchema,
+    }, required: ['operations', 'reviewedBlockIds', 'outcomes'], additionalProperties: false },
+    execute: async (value: unknown) => executeProduction('check', '提交修改与核对结论', () => {
+      const input = value as { operations?: SemanticOperation[]; reviewedBlockIds?: string[]; outcomes?: Array<{ id: string; state: 'done' | 'unresolved'; detail: string }> };
+      if (batches.length > 1) throw new DocumentAgentToolInputError('INVALID_INPUT', '此工具仅用于单批短文档', '多批文档按批次提交并核对');
+      const current = batches[batchIndex] ?? [];
+      if (!Array.isArray(input?.reviewedBlockIds) || input.reviewedBlockIds.length !== current.length || !current.every(id => input.reviewedBlockIds!.includes(id))) throw new DocumentAgentToolInputError('INVALID_INPUT', '必须核对当前批次的全部文档块', `reviewedBlockIds 必须为 ${JSON.stringify(current)}`);
+      const next = checkOutcomes(input);
+      if (!Array.isArray(input.operations) || input.operations.length > 5) throw new DocumentAgentToolInputError('INVALID_INPUT', '修改列表无效', 'operations 提供 0–5 项语义修改');
+      if (input.operations.length) submitEdits(input);
+      current.forEach(id => completedBlockIds.add(id));
+      batchIndex = batches.length;
+      finalIssues = validateAgentDocument(applyDocumentPatches(document, patches));
+      validatedRevision = revision;
+      goals.splice(0, goals.length, ...next);
+      completed = true;
+      saveCheckpoint();
+      report({ requestId, type: 'goals', goals: goals.map(goal => ({ ...goal })) });
+      return { result: { issues: finalIssues, goals }, detail: `已核对全文并生成 ${patches.length} 处建议；结构问题 ${finalIssues.length} 个` };
+    }),
+  });
   return {
-    tools: { inspect_document: inspect, read_blocks: readBlocks, find_in_document: findInDocument, propose_semantic_edits: semanticEdit, validate_document: validate, finish_document_task: finish },
+    tools: { submit_document_review: submitReview, inspect_document: inspect, read_blocks: readBlocks, find_in_document: findInDocument, propose_semantic_edits: semanticEdit, complete_document_batch: completeBatch, validate_document: validate, finish_document_task: finish },
     // 旧坐标工具不再暴露给生产 Agent，仅供兼容性测试确认旧审阅契约没有被破坏。
     legacyTools: { read_document: read, search_document: search, propose_document_patch: propose, propose_document_patches: batch, revise_document_patch: revise, plan_document_task: plan },
     patches, goals, hasRead: () => reads > 0, isComplete: () => completed,
     hasPatches: () => patches.length > 0,
     needsValidation: () => patches.length > 0 && validatedRevision !== revision,
+    initializeBatches: (blockIds: string[], size = 5): void => {
+      if (batches.length) throw new Error('文档批次已经初始化');
+      for (let index = 0; index < blockIds.length; index += size) batches.push(blockIds.slice(index, index + size));
+    },
+    currentBatchIds: () => [...(batches[batchIndex] ?? [])],
+    currentBatchNumber: () => batches.length ? Math.min(batchIndex + 1, batches.length) : 0,
+    totalBatches: () => batches.length,
+    completedBlockCount: () => completedBlockIds.size,
+    remainingBlockCount: () => batches.slice(batchIndex).flat().length,
+    allBatchesComplete: () => batchIndex >= batches.length,
+    needsBatchCompletion: () => batches.length > 0 && batchIndex < batches.length,
+    checkpointRevision: () => checkpointRevision,
+    latestCheckpoint: () => checkpoints.at(-1),
+    patchSummary: () => patches.map(patch => ({ id: patch.id, blockId: patchBlockIds.get(patch.id) ?? 'document', reason: patch.reason })),
+    batchContext: (): string => JSON.stringify((batches[batchIndex] ?? []).map(id => {
+      const block = blockMap.get(id)!;
+      return { id: block.id, type: block.type, headingPath: block.headingPath, startLine: block.startLine, endLine: block.endLine, canSetHeadingLevel: headingBlockIds.includes(block.id), text: block.text };
+    })),
     getIssues: () => finalIssues,
+    getClosingReason: () => closingReason,
     getOutcome: (): 'complete' | 'incomplete' => closingReason || goals.some(goal => goal.state !== 'done') || finalIssues.length ? 'incomplete' : 'complete',
     // 用户请求本身就是最准确的任务目标，生产流程无需再让模型拆分一次。
     initializeGoal: (title: string): void => {

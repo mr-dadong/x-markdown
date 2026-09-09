@@ -11,7 +11,7 @@ export interface DocumentAgentOptions {
   getModel: () => string | null;
   applyDocument: (expected: string, next: string) => void;
 }
-type TaskStatus = 'idle' | 'running' | 'review' | 'done' | 'cancelled' | 'error' | 'conflict';
+type TaskStatus = 'idle' | 'running' | 'stopping' | 'review' | 'done' | 'cancelled' | 'error' | 'conflict';
 type ReviewPatch = DocumentPatch & { decision: 'pending' | 'accepted' | 'rejected' };
 
 /** API 参数方便用可控事件测试停止、迟到响应和编辑冲突。 */
@@ -23,6 +23,9 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const draft = ref('');
   // 最近收到的事件决定状态条显示“思考、执行或整理结果”。
   const phase = ref<'thinking' | 'executing' | 'writing'>('thinking');
+  // 当前动作单独置顶，避免用户只能从内部阶段或思考文字猜测 Agent 在做什么。
+  const currentActionTitle = ref('');
+  const currentActionDetail = ref('');
   const logs = ref<string[]>([]);
   // 阶段、操作与目标分别存储，模型输出文字不会改变阶段。
   const stages = ref<Array<{ id: DocumentAgentStage; title: string; state: 'pending' | 'running' | 'done' | 'interrupted' | 'skipped'; detail: string }>>([]);
@@ -35,6 +38,11 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const maxSteps = ref(0);
   const taskMs = ref(0);
   const budgetMessage = ref('');
+  const batch = ref(0);
+  const totalBatches = ref(0);
+  const completedBlocks = ref(0);
+  const remainingBlocks = ref(0);
+  const truncationRecoveries = ref(0);
 
   const patches = ref<ReviewPatch[]>([]);
   const issues = ref<string[]>([]);
@@ -48,7 +56,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   let documentId: number | null = null;
   let documentVersion = '';
   let ownWrite = false;
-  const running = computed(() => status.value === 'running');
+  const running = computed(() => status.value === 'running' || status.value === 'stopping');
   const pending = computed(() => patches.value.filter(patch => patch.decision === 'pending'));
   const accepted = computed(() => patches.value.filter(patch => patch.decision === 'accepted'));
   const canReview = computed(() => status.value === 'review' || status.value === 'done');
@@ -68,10 +76,9 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const cancel = (): void => {
     if (!requestId.value) return;
     api.cancel(requestId.value);
-    requestId.value = '';
-    status.value = 'cancelled';
-    interruptProgress('任务已停止');
-    logs.value.push('任务已停止，本轮建议不可应用');
+    status.value = 'stopping';
+    interruptProgress('正在停止任务');
+    logs.value.push('正在停止后台任务，结束后将保留已验证建议');
   };
 
   // 清除只重置 Agent 的本轮界面记录，已经接受并写入编辑器的内容保持不变。
@@ -83,6 +90,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     reasoning.value = '';
     draft.value = '';
     phase.value = 'thinking';
+    currentActionTitle.value = '';
+    currentActionDetail.value = '';
     logs.value = [];
     stages.value = [];
     operations.value = [];
@@ -94,6 +103,11 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     maxSteps.value = 0;
     taskMs.value = 0;
     budgetMessage.value = '';
+    batch.value = 0;
+    totalBatches.value = 0;
+    completedBlocks.value = 0;
+    remainingBlocks.value = 0;
+    truncationRecoveries.value = 0;
     patches.value = [];
     issues.value = [];
     checkTarget.value = '全部建议应用后';
@@ -131,6 +145,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     reasoning.value = '';
     draft.value = '';
     phase.value = 'thinking';
+    currentActionTitle.value = '正在理解你的要求';
+    currentActionDetail.value = '准备文档快照并建立处理范围';
     stages.value = [
       { id: 'understand', title: '理解目标', state: 'running', detail: '正在准备任务' },
       { id: 'locate', title: '定位内容', state: 'pending', detail: '' },
@@ -147,6 +163,11 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     maxSteps.value = 0;
     taskMs.value = 0;
     budgetMessage.value = '';
+    batch.value = 0;
+    totalBatches.value = 0;
+    completedBlocks.value = 0;
+    remainingBlocks.value = 0;
+    truncationRecoveries.value = 0;
     logs.value = [];
     patches.value = [];
     issues.value = [];
@@ -178,6 +199,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
 
   function handleEvent(event: DocumentAgentEvent): void {
     if (event.requestId !== requestId.value) return;
+    // 停止请求发出后忽略迟到的流增量，只等待主进程交付最终完成或错误结果。
+    if (status.value === 'stopping' && event.type !== 'done' && event.type !== 'error') return;
     if (event.type === 'stage') {
       const stage = stages.value.find(item => item.id === event.stage);
       if (stage) { stage.state = event.state; stage.detail = event.message; }
@@ -194,9 +217,18 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       taskMs.value = event.taskMs;
       budgetMessage.value = event.message;
     }
+    if (event.type === 'activity') {
+      currentActionTitle.value = event.title;
+      currentActionDetail.value = event.detail;
+      phase.value = 'executing';
+    }
     if (event.type === 'progress') {
       logs.value.push(event.message);
       phase.value = 'executing';
+      if (event.message.startsWith('工具参数需要修正')) {
+        currentActionTitle.value = '正在修正修改参数';
+        currentActionDetail.value = `${event.message.replace('工具参数需要修正：', '')}；下一轮将按要求重新提交`;
+      }
     }
     if (event.type === 'reasoning') {
       reasoning.value += event.text;
@@ -205,6 +237,14 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (event.type === 'text') {
       response.value += event.text;
       phase.value = 'writing';
+    }
+    if (event.type === 'batch') {
+      batch.value = event.batch;
+      totalBatches.value = event.totalBatches;
+      completedBlocks.value = event.completedBlocks;
+      remainingBlocks.value = event.remainingBlocks;
+      truncationRecoveries.value = event.truncationRecoveries;
+      if (event.message) budgetMessage.value = event.message;
     }
     if (event.type === 'draft') {
       draft.value = event.text;
@@ -231,6 +271,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (event.type === 'done') {
       issues.value = event.issues;
       outcome.value = event.outcome ?? 'complete';
+      error.value = event.message ?? '';
       endedAt.value = Date.now();
       stages.value.forEach(stage => {
         if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = '本次未执行此阶段'; }
@@ -239,12 +280,16 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? '等待你接受或拒绝建议' : '没有待应用的修改'; }
       status.value = pending.value.length ? 'review' : 'done';
       requestId.value = '';
+      currentActionTitle.value = '';
+      currentActionDetail.value = '';
     }
     if (event.type === 'error') {
-      status.value = 'error';
+      status.value = status.value === 'stopping' ? 'cancelled' : 'error';
       error.value = event.message;
       interruptProgress(event.message);
       requestId.value = '';
+      currentActionTitle.value = '';
+      currentActionDetail.value = '';
     }
   }
   const offEvent = api.onEvent(handleEvent);
@@ -303,5 +348,5 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? `还有 ${pending.value.length} 处待审阅` : '所有建议已处理'; }
   });
   onScopeDispose(() => { offReviewWatch(); cancel(); offEvent(); offWatch(); });
-  return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, status, instruction, response, reasoning, draft, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted, canReview, canStart, start, cancel, clear, accept, reject, undo };
+  return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, status, instruction, response, reasoning, draft, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted, canReview, canStart, start, cancel, clear, accept, reject, undo };
 }

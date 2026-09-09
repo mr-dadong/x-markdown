@@ -34,8 +34,14 @@ function setup() {
   const finish = () => { const result = done(); listener(result); resolve(result); };
   // 模拟 Electron 先返回 invoke 结果、稍后才派发同一个完成事件。
   const finishViaResult = () => resolve(done());
+  const finishCancelled = () => resolve({ requestId: request.requestId, type: 'error', message: '任务已停止', terminationReason: 'cancelled' });
+  const finishPartial = (message: string) => {
+    const result: DocumentAgentResult = { requestId: request.requestId, type: 'done', issues: [], outcome: 'incomplete', message, terminationReason: 'cancelled' };
+    listener(result);
+    resolve(result);
+  };
   const event = (value: DocumentAgentEvent) => listener({ ...value, requestId: request.requestId });
-  return { event, agent, document, id, scope, emit, propose, finish, finishViaResult, cancelled,
+  return { event, agent, document, id, scope, emit, propose, finish, finishViaResult, finishCancelled, finishPartial, cancelled,
     resolve: () => resolve(undefined as never) };
 }
 
@@ -52,7 +58,7 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(state.agent.phase.value, 'writing');
     state.agent.cancel();
     state.emit('reasoning', '迟到内容');
-    state.resolve();
+    state.finishCancelled();
     await task;
     assert.equal(state.agent.reasoning.value, '先检查标题，再统一术语');
     const next = state.agent.start('新的任务');
@@ -108,12 +114,12 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(state.agent.status.value, 'done');
     state.scope.stop();
   });
-  test('取消后忽略迟到完成和修改事件', async () => {
+  test('取消后等待后台结束，没有建议时进入已停止状态', async () => {
     const state = setup();
     const task = state.agent.start('统一名称');
     state.agent.cancel();
-    state.propose();
-    state.finish();
+    assert.equal(state.agent.status.value, 'stopping');
+    state.finishCancelled();
     assert.equal(await task, false);
     assert.equal(state.agent.status.value, 'cancelled');
     assert.equal(state.agent.patches.value.length, 0);
@@ -165,6 +171,19 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(state.agent.status.value, 'error');
     state.scope.stop();
   });
+  test('取消完成后保留已验证建议，并以未完整结果开放审阅', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称');
+    state.propose();
+    state.agent.cancel();
+    state.finishPartial('任务已停止，已保留 1 处建议');
+    assert.equal(await task, true);
+    assert.equal(state.agent.status.value, 'review');
+    assert.equal(state.agent.canReview.value, true);
+    state.agent.accept();
+    assert.equal(state.document.value, 'XMD，正文');
+    state.scope.stop();
+  });
   test('拒绝不属于当前文档版本的修改，并停止后台任务', async () => {
     const state = setup();
     const task = state.agent.start('统一名称');
@@ -206,6 +225,20 @@ describe('文档 Agent 审阅和生命周期', () => {
 
 // 新的阶段协议与旧的审阅、取消接口共同工作。
 describe('Agent 阶段与修改预览', () => {
+  test('实时动作和参数修正原因始终显示在当前状态中', async () => {
+    const state = setup();
+    const task = state.agent.start('整理文档');
+    state.event({ requestId: '', type: 'activity', title: '正在分析第 1/2 批', detail: '本批 5 个文档块' });
+    assert.equal(state.agent.currentActionTitle.value, '正在分析第 1/2 批');
+    assert.equal(state.agent.currentActionDetail.value, '本批 5 个文档块');
+    state.event({ requestId: '', type: 'progress', message: '工具参数需要修正：只有标题可以调整标题级别' });
+    assert.equal(state.agent.currentActionTitle.value, '正在修正修改参数');
+    assert.match(state.agent.currentActionDetail.value, /只有标题可以调整标题级别/);
+    state.finish();
+    await task;
+    state.scope.stop();
+  });
+
   test('文字增量不改变真实阶段，同 ID 修订替换预览，中断禁止应用', async () => {
     const state = setup();
     const task = state.agent.start('整理文档');

@@ -16,7 +16,7 @@ describe('文档 Agent 工具执行', () => {
   test('生产工具只暴露语义定位与修改接口', () => {
     const runtime = createDocumentAgentTools('正文', new AbortController().signal, () => {}, 'surface');
     assert.deepEqual(Object.keys(runtime.tools).sort(), [
-      'find_in_document', 'finish_document_task', 'inspect_document', 'propose_semantic_edits', 'read_blocks', 'validate_document',
+      'complete_document_batch', 'find_in_document', 'finish_document_task', 'inspect_document', 'propose_semantic_edits', 'read_blocks', 'submit_document_review', 'validate_document',
     ]);
   });
   test('真实 Agent 流能接收工具结果并继续下一轮', async () => {
@@ -75,6 +75,35 @@ describe('文档 Agent 工具执行', () => {
     assert.equal(events.filter(event => event.type === 'patch').length, 1);
     assert.deepEqual(await runtime.tools.validate_document.execute({}, context), { issues: ['第 3 行：标题从 1 级跳到 3 级'] });
   });
+  // 合并入口必须先校验结论和范围，错误的收尾参数不能留下已经提交的修改。
+  test('短文档合并提交先验证目标，修正后只提交一次修改', async () => {
+    const runtime = createDocumentAgentTools('旧名', new AbortController().signal, () => {}, 'combined');
+    const blockId = indexDocumentBlocks('旧名')[0].id;
+    runtime.initializeGoal('统一名称');
+    runtime.initializeBatches([blockId]);
+    const input = { operations: [{ type: 'replace_text', blockId, find: '旧名', replacement: 'XMD', reason: '统一名称' }], reviewedBlockIds: [blockId], outcomes: [{ id: 'wrong-goal', state: 'done', detail: '错误目标' }] };
+    const invalid = await runtime.tools.submit_document_review.execute!(input, context) as { ok: boolean };
+    assert.equal(invalid.ok, false);
+    assert.equal(runtime.patches.length, 0);
+    assert.equal(runtime.completedBlockCount(), 0);
+    assert.equal(runtime.isComplete(), false);
+    input.outcomes = [{ id: 'goal-1', state: 'done', detail: '名称建议已生成，等待审阅' }];
+    await runtime.tools.submit_document_review.execute!(input, context);
+    assert.equal(runtime.patches.length, 1);
+    assert.equal(runtime.getOutcome(), 'complete');
+    assert.equal(runtime.isComplete(), true);
+  });
+  test('无需修改的短文档可一次提交结论，结构问题仍会阻止成功状态', async () => {
+    const document = '# 标题\n\n### 跳级';
+    const runtime = createDocumentAgentTools(document, new AbortController().signal, () => {}, 'combined-issues');
+    const blockIds = indexDocumentBlocks(document).map(block => block.id);
+    runtime.initializeGoal('检查标题');
+    runtime.initializeBatches(blockIds);
+    await runtime.tools.submit_document_review.execute!({ operations: [], reviewedBlockIds: blockIds, outcomes: [{ id: 'goal-1', state: 'done', detail: '已检查' }] }, context);
+    assert.equal(runtime.isComplete(), true);
+    assert.equal(runtime.getOutcome(), 'incomplete');
+    assert.ok(runtime.getIssues().length > 0);
+  });
   test('读取前不接受修改；取消后不允许继续调用工具', async () => {
     const controller = new AbortController();
     const runtime = createDocumentAgentTools('旧名', controller.signal, () => {}, 'task');
@@ -100,6 +129,21 @@ describe('分阶段 Agent 的修改与目标', () => {
     ] }, context);
     assert.equal(applyDocumentPatches(document, runtime.patches), '# v.2.9 版本：\n\n正文使用XMD。');
     assert.equal(events.filter(event => event.type === 'patch').length, 2);
+  });
+  test('批次工具只允许修改当前批次，并在无修改时正常推进检查点', async () => {
+    const document = Array.from({ length: 6 }, (_, index) => `段落 ${index + 1}`).join('\n\n');
+    const blocks = indexDocumentBlocks(document);
+    const runtime = createDocumentAgentTools(document, new AbortController().signal, () => {}, 'batch-state');
+    runtime.initializeBatches(blocks.map(block => block.id));
+    const outside = await runtime.tools.propose_semantic_edits.execute!({ operations: [
+      { type: 'replace_text', blockId: blocks[5].id, find: '段落 6', replacement: '新段落', reason: '越过当前批次' },
+    ] }, context) as { ok: false; error: { code: string } };
+    assert.equal(outside.error.code, 'INVALID_INPUT');
+    assert.equal(runtime.checkpointRevision(), 0);
+    await runtime.tools.complete_document_batch.execute!({ reviewedBlockIds: blocks.slice(0, 5).map(block => block.id), summary: '本批无需修改' }, context);
+    assert.equal(runtime.completedBlockCount(), 5);
+    assert.equal(runtime.remainingBlockCount(), 1);
+    assert.equal(runtime.checkpointRevision(), 1);
   });
   test('语义批量中任一块无效时整批不提交，并保护代码块局部替换', async () => {
     const document = '正文\n\n```js\nconst a = 1\n```';
@@ -167,10 +211,13 @@ describe('分阶段 Agent 的修改与目标', () => {
     const runtime = createDocumentAgentTools('正文', new AbortController().signal, () => {}, 'goals');
     runtime.overview();
     await runtime.legacyTools.plan_document_task.execute!({ goals: ['检查标题', '检查术语'] }, context);
-    const invalid = await runtime.tools.finish_document_task.execute!({ outcomes: [{ id: 'goal-1', state: 'done', detail: '无标题' }] }, context) as { ok: false; error: { code: string; retryable: boolean } };
+    const invalid = await runtime.tools.finish_document_task.execute!({ outcomes: [{ id: 'goal-1', state: 'done', detail: '无标题' }] }, context) as { ok: false; error: { code: string; retryable: boolean; hint: string } };
     assert.equal(invalid.ok, false);
     assert.equal(invalid.error.code, 'INVALID_INPUT');
     assert.equal(invalid.error.retryable, true);
+    // 参数错误必须返回缺少的真实目标，模型才能在下一轮准确修正。
+    assert.ok(invalid.error.hint.includes('goal-2'));
+    assert.ok(invalid.error.hint.includes('检查术语'));
     assert.equal(runtime.isComplete(), false);
     runtime.close('接近预算');
     await runtime.tools.finish_document_task.execute!({ outcomes: [

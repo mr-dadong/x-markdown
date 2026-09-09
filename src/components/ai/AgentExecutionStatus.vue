@@ -23,6 +23,25 @@
     <Transition name="agent-reveal">
       <div v-if="detailsOpen" class="mt-2 flex flex-col gap-2 border-t border-line pt-2">
         <p v-if="budgetMessage" class="rounded-md bg-toolbar px-2 py-1.5 text-[10px] leading-4 text-secondary">{{ budgetMessage }}</p>
+        <p v-if="totalBatches" class="rounded-md bg-toolbar px-2 py-1.5 text-[10px] leading-4 text-secondary">批次 {{ batch }}/{{ totalBatches }} · 已核对 {{ completedBlocks }} 块 · 剩余 {{ remainingBlocks }} 块 · 截断恢复 {{ truncationRecoveries }} 次</p>
+
+        <!-- 五个固定阶段让用户一眼看懂已完成、正在做和下一步。 -->
+        <div class="flex flex-col gap-1">
+          <span class="px-1 text-[10px] text-muted">执行阶段</span>
+          <div v-for="item in stages" :key="item.id" class="flex min-w-0 items-start gap-2 rounded-md px-1 py-1 text-[11px]">
+            <span class="flex h-5 w-4 shrink-0 items-center justify-center" :class="stageTone(item.state)">
+              <Icon v-if="item.state === 'running'" icon="lucide:loader-2" :size="12" class="agent-spin" />
+              <span v-else>{{ stageMark(item.state) }}</span>
+            </span>
+            <span class="shrink-0 font-medium text-secondary">{{ item.title }}</span>
+            <span class="min-w-0 flex-1 text-muted">{{ item.detail || stageDescription(item.state) }}</span>
+          </div>
+        </div>
+
+        <div v-if="recentLogs.length" class="flex flex-col gap-1 border-t border-line pt-2">
+          <span class="px-1 text-[10px] text-muted">实时进展</span>
+          <p v-for="(message, index) in recentLogs" :key="`${index}-${message}`" class="px-1 text-[10px] leading-4 text-secondary">{{ message }}</p>
+        </div>
 
         <!-- 计划位于操作记录之前，符合任务实际发生顺序。 -->
         <div v-if="goals.length" class="flex flex-col">
@@ -105,6 +124,14 @@ const props = defineProps<{
   maxSteps: number
   taskMs: number
   budgetMessage: string
+  batch: number
+  totalBatches: number
+  completedBlocks: number
+  remainingBlocks: number
+  truncationRecoveries: number
+  currentActionTitle: string
+  currentActionDetail: string
+  logs: string[]
 }>()
 
 const detailsOpen = ref(false)
@@ -114,14 +141,14 @@ const showAllOperations = ref(false)
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | undefined
 
-// 只在运行期间刷新耗时；开始时展开过程，结束后自动收起为结果摘要。
+// 只在运行期间刷新耗时；开始时收起过程，结束后自动收起为结果摘要。
 watch(() => [props.running, props.startedAt], () => {
   clearInterval(timer)
   now.value = Date.now()
   if (props.running) timer = setInterval(() => { now.value = Date.now() }, 1000)
 }, { immediate: true })
 watch(() => props.startedAt, () => {
-  detailsOpen.value = true
+  detailsOpen.value = false
   goalsOpen.value = false
   reasoningOpen.value = false
   showAllOperations.value = false
@@ -136,17 +163,20 @@ const completedGoals = computed(() => props.goals.filter(goal => goal.state === 
 const currentStage = computed(() => props.stages.find(stage => stage.state === 'running'))
 const runningOperation = computed(() => props.operations.find(operation => operation.state === 'running'))
 const visibleOperations = computed(() => showAllOperations.value ? props.operations : props.operations.slice(-5))
+const recentLogs = computed(() => props.logs.slice(-3))
 const goalSummary = computed(() => props.running ? `${props.goals.length} 项任务目标` : `${completedGoals.value}/${props.goals.length} 项已完成`)
 
 const primaryTitle = computed(() => {
-  if (props.running) return runningOperation.value?.title ?? currentStage.value?.title ?? '正在处理下一步'
+  if (props.status === 'stopping') return '正在停止任务'
+  if (props.running) return props.currentActionTitle || runningOperation.value?.title || currentStage.value?.title || '正在处理下一步'
   if (props.status === 'error' || props.status === 'conflict') return '任务未完成'
   if (props.status === 'cancelled') return '任务已停止'
   if (props.outcome === 'incomplete') return '任务已结束，仍有未完成事项'
   return '任务处理完成'
 })
 const primaryDetail = computed(() => {
-  if (props.running) return runningOperation.value?.detail || currentStage.value?.detail || (props.step ? `第 ${props.step}/${props.maxSteps} 轮` : '正在建立任务计划')
+  if (props.status === 'stopping') return '等待后台结束并核对已生成建议'
+  if (props.running) return props.currentActionDetail || runningOperation.value?.detail || currentStage.value?.detail || (props.step ? `第 ${props.step}/${props.maxSteps} 轮` : '正在建立任务计划')
   if (props.status === 'error' || props.status === 'conflict') return '查看下方错误信息后可重新执行'
   if (props.status === 'cancelled') return `已保留 ${props.operations.length} 条操作记录`
   return props.goals.length ? `${completedGoals.value}/${props.goals.length} 项目标完成 · ${props.operations.length} 次操作` : `${props.operations.length} 次操作`
@@ -156,6 +186,9 @@ const statusTone = computed(() => {
   if (props.running) return 'border-accent text-accent'
   return 'border-line text-secondary'
 })
+const stageMark = (state: string): string => state === 'done' ? '✓' : state === 'interrupted' ? '!' : state === 'skipped' ? '–' : '·'
+const stageTone = (state: string): string => state === 'running' ? 'text-accent' : state === 'interrupted' ? 'text-danger' : 'text-muted'
+const stageDescription = (state: string): string => state === 'pending' ? '等待执行' : state === 'skipped' ? '本次未执行' : ''
 </script>
 
 <style scoped>

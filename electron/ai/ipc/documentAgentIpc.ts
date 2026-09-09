@@ -48,7 +48,8 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
       const reason = controller.signal.aborted ? controller.signal.reason : error;
       // 主动结束后台循环，避免前端显示失败后仍有模型或工具继续工作。
       if (!controller.signal.aborted) controller.abort(reason);
-      const failure = { requestId: request.requestId, type: 'error', message: reason instanceof Error ? reason.message : String(reason) } satisfies DocumentAgentResult;
+      const message = reason instanceof Error ? reason.message : String(reason);
+      const failure = { requestId: request.requestId, type: 'error', message, terminationReason: message === '任务已停止' ? 'cancelled' : controller.signal.aborted ? 'timeout' : 'error' } satisfies DocumentAgentResult;
       if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.documentAgentEvent, failure);
       return failure;
     } finally {

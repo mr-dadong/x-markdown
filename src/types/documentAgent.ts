@@ -40,17 +40,19 @@ export interface DocumentAgentGoal {
 
 /** 最终结果同时作为 IPC 返回值交付，避免完成事件与 invoke 结束发生先后竞态。 */
 export type DocumentAgentResult = { requestId: string } & (
-  | { type: 'done'; issues: string[]; outcome?: 'complete' | 'incomplete' }
-  | { type: 'error'; message: string }
+  | { type: 'done'; issues: string[]; outcome?: 'complete' | 'incomplete'; message?: string; terminationReason?: string; steps?: number }
+  | { type: 'error'; message: string; terminationReason?: string }
 );
 
 /** 新事件保留原有文本、修改与完成接口，普通对话不受影响。 */
 export type DocumentAgentEvent = { requestId: string } & (
   | { type: 'progress'; message: string }
+  | { type: 'activity'; title: string; detail: string }
   | { type: 'stage'; stage: DocumentAgentStage; state: 'running' | 'done'; message: string }
   | { type: 'operation'; operation: DocumentAgentOperation }
   | { type: 'goals'; goals: DocumentAgentGoal[] }
   | { type: 'budget'; step: number; maxSteps: number; taskMs: number; message: string }
+  | { type: 'batch'; batch: number; totalBatches: number; completedBlocks: number; remainingBlocks: number; truncationRecoveries: number; message: string }
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string }
   | { type: 'draft'; text: string }

@@ -39,7 +39,7 @@
       </div>
       <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">最大输出</span>
+          <span class="text-[13px] font-medium text-ink">单次请求输出预算</span>
           <span class="text-[12px] text-muted">单次生成的最大 token 数，过小可能导致长内容被截断。</span>
         </div>
         <input v-model.number="maxTokens" type="number" min="256" max="32768" step="256" class="ai-control !bg-paper" />

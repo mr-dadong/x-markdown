@@ -30,7 +30,9 @@
       </div>
       <AgentExecutionStatus v-if="status !== 'idle'" :running="running" :status="status" :outcome="outcome"
         :stages="stages" :operations="operations" :goals="goals" :reasoning="reasoning"
-        :started-at="startedAt" :ended-at="endedAt" :step="step" :max-steps="maxSteps" :task-ms="taskMs" :budget-message="budgetMessage" />
+        :started-at="startedAt" :ended-at="endedAt" :step="step" :max-steps="maxSteps" :task-ms="taskMs" :budget-message="budgetMessage"
+        :batch="batch" :total-batches="totalBatches" :completed-blocks="completedBlocks" :remaining-blocks="remainingBlocks" :truncation-recoveries="truncationRecoveries"
+        :current-action-title="currentActionTitle" :current-action-detail="currentActionDetail" :logs="logs" />
       <!-- 修改工具仍在接收参数时，先展示已经生成的正文，不必等整次工具调用结束。 -->
       <div v-if="running && draft" class="flex flex-col gap-2 rounded-lg border border-line p-3">
         <span class="text-[11px] text-muted">正在生成修改预览</span>
@@ -43,7 +45,7 @@
         <p>{{ error }}</p>
         <button v-if="instruction && canStart" type="button" class="flex self-start rounded border border-line px-2 py-1 text-secondary hover:bg-selected" @click="send(instruction)">重新读取并执行</button>
       </div>
-      <p v-if="status === 'cancelled'" class="text-xs text-muted">任务已停止，本轮建议不可应用。已保存的文档内容未受影响。</p>
+      <p v-if="status === 'cancelled'" class="text-xs text-muted">任务已停止。没有可审阅建议，已保存的文档内容未受影响。</p>
       <div v-if="patches.length" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-xs font-semibold text-ink">{{ patches.length }} 处建议 · {{ pending.length }} 处待审阅</span>
@@ -57,11 +59,12 @@
             <p class="text-xs font-medium leading-5 text-ink">{{ index + 1 }}. {{ patch.reason }}</p>
             <span class="shrink-0 text-[11px] text-muted">{{ decisions[patch.decision] }}</span>
           </div>
-          <!-- 原文与新内容以纯文本展示，不能执行文档中的 HTML。 -->
+          <!-- 默认显示短预览，需要逐字审阅时展开；正文保持纯文本。 -->
+          <button type="button" class="flex self-start text-[11px] text-secondary hover:text-ink" :aria-expanded="expandedPatches.includes(patch.id)" @click="togglePatch(patch.id)">{{ expandedPatches.includes(patch.id) ? '收起修改详情' : '展开修改详情' }}</button>
           <span class="text-[11px] text-muted">修改前 · 字符 {{ patch.start }}–{{ patch.end }}</span>
-          <pre class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded bg-toolbar p-2 font-mono text-xs leading-5 text-secondary">{{ patch.before || '（此处插入）' }}</pre>
+          <pre class="whitespace-pre-wrap break-words rounded bg-toolbar p-2 font-mono text-xs leading-5 text-secondary">{{ patchPreview(patch.id, patch.before) || '（此处插入）' }}</pre>
           <span class="text-[11px] text-accent">修改后</span>
-          <pre class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded bg-selected p-2 font-mono text-xs leading-5 text-ink">{{ patch.after || '（删除这段内容）' }}</pre>
+          <pre class="whitespace-pre-wrap break-words rounded bg-selected p-2 font-mono text-xs leading-5 text-ink">{{ patchPreview(patch.id, patch.after) || '（删除这段内容）' }}</pre>
           <div v-if="patch.decision === 'pending' && canReview" class="flex justify-end gap-2">
             <button type="button" class="rounded px-3 py-1 text-xs text-secondary hover:bg-toolbar" @click="reject(patch.id)">拒绝</button>
             <button type="button" class="rounded border border-accent px-3 py-1 text-xs text-accent hover:bg-selected" @click="accept(patch.id)">接受</button>
@@ -77,7 +80,7 @@
       </div>
     </div>
     <p v-if="canReview && pending.length" class="px-3 pt-2 text-[11px] text-muted">请先接受或拒绝本轮建议，再开始下一项任务。</p>
-    <p v-if="running" class="px-3 pt-2 text-[11px] leading-5 text-muted">{{ stages.find(stage => stage.state === 'running')?.title ?? '模型正在处理下一步' }} · 已生成 {{ patches.length }} 处建议 · 可随时停止</p>
+    <p v-if="running" class="px-3 pt-2 text-[11px] leading-5 text-muted">{{ currentActionTitle || stages.find(stage => stage.state === 'running')?.title || '模型正在处理下一步' }} · 已生成 {{ patches.length }} 处建议 · 可随时停止</p>
     <AiChatInput ref="input" :is-streaming="running" :disabled="!canStart && !running" @send="send" @cancel="cancel">
       <template #footer-left><slot name="footer-left" /></template>
       <template #footer-right><slot name="footer-right" :busy="running || settling" /></template>
@@ -96,10 +99,21 @@ import AgentExecutionStatus from './AgentExecutionStatus.vue'
 // 父级提供编辑器操作，面板本身不接触磁盘文件。
 const props = defineProps<{ options: DocumentAgentOptions }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
-const { status, instruction, response, reasoning, draft, stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, patches, issues, checkTarget, error, running, settling, pending, accepted,
+const { status, instruction, response, reasoning, draft, stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, logs, patches, issues, checkTarget, error, running, settling, pending, accepted,
   canReview, canStart, start, cancel, clear, accept, reject, undo } = useDocumentAgent(props.options)
 const input = ref<InstanceType<typeof AiChatInput> | null>(null)
-const labels = { idle: '就绪', running: '执行中', review: '等待审阅', done: '已完成', cancelled: '已停止', error: '失败', conflict: '文档已变化' }
+// 每处建议独立展开，避免多个长代码块形成嵌套滚动区域。
+const expandedPatches = ref<string[]>([])
+const togglePatch = (id: string): void => {
+  expandedPatches.value = expandedPatches.value.includes(id) ? expandedPatches.value.filter(value => value !== id) : [...expandedPatches.value, id]
+}
+const patchPreview = (id: string, text: string): string => {
+  if (expandedPatches.value.includes(id)) return text
+  const preview = text.split('\n').slice(0, 4).join('\n').slice(0, 240)
+  return preview.length < text.length ? `${preview}\n…` : text
+}
+watch(startedAt, () => { expandedPatches.value = [] })
+const labels = { idle: '就绪', running: '执行中', stopping: '正在停止', review: '等待审阅', done: '已完成', cancelled: '已停止', error: '失败', conflict: '文档已变化' }
 const decisions = { pending: '待审阅', accepted: '已接受', rejected: '已拒绝' }
 // 快捷任务只提供明确、可审阅的文档整理目标，避免用户首次进入时不知道如何描述任务。
 const quickActions = [
