@@ -35,6 +35,9 @@ export default {
         link: 'var(--color-link)',
         'link-hover': 'var(--color-link-hover)',
         danger: 'var(--color-danger)',
+        success: 'var(--color-success)',
+        'success-soft': 'var(--color-success-soft)',
+        'danger-soft': 'var(--color-danger-soft)',
         inverse: 'var(--color-inverse)',
       },
       spacing: {

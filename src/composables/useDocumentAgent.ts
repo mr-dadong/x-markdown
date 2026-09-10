@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref, watch } from 'vue';
-import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage, DocumentPatch } from '../types/documentAgent';
+import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage, DocumentAgentTimelineEntry, DocumentPatch } from '../types/documentAgent';
 import { applyDocumentPatches, validateAgentDocument } from '../utils/documentAgent';
 import { fingerprintDocument } from '../utils/documentAgentBlocks';
 
@@ -45,9 +45,14 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const truncationRecoveries = ref(0);
 
   const patches = ref<ReviewPatch[]>([]);
+  // 时间线按事件到达顺序排列，思考/工具/回复/建议 interleaving 展示。
+  const timeline = ref<DocumentAgentTimelineEntry[]>([]);
+  let timelineSeq = 0;
   const issues = ref<string[]>([]);
   const checkTarget = ref('全部建议应用后');
   const error = ref('');
+  // 完成事件携带的说明（如达到预算、任务停止）：属于部分完成提示，不占用红色错误位。
+  const partialMessage = ref('');
   const requestId = ref('');
   // 等待 IPC 真正结束再允许重发，避免取消与新请求抢占后端。
   const settling = ref(false);
@@ -93,6 +98,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     currentActionTitle.value = '';
     currentActionDetail.value = '';
     logs.value = [];
+    timeline.value = [];
+    timelineSeq = 0;
     stages.value = [];
     operations.value = [];
     goals.value = [];
@@ -112,6 +119,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     issues.value = [];
     checkTarget.value = '全部建议应用后';
     error.value = '';
+    partialMessage.value = '';
     requestId.value = '';
     original = '';
     expected = '';
@@ -156,6 +164,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     ];
     operations.value = [];
     goals.value = [];
+    timeline.value = [];
+    timelineSeq = 0;
     outcome.value = null;
     startedAt.value = Date.now();
     endedAt.value = 0;
@@ -173,14 +183,17 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     issues.value = [];
     checkTarget.value = '全部建议应用后';
     error.value = '';
+    partialMessage.value = '';
     status.value = 'running';
     settling.value = true;
     const id = crypto.randomUUID();
     requestId.value = id;
     try {
       const model = options.getModel();
-      const result = await api.invoke({ requestId: id, instruction: instruction.value, document: original, documentVersion,
-        selection: options.getSelection(), ...(model ? { model } : {}) });
+      const result = await api.invoke({
+        requestId: id, instruction: instruction.value, document: original, documentVersion,
+        selection: options.getSelection(), ...(model ? { model } : {})
+      });
       // 最终结果由 invoke 直接返回，事件即使稍后到达也不会误判任务失败。
       handleEvent(result);
       if (requestId.value === id) throw new Error('任务连接已结束，但没有收到完成结果');
@@ -197,6 +210,21 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     return canReview.value;
   };
 
+  // 思考/回复增量追加到同一条目，避免每个 delta 都新建卡片。
+  const appendTimelineText = (kind: 'thinking' | 'text', text: string): void => {
+    const last = timeline.value[timeline.value.length - 1];
+    if (last && last.kind === kind) { last.text += text; return; }
+    timeline.value.push({ id: `${kind}-${timelineSeq++}`, kind, text });
+  };
+  // 从后往前找仍在执行的工具行，progress 与 draft 归属到它。
+  const runningToolEntry = (): Extract<DocumentAgentTimelineEntry, { kind: 'tool' }> | undefined => {
+    for (let index = timeline.value.length - 1; index >= 0; index--) {
+      const entry = timeline.value[index];
+      if (entry.kind === 'tool' && entry.operation.state === 'running') return entry;
+    }
+    return undefined;
+  };
+
   function handleEvent(event: DocumentAgentEvent): void {
     if (event.requestId !== requestId.value) return;
     // 停止请求发出后忽略迟到的流增量，只等待主进程交付最终完成或错误结果。
@@ -209,6 +237,14 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       const index = operations.value.findIndex(item => item.id === event.operation.id);
       if (index === -1) operations.value.push(event.operation);
       else operations.value[index] = event.operation;
+      // 工具行保持在首次出现的位置，后续状态更新原地替换；结束后参数流不再展示。
+      const entry = timeline.value.find(item => item.kind === 'tool' && item.operation.id === event.operation.id);
+      if (entry && entry.kind === 'tool') {
+        entry.operation = event.operation;
+        if (event.operation.state !== 'running') entry.draft = '';
+      } else {
+        timeline.value.push({ id: `tool-${event.operation.id}`, kind: 'tool', operation: event.operation, logs: [], draft: '' });
+      }
     }
     if (event.type === 'goals') goals.value = event.goals;
     if (event.type === 'budget') {
@@ -229,14 +265,20 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
         currentActionTitle.value = '正在修正修改参数';
         currentActionDetail.value = `${event.message.replace('工具参数需要修正：', '')}；下一轮将按要求重新提交`;
       }
+      // 进展归入正在执行的工具行；没有归属工具时作为独立提示行。
+      const tool = runningToolEntry();
+      if (tool) tool.logs.push(event.message);
+      else timeline.value.push({ id: `notice-${timelineSeq++}`, kind: 'notice', message: event.message });
     }
     if (event.type === 'reasoning') {
       reasoning.value += event.text;
       phase.value = 'thinking';
+      appendTimelineText('thinking', event.text);
     }
     if (event.type === 'text') {
       response.value += event.text;
       phase.value = 'writing';
+      appendTimelineText('text', event.text);
     }
     if (event.type === 'batch') {
       batch.value = event.batch;
@@ -249,6 +291,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (event.type === 'draft') {
       draft.value = event.text;
       phase.value = 'writing';
+      const tool = runningToolEntry();
+      if (tool) tool.draft = event.text;
     }
     if (event.type === 'patch') {
       if (event.patch.baseVersion !== documentVersion) {
@@ -260,18 +304,27 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
         return;
       }
       draft.value = '';
+      // 建议已到达，正在接收的参数流随之结束。
+      const drafting = runningToolEntry();
+      if (drafting) drafting.draft = '';
       // 修订沿用同一建议 ID，替换旧预览而不是追加重复卡片。
       const index = patches.value.findIndex(patch => patch.id === event.patch.id);
       const patch: ReviewPatch = { ...event.patch, decision: 'pending' };
       if (index === -1) patches.value.push(patch);
       else patches.value[index] = patch;
+      // 建议卡按首次到达位置入列，修订不重复追加。
+      if (!timeline.value.some(item => item.kind === 'patch' && item.patchId === event.patch.id)) {
+        timeline.value.push({ id: `patch-${event.patch.id}`, kind: 'patch', patchId: event.patch.id });
+      }
       const check = stages.value.find(stage => stage.id === 'check');
       if (check) { check.state = 'pending'; check.detail = '修改已更新，等待最终检查'; }
     }
     if (event.type === 'done') {
       issues.value = event.issues;
       outcome.value = event.outcome ?? 'complete';
-      error.value = event.message ?? '';
+      // 完成即不是失败：携带的说明交给中性提示展示，红色错误位只留给真正的错误。
+      partialMessage.value = event.message ?? '';
+      error.value = '';
       endedAt.value = Date.now();
       stages.value.forEach(stage => {
         if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = '本次未执行此阶段'; }
@@ -348,5 +401,5 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? `还有 ${pending.value.length} 处待审阅` : '所有建议已处理'; }
   });
   onScopeDispose(() => { offReviewWatch(); cancel(); offEvent(); offWatch(); });
-  return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, status, instruction, response, reasoning, draft, phase, logs, patches, issues, checkTarget, error, running, settling, pending, accepted, canReview, canStart, start, cancel, clear, accept, reject, undo };
+  return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, status, instruction, response, reasoning, draft, phase, logs, timeline, patches, issues, checkTarget, error, partialMessage, running, settling, pending, accepted, canReview, canStart, start, cancel, clear, accept, reject, undo };
 }

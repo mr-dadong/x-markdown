@@ -38,6 +38,19 @@ export interface DocumentAgentGoal {
   detail: string;
 }
 
+/** 时间线条目：按事件到达顺序 interleaving 展示一轮任务的完整过程。 */
+export type DocumentAgentTimelineEntry =
+  // 思考增量：同一段思考连续追加到同一条目
+  | { id: string; kind: 'thinking'; text: string }
+  // 回复正文增量：流式 Markdown 渲染
+  | { id: string; kind: 'text'; text: string }
+  // 工具调用行：logs 收 progress 进展，draft 收仍在接收的工具参数流
+  | { id: string; kind: 'tool'; operation: DocumentAgentOperation; logs: string[]; draft: string }
+  // 无归属工具时的重要提示
+  | { id: string; kind: 'notice'; message: string }
+  // 建议卡：按 patchId 从 patches 读实时内容与审阅决定
+  | { id: string; kind: 'patch'; patchId: string };
+
 /** 最终结果同时作为 IPC 返回值交付，避免完成事件与 invoke 结束发生先后竞态。 */
 export type DocumentAgentResult = { requestId: string } & (
   | { type: 'done'; issues: string[]; outcome?: 'complete' | 'incomplete'; message?: string; terminationReason?: string; steps?: number }

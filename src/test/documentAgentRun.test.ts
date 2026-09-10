@@ -82,6 +82,30 @@ describe('Agent 分阶段执行', () => {
     await runDocumentAgent(request, { model, timeoutMs: 10000, maxTokens: 1000, temperature: 0, controller: new AbortController(), report: event => events.push(event) });
     assert.ok(events.some(event => event.type === 'draft' && event.text.includes('def sort')));
   });
+  test('模型把工具调用写成正文时不转发协议原文', async () => {
+    // 个别厂商会把工具调用写成 XML 正文；这种调用不会执行，界面也不应收到原文。
+    const rawToolText = ['<tool_call>', '<function=complete_document_batch>', '<parameter=summary>已核对</parameter>', '</function>', '</tool_call>'].join('');
+    const rawToolTextStream = () => new ReadableStream({ start(controller) {
+      controller.enqueue({ type: 'stream-start', warnings: [] });
+      controller.enqueue({ type: 'text-start', id: 'text' });
+      controller.enqueue({ type: 'text-delta', id: 'text', delta: rawToolText });
+      controller.enqueue({ type: 'text-end', id: 'text' });
+      controller.enqueue({ type: 'finish', finishReason: 'stop', usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 } });
+      controller.close();
+    } });
+    let step = 0;
+    const events: DocumentAgentEvent[] = [];
+    const model = new MastraLanguageModelV2Mock({ doStream: async () => {
+      const current = step++;
+      return { stream: current === 0 ? rawToolTextStream()
+        : current === 1 ? resultStream('complete_document_batch', { reviewedBlockIds: [textBlockId], summary: '名称已核对' })
+        : current === 2 ? resultStream('finish_document_task', outcomes) : resultStream() };
+    } });
+    await runDocumentAgent(request, { model, timeoutMs: 10000, maxTokens: 1000, temperature: 0, controller: new AbortController(), report: event => events.push(event) });
+    assert.equal(events.some(event => event.type === 'text' && event.text.includes('tool_call')), false);
+    assert.ok(events.some(event => event.type === 'progress' && event.message.includes('该调用不会执行')));
+    assert.ok(events.some(event => event.type === 'done' && event.outcome === 'complete'));
+  });
   test('用户目标、批量修改、最终核对和说明完整结束', async () => {
     let step = 0;
     const events: DocumentAgentEvent[] = [];

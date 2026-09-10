@@ -16,7 +16,7 @@ function setup() {
   const api: DocumentAgentApi = {
     invoke: value => { request = value; return new Promise<DocumentAgentResult>(done => { resolve = done; }); },
     cancel: value => { cancelled.push(value); },
-    onEvent: callback => { listener = callback; return () => {}; },
+    onEvent: callback => { listener = callback; return () => { }; },
   };
   const scope = effectScope();
   const agent = scope.run(() => useDocumentAgent({
@@ -41,8 +41,10 @@ function setup() {
     resolve(result);
   };
   const event = (value: DocumentAgentEvent) => listener({ ...value, requestId: request.requestId });
-  return { event, agent, document, id, scope, emit, propose, finish, finishViaResult, finishCancelled, finishPartial, cancelled,
-    resolve: () => resolve(undefined as never) };
+  return {
+    event, agent, document, id, scope, emit, propose, finish, finishViaResult, finishCancelled, finishPartial, cancelled,
+    resolve: () => resolve(undefined as never)
+  };
 }
 
 describe('文档 Agent 审阅和生命周期', () => {
@@ -180,6 +182,9 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(await task, true);
     assert.equal(state.agent.status.value, 'review');
     assert.equal(state.agent.canReview.value, true);
+    // 部分完成说明走中性提示，不占用红色错误位。
+    assert.equal(state.agent.partialMessage.value, '任务已停止，已保留 1 处建议');
+    assert.equal(state.agent.error.value, '');
     state.agent.accept();
     assert.equal(state.document.value, 'XMD，正文');
     state.scope.stop();
@@ -271,6 +276,67 @@ describe('Agent 阶段与修改预览', () => {
     assert.equal(state.agent.outcome.value, 'incomplete');
     assert.equal(state.agent.goals.value[0].state, 'unresolved');
     assert.equal(state.document.value, 'XMD，正文');
+    state.scope.stop();
+  });
+});
+
+// 时间线按事件到达顺序排列，是面板实时交互的唯一数据源。
+describe('Agent 时间线', () => {
+  test('思考与回复增量合并进同一条目', async () => {
+    const state = setup();
+    const task = state.agent.start('整理文档');
+    state.emit('reasoning', '先检查标题');
+    state.emit('reasoning', '，再统一术语');
+    state.emit('text', '开始整理');
+    state.emit('text', '结果');
+    assert.equal(state.agent.timeline.value.length, 2);
+    const first = state.agent.timeline.value[0];
+    const second = state.agent.timeline.value[1];
+    if (first.kind === 'thinking') assert.equal(first.text, '先检查标题，再统一术语');
+    else assert.fail('首条应为思考条目');
+    if (second.kind === 'text') assert.equal(second.text, '开始整理结果');
+    else assert.fail('第二条应为回复条目');
+    state.finish();
+    await task;
+    state.scope.stop();
+  });
+  test('工具行按 ID 原地更新，进展归入执行中工具，无归属时落提示行', async () => {
+    const state = setup();
+    const task = state.agent.start('整理文档');
+    state.event({ requestId: '', type: 'operation', operation: { id: 'op-1', stage: 'locate', title: '定位内容', detail: '', state: 'running', startedAt: 1 } });
+    state.event({ requestId: '', type: 'progress', message: '已核对 5 个文档块' });
+    const tool = state.agent.timeline.value[0];
+    // 响应式代理数组不做整体深比较，逐项断言更稳定。
+    if (tool.kind === 'tool') {
+      assert.equal(tool.logs.length, 1);
+      assert.equal(tool.logs[0], '已核对 5 个文档块');
+    } else assert.fail('首条应为工具行');
+    // 同 ID 更新原地替换，不新增条目
+    state.event({ requestId: '', type: 'operation', operation: { id: 'op-1', stage: 'locate', title: '定位内容', detail: '找到 2 处命中', state: 'done', startedAt: 1, endedAt: 2 } });
+    assert.equal(state.agent.timeline.value.length, 1);
+    // 没有执行中工具时，进展作为独立提示行
+    state.event({ requestId: '', type: 'progress', message: '正在从检查点恢复' });
+    assert.equal(state.agent.timeline.value[1].kind, 'notice');
+    state.finish();
+    await task;
+    state.scope.stop();
+  });
+  test('建议卡按首次到达入列，修订不重复追加，新任务清空时间线', async () => {
+    const state = setup();
+    const task = state.agent.start('整理文档');
+    state.propose();
+    state.propose();
+    const patchEntries = state.agent.timeline.value.filter(entry => entry.kind === 'patch');
+    assert.equal(patchEntries.length, 1);
+    state.finish();
+    await task;
+    // 待审阅期间不能开始新任务；处理完后新任务清空时间线
+    assert.equal(await state.agent.start('另一个任务'), false);
+    state.agent.reject();
+    const next = state.agent.start('另一个任务');
+    assert.equal(state.agent.timeline.value.length, 0);
+    state.finish();
+    await next;
     state.scope.stop();
   });
 });

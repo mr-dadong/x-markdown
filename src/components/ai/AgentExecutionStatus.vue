@@ -1,5 +1,5 @@
 <template>
-  <!-- 当前状态始终位于顶部，计划、工具和思考只作为可展开的过程信息。 -->
+  <!-- 任务摘要卡：单行展示当前状态，过程细节已交给时间线，这里只保留计划级信息。 -->
   <section class="flex min-w-0 flex-col rounded-xl border border-line bg-panel px-3 py-2.5">
     <button type="button"
       class="flex min-w-0 cursor-pointer items-center gap-3 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
@@ -9,6 +9,8 @@
         <Icon v-if="running" icon="lucide:loader-2" :size="15" class="agent-spin" />
         <Icon v-else-if="status === 'error' || status === 'conflict'" icon="lucide:alert-circle" :size="15" />
         <Icon v-else-if="status === 'cancelled'" icon="lucide:square" :size="13" />
+        <!-- 部分完成不是成功也不是失败：用提醒图标，避免未完成却显示对勾。 -->
+        <Icon v-else-if="outcome === 'incomplete'" icon="lucide:alert-circle" :size="15" />
         <Icon v-else icon="lucide:check" :size="15" />
       </span>
       <span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -38,12 +40,7 @@
           </div>
         </div>
 
-        <div v-if="recentLogs.length" class="flex flex-col gap-1 border-t border-line pt-2">
-          <span class="px-1 text-[10px] text-muted">实时进展</span>
-          <p v-for="(message, index) in recentLogs" :key="`${index}-${message}`" class="px-1 text-[10px] leading-4 text-secondary">{{ message }}</p>
-        </div>
-
-        <!-- 计划位于操作记录之前，符合任务实际发生顺序。 -->
+        <!-- 计划位于阶段之后，展示模型报告的目标完成情况。 -->
         <div v-if="goals.length" class="flex flex-col">
           <button type="button" class="flex min-h-7 min-w-0 cursor-pointer items-center gap-2 rounded-md px-1 text-left text-[11px] text-secondary hover:bg-toolbar"
             :aria-expanded="goalsOpen" @click.stop="goalsOpen = !goalsOpen">
@@ -64,42 +61,6 @@
             </div>
           </Transition>
         </div>
-
-        <div v-if="operations.length" class="flex flex-col gap-1">
-          <div class="flex min-h-6 items-center px-1 text-[10px] text-muted">
-            <span class="flex-1">操作记录 · {{ operations.length }}</span>
-            <button v-if="operations.length > 5" type="button" class="cursor-pointer hover:text-ink"
-              @click.stop="showAllOperations = !showAllOperations">
-              {{ showAllOperations ? '收起' : `查看全部` }}
-            </button>
-          </div>
-          <div v-for="operation in visibleOperations" :key="operation.id"
-            class="agent-row flex min-w-0 items-center gap-2 rounded-md px-1 py-1.5 hover:bg-toolbar">
-            <span class="flex h-4 w-4 shrink-0 items-center justify-center">
-              <Icon v-if="operation.state === 'running'" icon="lucide:loader-2" :size="13" class="agent-spin text-accent" />
-              <Icon v-else-if="operation.state === 'error'" icon="lucide:alert-circle" :size="13" class="text-danger" />
-              <Icon v-else icon="lucide:check" :size="12" class="text-muted" />
-            </span>
-            <span class="shrink-0 text-[11px] font-medium"
-              :class="operation.state === 'error' ? 'text-danger' : 'text-secondary'">{{ operation.title }}</span>
-            <span v-if="operation.detail" class="h-1 w-1 shrink-0 rounded-full bg-line" />
-            <span class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ operation.detail }}</span>
-          </div>
-        </div>
-
-        <!-- 思考内容默认收起，不再冒充当前任务状态。 -->
-        <div v-if="reasoning" class="flex flex-col border-t border-line pt-1">
-          <button type="button" class="flex min-h-7 cursor-pointer items-center gap-2 rounded-md px-1 text-[11px] text-muted hover:bg-toolbar hover:text-ink"
-            :aria-expanded="reasoningOpen" @click.stop="reasoningOpen = !reasoningOpen">
-            <Icon icon="lucide:sparkles" :size="13" />
-            <span class="flex-1 text-left">查看思考详情</span>
-            <Icon icon="lucide:chevron-down" :size="12" class="agent-chevron shrink-0"
-              :class="reasoningOpen ? '' : '-rotate-90'" />
-          </button>
-          <Transition name="agent-reveal">
-            <p v-if="reasoningOpen" class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words px-1 pb-1 pl-6 text-[11px] leading-5 text-secondary">{{ reasoning }}</p>
-          </Transition>
-        </div>
       </div>
     </Transition>
   </section>
@@ -108,16 +69,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
-import type { DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage } from '../../types/documentAgent'
+import type { DocumentAgentGoal, DocumentAgentStage } from '../../types/documentAgent'
 
 const props = defineProps<{
   running: boolean
   status: string
   outcome: 'complete' | 'incomplete' | null
   stages: Array<{ id: DocumentAgentStage; title: string; state: 'pending' | 'running' | 'done' | 'interrupted' | 'skipped'; detail: string }>
-  operations: DocumentAgentOperation[]
   goals: DocumentAgentGoal[]
-  reasoning: string
   startedAt: number
   endedAt: number
   step: number
@@ -131,13 +90,10 @@ const props = defineProps<{
   truncationRecoveries: number
   currentActionTitle: string
   currentActionDetail: string
-  logs: string[]
 }>()
 
 const detailsOpen = ref(false)
 const goalsOpen = ref(false)
-const reasoningOpen = ref(false)
-const showAllOperations = ref(false)
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -150,8 +106,6 @@ watch(() => [props.running, props.startedAt], () => {
 watch(() => props.startedAt, () => {
   detailsOpen.value = false
   goalsOpen.value = false
-  reasoningOpen.value = false
-  showAllOperations.value = false
 })
 watch(() => props.running, (running, previous) => {
   if (!running && previous) detailsOpen.value = false
@@ -161,14 +115,11 @@ onBeforeUnmount(() => clearInterval(timer))
 const elapsed = computed(() => Math.max(0, Math.floor(((props.endedAt || now.value) - props.startedAt) / 1000)))
 const completedGoals = computed(() => props.goals.filter(goal => goal.state === 'done').length)
 const currentStage = computed(() => props.stages.find(stage => stage.state === 'running'))
-const runningOperation = computed(() => props.operations.find(operation => operation.state === 'running'))
-const visibleOperations = computed(() => showAllOperations.value ? props.operations : props.operations.slice(-5))
-const recentLogs = computed(() => props.logs.slice(-3))
 const goalSummary = computed(() => props.running ? `${props.goals.length} 项任务目标` : `${completedGoals.value}/${props.goals.length} 项已完成`)
 
 const primaryTitle = computed(() => {
   if (props.status === 'stopping') return '正在停止任务'
-  if (props.running) return props.currentActionTitle || runningOperation.value?.title || currentStage.value?.title || '正在处理下一步'
+  if (props.running) return props.currentActionTitle || currentStage.value?.title || '正在处理下一步'
   if (props.status === 'error' || props.status === 'conflict') return '任务未完成'
   if (props.status === 'cancelled') return '任务已停止'
   if (props.outcome === 'incomplete') return '任务已结束，仍有未完成事项'
@@ -176,10 +127,9 @@ const primaryTitle = computed(() => {
 })
 const primaryDetail = computed(() => {
   if (props.status === 'stopping') return '等待后台结束并核对已生成建议'
-  if (props.running) return props.currentActionDetail || runningOperation.value?.detail || currentStage.value?.detail || (props.step ? `第 ${props.step}/${props.maxSteps} 轮` : '正在建立任务计划')
+  if (props.running) return props.currentActionDetail || currentStage.value?.detail || (props.step ? `第 ${props.step}/${props.maxSteps} 轮` : '正在建立任务计划')
   if (props.status === 'error' || props.status === 'conflict') return '查看下方错误信息后可重新执行'
-  if (props.status === 'cancelled') return `已保留 ${props.operations.length} 条操作记录`
-  return props.goals.length ? `${completedGoals.value}/${props.goals.length} 项目标完成 · ${props.operations.length} 次操作` : `${props.operations.length} 次操作`
+  return props.goals.length ? `${completedGoals.value}/${props.goals.length} 项目标完成` : '没有待处理事项'
 })
 const statusTone = computed(() => {
   if (props.status === 'error' || props.status === 'conflict') return 'border-danger text-danger'
@@ -195,14 +145,6 @@ const stageDescription = (state: string): string => state === 'pending' ? '等�
 /* 用户明确要求运行反馈动画；仅动画状态变化，静态布局仍完全由 Tailwind 控制。 */
 .agent-spin {
   animation: agent-spin 0.9s linear infinite;
-}
-
-.agent-pulse {
-  animation: agent-pulse 1.8s ease-in-out infinite;
-}
-
-.agent-row {
-  animation: agent-reveal 160ms ease-out;
 }
 
 .agent-chevron {
@@ -221,11 +163,6 @@ const stageDescription = (state: string): string => state === 'pending' ? '等�
   to { transform: rotate(360deg); }
 }
 
-@keyframes agent-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-
 @keyframes agent-reveal {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -238,8 +175,6 @@ const stageDescription = (state: string): string => state === 'pending' ? '等�
 
 @media (prefers-reduced-motion: reduce) {
   .agent-spin,
-  .agent-pulse,
-  .agent-row,
   .agent-chevron,
   .agent-reveal-enter-active,
   .agent-reveal-leave-active {

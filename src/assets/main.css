@@ -23,6 +23,10 @@
     --color-link: #3370ff;
     --color-link-hover: #245bdb;
     --color-danger: #c42b1c;
+    /* diff 视图：新增行绿色、删除行红色，soft 为对应的浅底色。 */
+    --color-success: #2f8f46;
+    --color-success-soft: #e9f4ec;
+    --color-danger-soft: #fdeceb;
     --color-inverse: #ffffff;
     --color-selection: #c8c8c8;
     --color-code-bg: #f5f5f5;
@@ -55,6 +59,10 @@
     --color-link: #70a0ff;
     --color-link-hover: #9cbdff;
     --color-danger: #d85040;
+    /* diff 视图：深色主题下底色压低饱和度，保证文字对比度。 */
+    --color-success: #73c991;
+    --color-success-soft: #2a3830;
+    --color-danger-soft: #3a2a29;
     /* 深色主题的强调按钮使用浅色背景，反色文字需要保持足够的明暗对比。 */
     --color-inverse: #1e1f22;
     --color-selection: #4a4a4a;
@@ -88,6 +96,7 @@
 }
 
 @layer components {
+
   /*
    * 项目滚动区域共用同一套视觉规范。
    * 透明边框让滑块看起来更细，同时保留 12px 的可拖动区域。
@@ -132,5 +141,10 @@
 
   .app-no-drag {
     -webkit-app-region: no-drag;
+  }
+
+  /* 流式跟随区域（思考、参数流）隐藏竖向滚动条：内容自动贴底跟随，滚动条只是视觉噪音。 */
+  .scrollbar-hide {
+    scrollbar-width: none;
   }
 }

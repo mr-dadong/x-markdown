@@ -202,6 +202,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
+import { splitStreamBlocks, type StreamBlock } from '../../utils/streamBlocks'
 import { useAiStatus } from '../../composables/useAiStatus'
 import { useAiChat } from '../../composables/useAiChat'
 import { useAiChatContext } from '../../composables/useAiChatContext'
@@ -368,45 +369,7 @@ const displayMessages = computed(() => messages.value)
 // 流式内容按段落 / 代码块分段增量渲染，避免每个 delta 全量重解析 + 整体 v-html 替换（O(n²)）。
 // 已完成块缓存为独立 DOM 节点（key 稳定复用，不重建，保住选中 / 复制状态）；
 // 正在写的最后一段降级为纯文本，未闭合的代码围栏按原文展示，直到闭合才升级为 markdown 块。
-interface StreamBlock {
-  id: number
-  html: string
-}
-
-// 按空行与代码围栏边界切分流式文本，返回 [已完成块..., 尾块]。
-// 尾块可能是一段未写完的正文，也可能是未闭合的 ``` 围栏。
-const splitStreamBlocks = (text: string): { done: string[]; tail: string } => {
-  const done: string[] = []
-  let current = ''
-  let inFence = false
-  for (const line of text.split('\n')) {
-    const isFence = /^\s*```/.test(line)
-    if (isFence) {
-      if (!inFence) {
-        if (current) {
-          done.push(current)
-          current = ''
-        }
-        current = line
-        inFence = true
-      } else {
-        current += '\n' + line
-        done.push(current)
-        current = ''
-        inFence = false
-      }
-    } else if (!inFence && line.trim() === '') {
-      if (current) {
-        done.push(current)
-        current = ''
-      }
-    } else {
-      current += (current ? '\n' : '') + line
-    }
-  }
-  return { done, tail: current }
-}
-
+// 切分逻辑与 Agent 时间线共用 utils/streamBlocks。
 const streamingBlocks = ref<StreamBlock[]>([])
 const streamingTail = ref('')
 let nextBlockId = 0

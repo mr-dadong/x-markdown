@@ -169,7 +169,7 @@ export async function runDocumentAgent(request: DocumentAgentRequest, options: {
   });
   // 模型初始化成功后才创建计时器，配置错误不会留下后台计时。
   const deadline = createAgentDeadline(controller, { idleMs: options.timeoutMs, stepMs: Math.min(options.timeoutMs * 3, taskMs), taskMs }, () => `${stageNames[currentStage]} · 第 ${stepNumber + 1} 轮`);
-  let onAbort: () => void = () => {};
+  let onAbort: () => void = () => { };
   // 即便厂商没有及时结束流，也让 IPC 在取消或超时后结束等待。
   const aborted = new Promise<never>((_, reject) => {
     onAbort = () => reject(controller.signal.reason);
@@ -187,6 +187,9 @@ export async function runDocumentAgent(request: DocumentAgentRequest, options: {
       const checkpointBeforeAttempt = runtime.checkpointRevision();
       let attemptSteps = 0;
       let finishReason = '';
+      // 逐轮累计正文，用于识别厂商把工具调用写成 XML 正文的情况。
+      let stepText = '';
+      let suppressRawToolText = false;
       const recoveryInstruction = taskState.consecutiveTruncations
         ? `\n\n上一轮因输出长度限制中断。不要重复长篇分析，立即调用工具完成下一小步。已保留 ${runtime.patches.length} 处有效建议，不要重复提交。`
         : '';
@@ -201,10 +204,14 @@ export async function runDocumentAgent(request: DocumentAgentRequest, options: {
           const absoluteStep = attemptStartStep + current;
           stepNumber = absoluteStep;
           deadline.startStep();
+          // 每一轮模型的正文重新累计，避免上一轮的抑制状态影响本轮正常回复。
+          stepText = '';
+          suppressRawToolText = false;
           // 预留末尾两轮用于目标核对和最终说明，软预算只触发明确收尾。
           if (!closing && !runtime.isComplete() && Date.now() - startedAt >= taskMs * 0.8) {
             closing = true;
-            runtime.finishAtBudget('达到执行预算，未能完成最终目标核对');
+            // 消息带上真实核对进度，用户能直接看懂预算花在了哪里、还差多少。
+            runtime.finishAtBudget(`达到执行预算（已用 ${Math.round((Date.now() - startedAt) / 1000)} 秒），已核对 ${runtime.completedBlockCount()} 块、剩余 ${runtime.remainingBlockCount()} 块，未能完成最终目标核对`);
           }
           report({ requestId: request.requestId, type: 'budget', step: absoluteStep + 1, maxSteps, taskMs, message: closing ? '执行预算已结束，正在整理未完成事项' : '' });
           report({ requestId: request.requestId, type: 'batch', batch: runtime.currentBatchNumber(), totalBatches: runtime.totalBatches(), completedBlocks: runtime.completedBlockCount(), remainingBlocks: runtime.remainingBlockCount(), truncationRecoveries: taskState.truncationRecoveries, message: runtime.needsBatchCompletion() ? '正在核对当前批次' : '文档批次已核对完成' });
@@ -231,10 +238,20 @@ export async function runDocumentAgent(request: DocumentAgentRequest, options: {
         controller.signal.throwIfAborted();
         // SDK 发出的真实流事件才算活动；界面自己的计时刷新不算。
         deadline.activity();
-        if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') {
+        if (chunk.type === 'text-delta') {
           outputCharacters += chunk.payload.text.length;
           if (outputCharacters > 80000) throw new Error('模型输出超过任务长度预算，任务未完成');
-          report({ requestId: request.requestId, type: chunk.type === 'text-delta' ? 'text' : 'reasoning', text: chunk.payload.text });
+          stepText += chunk.payload.text;
+          // 个别厂商会把工具调用写成 XML 正文，这种调用不会执行；停止转发原文，并用进展消息说明。
+          if (!suppressRawToolText && /<tool_call>|<function=/.test(stepText)) {
+            suppressRawToolText = true;
+            report({ requestId: request.requestId, type: 'progress', message: '模型把工具调用写成了正文文本，该调用不会执行，任务继续推进' });
+          }
+          if (!suppressRawToolText) report({ requestId: request.requestId, type: 'text', text: chunk.payload.text });
+        } else if (chunk.type === 'reasoning-delta') {
+          outputCharacters += chunk.payload.text.length;
+          if (outputCharacters > 80000) throw new Error('模型输出超过任务长度预算，任务未完成');
+          report({ requestId: request.requestId, type: 'reasoning', text: chunk.payload.text });
         } else if (chunk.type === 'tool-call-input-streaming-start') {
           streamedToolArguments.set(chunk.payload.toolCallId, { toolName: chunk.payload.toolName, text: '' });
           const activity = toolActivities[chunk.payload.toolName];
