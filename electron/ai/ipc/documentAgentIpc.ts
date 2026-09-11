@@ -27,12 +27,13 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
     sender.once('destroyed', destroyed);
     const report = (payload: DocumentAgentEvent): void => {
       if (payload.type === 'done' || payload.type === 'error') result = payload;
-      if (!sender.isDestroyed() && !controller.signal.aborted) sender.send(IPC_CHANNELS.documentAgentEvent, payload);
+      // 执行器负责阻止取消后的增量；仍须交付它在结束时生成的最终差异与未完成结果。
+      if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.documentAgentEvent, payload);
     };
     try {
       const settings = await getAiSettings();
       if (!settings.enabled) throw new Error('请先在设置中启用 AI');
-      // 分阶段执行器负责请求、无响应和任务预算，IPC 仅管理生命周期。
+      // 草稿执行器负责模型循环、超时和最终差异，IPC 仅管理生命周期。
       await runDocumentAgent(request, {
         model: buildModelConfig(settings, request.model) as Parameters<typeof runDocumentAgent>[1]['model'],
         timeoutMs: settings.timeoutMs, maxTokens: settings.maxTokens, temperature: settings.temperature,
@@ -49,7 +50,7 @@ export function registerDocumentAgentIpc(validateSender: (event: IpcMainInvokeEv
       // 主动结束后台循环，避免前端显示失败后仍有模型或工具继续工作。
       if (!controller.signal.aborted) controller.abort(reason);
       const message = reason instanceof Error ? reason.message : String(reason);
-      const failure = { requestId: request.requestId, type: 'error', message, terminationReason: message === '任务已停止' ? 'cancelled' : controller.signal.aborted ? 'timeout' : 'error' } satisfies DocumentAgentResult;
+      const failure = { requestId: request.requestId, type: 'error', message, terminationReason: message === '任务已停止' || (reason instanceof Error && reason.name === 'AbortError') ? 'cancelled' : reason instanceof Error && reason.name === 'TimeoutError' ? 'timeout' : 'error' } satisfies DocumentAgentResult;
       if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.documentAgentEvent, failure);
       return failure;
     } finally {

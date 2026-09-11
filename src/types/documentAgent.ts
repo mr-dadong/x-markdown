@@ -69,6 +69,8 @@ export type DocumentAgentEvent = { requestId: string } & (
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string }
   | { type: 'draft'; text: string }
+  // 草稿每次修改发送完整快照，撤销和合并不会遗留过期建议。
+  | { type: 'patches'; patches: DocumentPatch[] }
   | { type: 'patch'; patch: DocumentPatch }
   | DocumentAgentResult
 );

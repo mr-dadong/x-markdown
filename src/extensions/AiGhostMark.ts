@@ -20,11 +20,19 @@ declare module "@tiptap/core" {
       /**
        * 标记指定范围为AI生成内容；withCaret 为 true 时在范围末尾显示书写位置指示条
        */
-      markAsAiGenerated: (from: number, to: number, withCaret?: boolean) => ReturnType;
+      markAsAiGenerated: (
+        from: number,
+        to: number,
+        withCaret?: boolean,
+      ) => ReturnType;
       /**
        * 在正文写入点显示等待提示，并标出稍后会被替换的原文范围。
        */
-      markAiWritingTarget: (from: number, to: number, label: string) => ReturnType;
+      markAiWritingTarget: (
+        from: number,
+        to: number,
+        label: string,
+      ) => ReturnType;
       /**
        * 清除AI生成标记
        */
@@ -48,7 +56,9 @@ const buildDecorations = (
   if (range.from < range.to) {
     decorations.push(
       Decoration.inline(range.from, range.to, {
-        class: placeholder ? "ai-writing-target" : options.ghostClass || "ai-ghost-content",
+        class: placeholder
+          ? "ai-writing-target"
+          : options.ghostClass || "ai-ghost-content",
       }),
     );
   }
@@ -63,7 +73,8 @@ const buildDecorations = (
 
           const reasoningPrefix = "AI 思考：";
           const isReasoning = placeholder.startsWith(reasoningPrefix);
-          if (isReasoning) span.classList.add("ai-writing-placeholder-reasoning");
+          if (isReasoning)
+            span.classList.add("ai-writing-placeholder-reasoning");
 
           // 使用真实子节点拆分状态、正文与快捷键，便于稳定控制流式思考的显示宽度。
           const statusDot = document.createElement("span");
@@ -84,13 +95,16 @@ const buildDecorations = (
           const [message, shortcutHint] = placeholder.split("，Esc ");
           const messageSpan = document.createElement("span");
           messageSpan.className = "ai-writing-placeholder-text";
-          messageSpan.textContent = isReasoning ? message.slice(reasoningPrefix.length) : message;
+          messageSpan.textContent = isReasoning
+            ? message.slice(reasoningPrefix.length)
+            : message;
           span.append(messageSpan);
 
           if (isReasoning) {
-            // 与 deepseek-harness 一致：摘要视口保持固定宽度，并持续跟随当前思考行末尾。
+            // 摘要视口保持固定宽度，并持续跟随当前思考行末尾。
             requestAnimationFrame(() => {
-              messageSpan.scrollLeft = messageSpan.scrollWidth - messageSpan.clientWidth;
+              messageSpan.scrollLeft =
+                messageSpan.scrollWidth - messageSpan.clientWidth;
             });
           }
 
@@ -122,8 +136,8 @@ const buildDecorations = (
           return span;
         },
         // side 为 1：该位置插入新内容时，指示条保持在内容之后
-        { side: 1 }
-      )
+        { side: 1 },
+      ),
     );
   }
 
@@ -212,7 +226,12 @@ export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
                 // 流式渲染每次都会重新标记完整的AI范围，直接覆盖旧范围，
                 // 避免范围数组不断累积产生重叠装饰
                 return {
-                  decorations: buildDecorations(tr.doc, range, meta.caret, options),
+                  decorations: buildDecorations(
+                    tr.doc,
+                    range,
+                    meta.caret,
+                    options,
+                  ),
                   range,
                   caret: meta.caret,
                   placeholder: "",
@@ -222,7 +241,13 @@ export const AiGhostMark = Extension.create<AiGhostMarkOptions>({
               if (meta.type === "target") {
                 const range = { from: meta.from, to: meta.to };
                 return {
-                  decorations: buildDecorations(tr.doc, range, false, options, meta.label),
+                  decorations: buildDecorations(
+                    tr.doc,
+                    range,
+                    false,
+                    options,
+                    meta.label,
+                  ),
                   range,
                   caret: false,
                   placeholder: meta.label,

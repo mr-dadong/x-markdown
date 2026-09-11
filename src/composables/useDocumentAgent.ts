@@ -294,6 +294,21 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       const tool = runningToolEntry();
       if (tool) tool.draft = event.text;
     }
+    if (event.type === 'patches') {
+      // 运行期间禁止接受建议，因此可整体替换快照，移除已经撤回的差异。
+      if (event.patches.some(patch => patch.baseVersion !== documentVersion)) {
+        api.cancel(requestId.value);
+        status.value = 'conflict';
+        error.value = 'Agent 返回的修改不属于当前文档版本，请重新执行任务。';
+        interruptProgress(error.value);
+        requestId.value = '';
+        return;
+      }
+      patches.value = event.patches.map(patch => ({ ...patch, decision: 'pending' }));
+      timeline.value = timeline.value.filter(item => item.kind !== 'patch');
+      for (const patch of event.patches) timeline.value.push({ id: `patch-${patch.id}`, kind: 'patch', patchId: patch.id });
+      draft.value = '';
+    }
     if (event.type === 'patch') {
       if (event.patch.baseVersion !== documentVersion) {
         api.cancel(requestId.value);

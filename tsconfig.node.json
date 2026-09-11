@@ -24,6 +24,8 @@
     "src/utils/documentAgent.ts",
     "src/utils/documentAgentBlocks.ts",
     "src/utils/aiChatContext.ts",
+    // 主进程的文档 Agent 需还原模型过度转义，共用工具纳入 Node 项目检查。
+    "src/utils/aiMarkdown.ts",
     "src/types/update.ts",
     // 主进程也会组装 AI 聊天引用，需将共用工具纳入 Node 项目检查。
     "src/utils/aiChatContext.ts",

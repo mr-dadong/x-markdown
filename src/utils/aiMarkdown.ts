@@ -7,11 +7,14 @@
  * 用户看到的就是原始星号而非排版效果。
  *
  * 该工具在渲染 / 写入编辑器之前移除这类不必要的反斜杠转义；
- * 代码围栏与行内代码内容保持原样，避免破坏代码本身。
+ * 代码围栏、行内代码与 LaTeX 公式（$、$$ 定界）内容保持原样，
+ * 避免破坏代码本身和公式里的 `\_`、`\-` 等命令。
  */
 
-// 代码段（围栏代码块与行内代码）保持原样，不参与转义还原。
-const CODE_SEGMENT_PATTERN = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/g;
+// 保持原样的片段（split 后落在奇数下标）：围栏代码块、行内代码、
+// 行内公式 $...$ 与块级公式 $$...$$（允许跨行，须成对出现才保护）。
+const PROTECTED_SEGMENT_PATTERN =
+  /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`|\$\$[\s\S]*?\$\$|\$(?!\$)[^$\n]+\$(?!\$))/g;
 
 // 常见被过度转义的 Markdown 标记符。刻意排除 \(\)\[\] 等字符，
 // 避免破坏模型输出的 LaTeX 数学定界符。
@@ -20,7 +23,7 @@ const OVER_ESCAPE_PATTERN = /\\([*_~`#+-])/g;
 export const normalizeAiMarkdown = (text: string): string => {
   if (!text.includes("\\")) return text;
   return text
-    .split(CODE_SEGMENT_PATTERN)
+    .split(PROTECTED_SEGMENT_PATTERN)
     .map((segment, index) =>
       index % 2 === 1 ? segment : segment.replace(OVER_ESCAPE_PATTERN, "$1"),
     )

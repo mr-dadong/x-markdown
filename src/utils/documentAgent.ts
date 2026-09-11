@@ -18,9 +18,15 @@ export function applyDocumentPatches(document: string, patches: DocumentPatch[])
     }
     if (patch.before === patch.after) throw new Error('修改前后内容相同');
   }
-  // 从后往前写入，前面的原文坐标不会受到后面修改的影响。
-  return sorted.reverse().reduce((text, patch) =>
-    text.slice(0, patch.start) + patch.after + text.slice(patch.end), document);
+  // 所有坐标都属于原文，按顺序收集片段后一次拼接，避免批量替换反复复制整篇文档。
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const patch of sorted) {
+    parts.push(document.slice(cursor, patch.start), patch.after);
+    cursor = patch.end;
+  }
+  parts.push(document.slice(cursor));
+  return parts.join('');
 }
 
 /** 只检查可确定的 Markdown 结构问题，不宣称验证文章事实或语言质量。 */

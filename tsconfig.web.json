@@ -24,6 +24,8 @@
     "src/**/*.vue",
     "src/vite-env.d.ts",
     "electron/ai/documentAgentTools.ts",
+    "electron/ai/documentAgentDraft.ts",
+    "electron/ai/literalEdit.ts",
     // 执行器回归测试使用真实 SDK 循环，一并检查共享实现。
     "electron/ai/documentAgentRun.ts",
     "package.json"
