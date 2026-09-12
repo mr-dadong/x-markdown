@@ -54,6 +54,12 @@ export function extractDraftAfter(json: string): string {
 
 export type DocumentAgentExecutionProfile = "fast" | "standard" | "large";
 
+// 工具参数损坏后的恢复提示：Mastra 层解析/校验失败时工具根本没执行，
+// 模型只看到一句英文报错和空参数，容易脱轨去续写半截参数；
+// 下一轮把这条提示追加到 messages 末尾，要求拆小重提。
+const TOOL_INPUT_RECOVERY_NOTICE =
+  "上一次工具调用的参数损坏或被输出限制截断，该次调用未执行，没有任何修改已写入。不要续写或修补上一次的半截参数；把这次修改拆成更小的 edit 重新提交：old_string 与 new_string 必须完整闭合，一次 edit 只覆盖一小段。";
+
 /** 只有边界明确的短修改进入快速通道，检查、整理和开放式任务仍使用标准流程。 */
 export function getDocumentAgentExecutionProfile(
   request: DocumentAgentRequest,
@@ -192,6 +198,8 @@ export async function runDocumentAgent(
   let currentStage: DocumentAgentStage = "understand";
   let steps = 0;
   let finalText = "";
+  // 待下发的恢复提示：只在参数损坏后的下一轮追加一次，避免每轮重复唠叨。
+  let recoveryNotice = "";
   let settled = false;
   let terminationReason = "error";
   const report = (event: DocumentAgentEvent): void => {
@@ -274,7 +282,7 @@ export async function runDocumentAgent(
           ),
         // 工具按调用顺序执行，避免多个编辑同时读取同一旧版本。
         toolCallConcurrency: { limit: 1, strategy: "called" },
-        prepareStep: ({ stepNumber }) => {
+        prepareStep: ({ stepNumber, messages }) => {
           steps = stepNumber + 1;
           deadline.startStep();
           finalText = "";
@@ -292,6 +300,28 @@ export async function runDocumentAgent(
             title: "正在处理文档",
             detail: `当前草稿第 ${runtime.draft.revision()} 版`,
           });
+          // 参数损坏的错误历史不会自解释，本轮末尾追加恢复提示并消费掉。
+          if (recoveryNotice) {
+            const notice = recoveryNotice;
+            recoveryNotice = "";
+            const now = new Date();
+            return {
+              messages: [
+                ...messages,
+                {
+                  id: crypto.randomUUID(),
+                  role: "user",
+                  content: {
+                    format: 2,
+                    parts: [{ type: "text", text: notice }],
+                    content: notice,
+                  },
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+            };
+          }
         },
         providerOptions: getDocumentAgentProviderOptions(
           request,
@@ -379,11 +409,17 @@ export async function runDocumentAgent(
         argumentsByCall.delete(chunk.payload.toolCallId);
       } else if (chunk.type === "error") throw chunk.payload.error;
       else if (chunk.type === "tool-error") {
-        runtime.recordError(String(chunk.payload.error));
+        const message = String(chunk.payload.error);
+        runtime.recordError(message);
+        // Mastra 参数解析/校验失败：工具未执行，下一轮补恢复提示。
+        if (
+          /invalid arguments|could not be parsed|Invalid input/i.test(message)
+        )
+          recoveryNotice = TOOL_INPUT_RECOVERY_NOTICE;
         report({
           requestId: request.requestId,
           type: "progress",
-          message: `工具执行失败：${String(chunk.payload.error)}`,
+          message: `工具执行失败：${message}`,
         });
       } else if (chunk.type === "finish")
         finishReason = chunk.payload.stepResult.reason;

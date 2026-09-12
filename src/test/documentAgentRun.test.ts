@@ -84,6 +84,25 @@ const streamedToolCall = (toolName: string, input: string) =>
       controller.close();
     },
   });
+// 半截 JSON 参数：模拟输出截断或转义写坏导致的工具参数损坏。
+const corruptToolCallStream = (input: string) =>
+  new ReadableStream({
+    start(controller) {
+      controller.enqueue({ type: "stream-start", warnings: [] });
+      controller.enqueue({
+        type: "tool-call",
+        toolCallId: crypto.randomUUID(),
+        toolName: "edit",
+        input,
+      });
+      controller.enqueue({
+        type: "finish",
+        finishReason: "tool-calls",
+        usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+      });
+      controller.close();
+    },
+  });
 // 输出被截断时不附带工具调用，用于验证宿主程序的有限恢复策略。
 const lengthLimitedStream = () =>
   new ReadableStream({
@@ -371,6 +390,45 @@ describe("文档 Agent 草稿执行循环", () => {
           event.type === "done" &&
           event.outcome === "incomplete" &&
           event.message?.includes("不存在"),
+      ),
+    );
+  });
+  test("损坏的工具参数未执行，下一轮补充恢复提示", async () => {
+    let step = 0;
+    let secondPrompt = "";
+    const events: DocumentAgentEvent[] = [];
+    const model = new MastraLanguageModelV2Mock({
+      doStream: async (options) => {
+        const current = step++;
+        if (current === 1)
+          secondPrompt = options.prompt
+            .map((message) =>
+              typeof message.content === "string"
+                ? message.content
+                : JSON.stringify(message.content),
+            )
+            .join("\n");
+        return {
+          stream:
+            current === 0
+              ? corruptToolCallStream('{"old_string": "旧名", "new_string":')
+              : resultStream(),
+        };
+      },
+    });
+    await runDocumentAgent(request, {
+      model,
+      timeoutMs: 10000,
+      maxTokens: 1000,
+      temperature: 0,
+      controller: new AbortController(),
+      report: (event) => events.push(event),
+    });
+    // 恢复提示进入下一轮模型输入，且任务按未完成收尾。
+    assert.ok(secondPrompt.includes("参数损坏或被输出限制截断"));
+    assert.ok(
+      events.some(
+        (event) => event.type === "done" && event.outcome === "incomplete",
       ),
     );
   });

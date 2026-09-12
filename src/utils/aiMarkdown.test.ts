@@ -24,6 +24,40 @@ describe("normalizeAiMarkdown", () => {
       normalizeAiMarkdown("使用 `\\*\\*bold\\*\\*` 语法"),
       "使用 `\\*\\*bold\\*\\*` 语法",
     );
+    // 代码内的反斜杠序列（如 Windows 路径）也保持原样。
+    assert.equal(
+      normalizeAiMarkdown("路径 `C:\\temp` 不变"),
+      "路径 `C:\\temp` 不变",
+    );
+  });
+
+  test("还原行内代码定界符的过度转义", () => {
+    // 两侧都转义：\`X\` 还原为 `X`，不再漏过还原写进文档。
+    assert.equal(
+      normalizeAiMarkdown("\\`--reasoning-parser\\`"),
+      "`--reasoning-parser`",
+    );
+    assert.equal(
+      normalizeAiMarkdown("参数 \\`--gpu-memory-utilization 0.2\\` 说明"),
+      "参数 `--gpu-memory-utilization 0.2` 说明",
+    );
+    // 只转义一侧时也能配对还原。
+    assert.equal(
+      normalizeAiMarkdown("`--max-num-batched-tokens 4096\\`"),
+      "`--max-num-batched-tokens 4096`",
+    );
+    // 与正常行内代码混排时互不影响。
+    assert.equal(
+      normalizeAiMarkdown("保留 `code` 并还原 \\`x\\`"),
+      "保留 `code` 并还原 `x`",
+    );
+  });
+
+  test("围栏代码块内的转义反引号保持原样", () => {
+    assert.equal(
+      normalizeAiMarkdown("```\n\\`code\\`\n```"),
+      "```\n\\`code\\`\n```",
+    );
   });
 
   test("围栏代码块中的内容保持原样", () => {
