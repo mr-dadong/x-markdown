@@ -1,7 +1,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { Extension, type Editor } from "@tiptap/core";
-import { DOMSerializer } from "@tiptap/pm/model";
+import { DOMSerializer, DOMParser, type Slice } from "@tiptap/pm/model";
 import {
   AllSelection,
   EditorState,
@@ -45,6 +45,8 @@ import {
 } from "../modules/slashCommands";
 import { emojis, filterEmojis, type EmojiItem } from "../modules/emojis";
 import { useSettings } from "./useSettings";
+import { normalizeAiMarkdown } from "../utils/aiMarkdown";
+import { hasMarkdownSyntax } from "../utils/markdownDetector";
 
 
 interface BlockPosition {
@@ -1170,6 +1172,47 @@ export const useMarkdownEditor = (
         spellcheck: "false",
       },
       handleKeyDown: (view, event) => handleEditorKeyDown(view, event),
+      // 纯文本粘贴时按 Markdown 渲染：`# 标题`、`- 列表`、`**加粗**` 等源码会
+      // 直接转成对应的格式节点，而不是作为普通文本塞进段落。
+      // 触发条件（其余情况交还 ProseMirror 默认行为，保持现有逻辑不变）：
+      //   1. 剪贴板只有纯文本（无 text/html），且未按 Shift 强制纯文本；
+      //   2. 光标不在标题、表格单元格内（这两处有专用的粘贴保护逻辑）；
+      //   3. 文本确实含 Markdown 语法（智能判断），纯文本/配置文件不会误渲染。
+      // 复用 normalizeAiMarkdown 先还原外部文本带来的过度转义（\# → # 等），
+      // 再交给与文档同源的 markdown-it 解析，保证渲染结果和文档一致。
+      clipboardTextParser: (text, context, plainText, view) => {
+        // Shift+粘贴或空文本时按纯文本处理。类型要求返回 Slice，但运行时
+        // 返回 null（falsy）即可让 ProseMirror 交还默认的纯文本插入。
+        if (plainText || text.length === 0 || !editor.value) return null as unknown as Slice;
+        const parentName = context.parent?.type?.name;
+        // 标题、单元格、代码块有各自的粘贴保护路径，这里不接管。
+        if (
+          parentName === "heading"
+          || parentName === "tableCell"
+          || parentName === "tableHeader"
+          || parentName === "codeBlock"
+        ) return null as unknown as Slice;
+        // 复用 AI 归一化，先把模型/外部文本常见的过度转义还原为合法语法，
+        // 否则 `\# 标题` 这样的过度转义无法被下方语法检测识别。
+        const normalized = normalizeAiMarkdown(text);
+        if (normalized.length === 0) return null as unknown as Slice;
+        // 智能判断：仅当文本确实包含 Markdown 语法时才按渲染处理，否则交还
+        // 默认纯文本插入，避免把终端/配置文件里的 `[Unit]`、`a*b*c` 误解析成格式。
+        // 注意：检测必须在归一化之后，over-escaped 语法才能被正确识别。
+        if (!hasMarkdownSyntax(normalized)) return null as unknown as Slice;
+        // 用与编辑器同一套 markdown-it 解析器把源码转成 HTML。
+        const storage = editor.value.storage.markdown as {
+          parser: { parse: (source: string, options?: { inline?: boolean }) => string };
+        };
+        const html = storage.parser.parse(normalized, { inline: true });
+        // HTML 字符串 → DOM 元素 → ProseMirror 节点切片，交给编辑器插入。
+        const container = document.createElement("div");
+        container.innerHTML = html;
+        return DOMParser.fromSchema(view.state.schema).parseSlice(container, {
+          preserveWhitespace: true,
+          context,
+        });
+      },
       handlePaste: (view, event) => {
         const files = Array.from(event.clipboardData?.files ?? []);
         const { selection } = view.state;
