@@ -10,13 +10,13 @@
           <Icon icon="lucide:sparkles" :size="13" class="shrink-0" />
           <span class="shrink-0">{{ running && index === timeline.length - 1 ? '正在思考' : '思考详情' }}</span>
           <!-- 收起时用首行内容做摘要，多条思考行不再长得一模一样。 -->
-          <span v-if="!thinkingOpen(entry, index)" class="min-w-0 flex-1 truncate text-left text-muted">{{ firstLine(entry.text) }}</span>
+          <span v-if="!thinkingOpen(entry, index)" class="min-w-0 flex-1 truncate text-left text-muted">{{
+            firstLine(entry.text) }}</span>
           <span v-else class="min-w-0 flex-1"></span>
           <Icon icon="lucide:chevron-down" :size="12" class="shrink-0"
             :class="thinkingOpen(entry, index) ? '' : '-rotate-90'" />
         </button>
-        <p v-if="thinkingOpen(entry, index)"
-          :ref="el => setStreamEl(entry.id, el)"
+        <p v-if="thinkingOpen(entry, index)" :ref="el => setStreamEl(entry.id, el)"
           class="scrollbar-hide max-h-48 overflow-y-auto whitespace-pre-wrap break-words px-1 py-1 text-[11px] leading-5 text-secondary"
           @scroll="handleStreamScroll(entry.id, $event)">{{ entry.text }}</p>
       </div>
@@ -30,19 +30,28 @@
           class="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-toolbar"
           :aria-expanded="toolOpen(entry)" @click="toggle(entry.id)">
           <span class="flex h-4 w-4 shrink-0 items-center justify-center">
-            <Icon v-if="entry.operation.state === 'running'" icon="lucide:loader-2" :size="13" class="animate-spin text-accent" />
-            <Icon v-else-if="entry.operation.state === 'error'" icon="lucide:alert-circle" :size="13" class="text-danger" />
+            <Icon v-if="entry.operation.state === 'running'" icon="lucide:loader-2" :size="13"
+              class="animate-spin text-accent" />
+            <Icon v-else-if="entry.operation.state === 'error'" icon="lucide:alert-circle" :size="13"
+              class="text-danger" />
             <Icon v-else icon="lucide:check" :size="12" class="text-muted" />
           </span>
           <span class="shrink-0 text-[11px] font-medium"
             :class="entry.operation.state === 'error' ? 'text-danger' : 'text-ink'">{{ entry.operation.title }}</span>
-          <span class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ entry.operation.detail || latestLog(entry) }}</span>
-          <span v-if="entry.operation.endedAt" class="shrink-0 text-[10px] text-muted">{{ duration(entry.operation) }}</span>
+          <span class="min-w-0 flex-1 truncate text-[10px] text-muted">{{ entry.operation.detail || latestLog(entry)
+            }}</span>
+          <span v-if="entry.operation.endedAt" class="shrink-0 text-[10px] text-muted">{{ duration(entry.operation)
+            }}</span>
           <Icon icon="lucide:chevron-down" :size="12" class="shrink-0 text-muted"
             :class="toolOpen(entry) ? '' : '-rotate-90'" />
         </button>
         <div v-if="toolOpen(entry)" class="flex flex-col gap-1 py-1 pl-7 pr-1">
-          <p v-for="(log, logIndex) in entry.logs" :key="logIndex" class="text-[10px] leading-4 text-muted">{{ log }}</p>
+          <p v-for="(log, logIndex) in entry.logs" :key="logIndex" class="text-[10px] leading-4 text-muted">{{ log }}
+          </p>
+          <!-- 工具结束后的完整结果或失败原因：收起行只显示截断摘要，展开不再空白。 -->
+          <p v-if="!entry.draft && entry.operation.state !== 'running' && entry.operation.detail"
+            class="whitespace-pre-wrap break-words text-[10px] leading-4"
+            :class="entry.operation.state === 'error' ? 'text-danger' : 'text-muted'">{{ entry.operation.detail }}</p>
           <!-- 参数流仍在接收时实时展示，工具结束后自动清空。 -->
           <pre v-if="entry.draft" :ref="el => setStreamEl(`draft-${entry.id}`, el)"
             class="scrollbar-hide max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded bg-selected p-2 font-mono text-xs leading-5 text-ink"
@@ -57,9 +66,9 @@
       </p>
 
       <!-- 建议卡：按到达位置内联出现，审阅决定就地更新。 -->
-      <AgentPatchCard v-else-if="entry.kind === 'patch' && patchOf(entry.patchId)"
-        :patch="patchOf(entry.patchId)!" :index="patchIndex(entry.patchId)" :can-review="canReview"
-        @accept="id => emit('accept', id)" @reject="id => emit('reject', id)" />
+      <AgentPatchCard v-else-if="entry.kind === 'patch' && patchOf(entry.patchId)" :patch="patchOf(entry.patchId)!"
+        :index="patchIndex(entry.patchId)" :can-review="canReview" @accept="id => emit('accept', id)"
+        @reject="id => emit('reject', id)" />
     </template>
   </div>
 </template>
