@@ -17,8 +17,16 @@ export default tseslint.config(
       'vue/max-attributes-per-line': 'off',
       'vue/html-self-closing': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-expressions': 'off',
+      // 未使用代码一律视为错误：历史上这两条被关掉，导致死代码长期累积。
+      // 允许用下划线前缀显式标记「有意不使用」的参数或变量。
+      '@typescript-eslint/no-unused-vars': ['error', {
+        args: 'after-used',
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        caughtErrors: 'all',
+        caughtErrorsIgnorePattern: '^_',
+      }],
+      '@typescript-eslint/no-unused-expressions': ['error', { allowShortCircuit: false, allowTernary: false }],
       'no-undef': 'off',
     },
   },

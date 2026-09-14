@@ -1,5 +1,4 @@
 import type MarkdownIt from "markdown-it";
-import type Token from "markdown-it/lib/token";
 import type ParserInline from "markdown-it/lib/parser_inline";
 import type { Fragment, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";

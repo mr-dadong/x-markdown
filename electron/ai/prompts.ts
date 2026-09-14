@@ -1,4 +1,4 @@
-import type { AiChatRequest, AiEditAction, AiInvokeRequest } from "../../src/types/ai";
+import type { AiEditAction, AiInvokeRequest } from "../../src/types/ai";
 import type { RetrievedContext } from "./context/types";
 
 const ACTION_INSTRUCTIONS: Record<AiEditAction, string> = {
@@ -75,7 +75,6 @@ export function buildAiPrompt(request: AiInvokeRequest): string {
 }
 
 export function buildChatSystemPrompt(
-  request: AiChatRequest,
   retrieved: RetrievedContext,
 ): string {
   const parts = [

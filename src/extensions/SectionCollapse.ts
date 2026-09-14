@@ -89,7 +89,7 @@ export const SectionCollapse = Extension.create({
       new Plugin<SectionCollapseState>({
         key: sectionCollapseKey,
         state: {
-          init: (_, state) => ({
+          init: (_, _state) => ({
             collapsedPositions: new Set<number>(),
             decorations: DecorationSet.empty,
           }),

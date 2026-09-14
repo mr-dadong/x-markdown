@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { useSettings } from "../composables/useSettings";
 import { mediaService } from "../services/mediaService";
+import { createAttachmentTransferTracker } from "./attachmentTransferTracker";
 
 export interface SlashRange {
   from: number;
@@ -374,60 +375,21 @@ export const slashCommands: SlashCommand[] = [
       const { settings } = useSettings();
       const requestId = crypto.randomUUID();
       let transferInserted = false;
-
-      // 通过请求编号只接收本次复制事件，避免同时插入多个附件时相互覆盖进度。
-      const findTransferPosition = (): number | null => {
-        let position: number | null = null;
-        editor.state.doc.descendants((node, nodePosition) => {
-          if (node.type.name === "attachmentTransfer" && node.attrs.requestId === requestId) {
-            position = nodePosition;
-            return false;
-          }
-          return position === null;
-        });
-        return position;
-      };
+      // 进度卡片的查找/刷新/替换统一由 tracker 负责，这里只决定插入位置。
+      const tracker = createAttachmentTransferTracker(editor, requestId);
 
       const removeProgressListener = mediaService.onAttachmentCopyProgress((progress) => {
         if (progress.requestId !== requestId) return;
 
         if (!transferInserted) {
           transferInserted = true;
-          editor
-            .chain()
-            .focus()
-            .deleteRange(range)
-            .insertContent([
-              {
-                type: "attachmentTransfer",
-                attrs: {
-                  requestId,
-                  fileName: progress.fileName,
-                  copiedBytes: progress.copiedBytes,
-                  totalBytes: progress.totalBytes,
-                  bytesPerSecond: progress.bytesPerSecond,
-                  status: progress.status,
-                  error: progress.error ?? "",
-                },
-              },
-              { type: "paragraph" },
-            ])
-            .run();
+          // 首次事件到达时用当前 range 起点落卡片，并顺带删掉斜杠命令源码。
+          editor.chain().focus().deleteRange(range).run();
+          tracker.insert(range.from, progress);
           return;
         }
 
-        const position = findTransferPosition();
-        if (position === null) return;
-        editor.view.dispatch(
-          editor.state.tr.setNodeMarkup(position, undefined, {
-            ...editor.state.doc.nodeAt(position)?.attrs,
-            copiedBytes: progress.copiedBytes,
-            totalBytes: progress.totalBytes,
-            bytesPerSecond: progress.bytesPerSecond,
-            status: progress.status,
-            error: progress.error ?? "",
-          }),
-        );
+        tracker.update(progress);
       });
 
       let selected: Awaited<ReturnType<typeof mediaService.selectFile>> = null;
@@ -446,25 +408,7 @@ export const slashCommands: SlashCommand[] = [
       }
       if (!selected) return;
 
-      const transferPosition = findTransferPosition();
-      if (transferPosition !== null) {
-        const transferNode = editor.state.doc.nodeAt(transferPosition);
-        if (transferNode) {
-          editor.view.dispatch(
-            editor.state.tr.replaceWith(
-              transferPosition,
-              transferPosition + transferNode.nodeSize,
-              editor.schema.nodes.attachment.create({
-                fileName: selected.fileName,
-                fileSize: selected.fileSize,
-                fileType: selected.fileType,
-                url: selected.url,
-              }),
-            ),
-          );
-          return;
-        }
-      }
+      if (tracker.replaceWithAttachment(selected)) return;
 
       editor
         .chain()

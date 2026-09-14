@@ -13,6 +13,7 @@
 // - Callout 提示块、脚注、目录
 
 import JSZip from "jszip";
+import { decodeDataUrl } from "./dataUrl";
 
 // —— 基础工具 ——
 
@@ -85,25 +86,6 @@ const MEDIA_EXTENSION_CONTENT_TYPE: Record<string, string> = {
   gif: "image/gif",
   webp: "image/webp",
   bmp: "image/bmp",
-};
-
-const decodeDataUrl = (
-  dataUrl: string,
-): { mime: string; bytes: Uint8Array } | null => {
-  const match = /^data:([^;,]*)?(;base64)?,(.*)$/s.exec(dataUrl);
-  if (!match) return null;
-  const mime = match[1] || "application/octet-stream";
-  const payload = match[3];
-  if (match[2]) {
-    const binary = atob(payload);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return { mime, bytes };
-  }
-  const decoded = decodeURIComponent(payload);
-  return { mime, bytes: new TextEncoder().encode(decoded) };
 };
 
 // 外部图片（http(s) / blob）尝试用 fetch 拉取，CORS 或网络失败时返回 null。
@@ -638,7 +620,6 @@ const convertTaskItem = async (li: Element, ctx: DocxContext): Promise<string> =
 
 const convertCodeBlock = async (
   el: Element,
-  ctx: DocxContext,
   opts: ParagraphOptions,
 ): Promise<string> => {
   const code = el.querySelector("code") ?? el;
@@ -814,7 +795,6 @@ const convertMermaidBlock = async (
 
 const convertMathBlock = async (
   el: Element,
-  ctx: DocxContext,
 ): Promise<string> => {
   const text = getMathText(el) || cleanText(el.textContent);
   return buildParagraph(makeRun(text, { italic: true }), { jc: "center" });
@@ -881,7 +861,7 @@ const convertBlockElement = async (
     return convertMermaidBlock(el, ctx);
   }
   if (el.hasAttribute("data-xmd-math-view")) {
-    return convertMathBlock(el, ctx);
+    return convertMathBlock(el);
   }
   if (el.hasAttribute("data-xmd-callout-view")) {
     return convertCalloutBlock(el, ctx);
@@ -891,7 +871,7 @@ const convertBlockElement = async (
   }
   // RawMarkdown 块以 pre 形式保存原文，按代码块输出。
   if (el.hasAttribute("data-xmd-raw-markdown")) {
-    return convertCodeBlock(el, ctx, opts);
+    return convertCodeBlock(el, opts);
   }
   // 目录、HtmlBlock 兜底 DOM 等没有专属样式的块，直接解包其内容。
   if (
@@ -901,7 +881,7 @@ const convertBlockElement = async (
     return convertUnwrapped(el, ctx, opts);
   }
   if (classes.contains("katex-display")) {
-    return convertMathBlock(el, ctx);
+    return convertMathBlock(el);
   }
 
   switch (tag) {
@@ -921,7 +901,7 @@ const convertBlockElement = async (
     case "ol":
       return convertList(el, ctx, opts.list?.ilvl ?? 0);
     case "pre":
-      return convertCodeBlock(el, ctx, opts);
+      return convertCodeBlock(el, opts);
     case "blockquote":
       return convertBlockquote(el, ctx, opts);
     case "table":

@@ -20,7 +20,7 @@
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
                     :modal-open="isSettingsOpen || isUpdateModalOpen"
-                    @update:content="handleContentUpdate" @ai-action="handleAiAction"
+                    @update:content="handleContentUpdate"
                     @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings"
                     @add-to-selection="handleAddToSelection" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
@@ -128,7 +128,6 @@ import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
 import { buildExportDocx, buildExportHtml, buildExportText, buildExportZip } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
-import type { AiEditAction } from '../types/ai'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
 import { overlayState } from '../modules/overlayState'
@@ -243,11 +242,6 @@ const replaceAiSelection = (text: string): void => {
   editorRef.value?.replaceSelection(normalized)
 }
 
-// 选中文本后点击 AI 动作：打开 Chat 侧栏。
-const handleAiAction = (action: AiEditAction): void => {
-    isAiChatOpen.value = true
-}
-
 // 添加选中文本到 AI Chat 输入框
 const handleAddToSelection = (text: string): void => {
     pendingSelections.value.push(text)
@@ -269,12 +263,6 @@ const openAiSettings = (): void => {
     isAiChatOpen.value = false
     settingsInitialSection.value = 'ai'
     isSettingsOpen.value = true
-}
-
-// 关闭设置页时重置初始分区，下次打开默认回到通用。
-const closeSettings = (): void => {
-    isSettingsOpen.value = false
-    settingsInitialSection.value = 'general'
 }
 
 const {

@@ -2,6 +2,7 @@ import { Extension, markInputRule } from "@tiptap/core";
 import Code from "@tiptap/extension-code";
 import { Plugin, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { isEscapedAt } from "../utils/backslashEscape";
 
 /**
  * TipTap 默认规则会把左侧普通字符一并匹配，转换时会误删该字符。
@@ -32,15 +33,8 @@ export const findClosingBacktickOffset = (textAfterCursor: string): number | nul
     }
     if (textAfterCursor[index] !== "`") continue;
 
-    let backslashCount = 0;
-    for (
-      let cursor = index - 1;
-      cursor >= 0 && textAfterCursor[cursor] === "\\";
-      cursor -= 1
-    ) {
-      backslashCount += 1;
-    }
-    if (backslashCount % 2 === 1) continue;
+    // 已被反斜杠转义的反引号是字面量，不能作为代码结束标记。
+    if (isEscapedAt(textAfterCursor, index)) continue;
 
     // TipTap 自带的行内代码输入规则使用单个反引号，连续反引号交给普通文本处理。
     if (textAfterCursor[index + 1] === "`") return null;

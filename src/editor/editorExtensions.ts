@@ -207,16 +207,33 @@ const SerializableTable = Table.extend({
 
 // Markdown 中保存可迁移的相对路径，节点视图单独读取本地文件用于显示。
 // 这样预览所需的 data URL 不会污染实际文档内容。
+//
+// 尺寸属性说明：Markdown 图片语法本身不表达尺寸，社区通行的做法是用 HTML 写
+// `<img src="..." width="16" height="16">`（favicon、徽章等行内小图标尤其常见）。
+// 因此 width 与 height 都要被节点接收并原样写回，否则用户写下的尺寸会被静默丢弃、
+// 图片退化成自然尺寸（24×24 或 48×48 的图标放进正文会明显大于文字）。
 const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
   Image.extend({
     addAttributes() {
+      // 只接受正整数像素值；解析不到合法数值时返回 null，交由默认样式处理。
+      const parsePixelAttribute = (name: string) => (element: HTMLElement): number | null => {
+        const raw = Number.parseInt(element.getAttribute(name) ?? "", 10);
+        return Number.isFinite(raw) && raw > 0 ? raw : null;
+      };
+
       return {
         ...this.parent?.(),
         width: {
           default: null,
-          parseHTML: (element) => element.getAttribute("width"),
+          parseHTML: parsePixelAttribute("width"),
           renderHTML: (attributes) =>
             attributes.width ? { width: String(attributes.width) } : {},
+        },
+        height: {
+          default: null,
+          parseHTML: parsePixelAttribute("height"),
+          renderHTML: (attributes) =>
+            attributes.height ? { height: String(attributes.height) } : {},
         },
       };
     },
@@ -237,7 +254,10 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         const renderImage = (src: string, alt: string | null, title: string | null): void => {
           image.alt = alt ?? "";
           image.title = title ?? "";
+          // 用户通过 HTML 属性指定的尺寸优先；未指定时清空内联样式，
+          // 交回全局图片样式（max-width:100%、height:auto）按自然比例显示。
           image.style.width = currentNode.attrs.width ? `${currentNode.attrs.width}px` : "";
+          image.style.height = currentNode.attrs.height ? `${currentNode.attrs.height}px` : "";
           void mediaService
             .readImage(src, getCurrentDocumentPath?.() ?? null)
             .then((displayUrl) => {
@@ -260,6 +280,8 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
               Math.min(editorWidth, Math.max(48, startWidth + moveEvent.clientX - startX)),
             );
             image.style.width = `${nextWidth}px`;
+            // 拉伸过程中同步解除固定高度，否则宽高比被锁死会把图片拉变形。
+            image.style.height = "";
           };
 
           const finishResize = (upEvent: PointerEvent): void => {
@@ -276,6 +298,9 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
               editor.view.state.tr.setNodeMarkup(position, undefined, {
                 ...currentNode.attrs,
                 width,
+                // 用户手动调整宽度后，原先按图标标注的固定高度不再成立，
+                // 一并清空，让图片按原图比例显示。
+                height: null,
               }),
             );
           };
@@ -327,10 +352,12 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
               ? ` title="${String(node.attrs.title).replaceAll('"', "&quot;")}"`
               : "";
             const width = node.attrs.width ? ` width="${node.attrs.width}"` : "";
+            const height = node.attrs.height ? ` height="${node.attrs.height}"` : "";
 
             // 带尺寸的图片使用 Markdown 兼容的 HTML 写法，重新打开后仍可继续调整。
-            if (width) {
-              state.write(`<img src="${source}" alt="${alt}"${title}${width}>`);
+            // width 与 height 必须一起写回，否则用户标注的行内图标尺寸会在存盘后丢失。
+            if (width || height) {
+              state.write(`<img src="${source}" alt="${alt}"${title}${width}${height}>`);
             } else {
               state.write(`![${alt}](${source}${node.attrs.title ? ` "${node.attrs.title}"` : ""})`);
             }

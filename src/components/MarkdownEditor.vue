@@ -243,7 +243,6 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
 import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
-import type { AiEditAction } from '../types/ai'
 import AiSelectionBar from './ai/AiSelectionBar.vue'
 import InlineAiBar from './ai/InlineAiBar.vue'
 import InlineWriterBar from './ai/InlineWriterBar.vue'
@@ -305,7 +304,6 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
   'update:content': [content: string]
-  'ai-action': [action: AiEditAction]
   'open-ai-panel': []
   'open-settings': []
   'add-to-selection': [text: string]
@@ -347,7 +345,6 @@ const {
   activeBlockCollapsed,
   activeBlockIsFirst,
   activeBlockIsLast,
-  closeSlashMenu,
   executeSlashCommand,
   handleSlashMenuScroll,
   cancelLinkInsert,
@@ -1416,6 +1413,37 @@ defineExpose<EditorHandle>({
   height: auto;
   margin: 0.5em 0;
   display: block;
+}
+
+/*
+ * 行内小图标（favicon、徽章这类）单独校准尺寸与基线。
+ *
+ * 这类图标通常写成 [<span>![](favicon.ico)站点名</span>](链接)，用的是普通图片语法，
+ * 不含任何尺寸信息，于是按自然尺寸渲染：favicon 常见 32×32 或 48×48，
+ * 放进正文会比文字大出一倍以上，把行高撑开、观感很差。
+ * 手动逐个标 width/height 不现实，因此这里按结构自动识别并校准：
+ *   1. 位于链接内的图片 —— 几乎必然是行内图标；
+ *   2. 段落内与文字并存的图片（注意包装层可能嵌在 span/a 里，不能只匹配直接子节点）。
+ * 段落中独占一行的图片（真正的插图）不受影响，仍按自然尺寸块级显示。
+ *
+ * 校准细节（均在 Chromium 实测调过）：
+ * - `max-height: 1.5em`：图标约与文字行高相当，且用 em 跟随正文字号设置缩放；
+ * - 包装层 `vertical-align: middle` 会让图标整体偏低（实测中心低 2.75px），
+ *   因此改用负偏移 `-0.3em` 把图标上提，实测中心偏差收敛到 0.25px；
+ * - `margin-right: 0.25em`：图标与后面文字留出约 4px 间隙，避免贴着字。
+ */
+.tiptap a [data-xmd-image] img,
+.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image] img {
+  display: inline-block;
+  margin: 0;
+  max-height: 1.5em;
+  width: auto;
+}
+
+.tiptap a [data-xmd-image],
+.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image] {
+  vertical-align: -0.3em;
+  margin-right: 0.25em;
 }
 
 /*

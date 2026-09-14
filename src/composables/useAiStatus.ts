@@ -12,7 +12,6 @@ import type { AiStatus } from "../types/ai";
  * 一会儿又正常显示动作按钮的状态不一致问题。
  */
 const status = ref<AiStatus | null>(null);
-const loading = ref(true);
 let subscribers = 0;
 let refreshPromise: Promise<void> | null = null;
 
@@ -21,14 +20,12 @@ const refresh = async (): Promise<void> => {
     await refreshPromise;
     return;
   }
-  loading.value = true;
   refreshPromise = (async () => {
     try {
       status.value = await aiService.getStatus();
     } catch {
       status.value = null;
     } finally {
-      loading.value = false;
       refreshPromise = null;
     }
   })();
@@ -51,7 +48,6 @@ export const useAiStatus = () => {
 
   return {
     status,
-    loading,
     isConfigured,
     /** 手动触发刷新，AI 设置保存后可调用以同步新状态。 */
     refresh,

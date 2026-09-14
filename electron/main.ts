@@ -14,17 +14,16 @@ import path from "path";
 import fs from "fs";
 import { createHash, randomUUID } from "crypto";
 import { Readable } from "stream";
-import { fileURLToPath, pathToFileURL } from "url";
+import { pathToFileURL } from "url";
 import {
   assertAuthorizedPath,
-  authorizeDirectory,
   authorizeDocument,
   authorizeFile,
 } from "./services/pathAccess";
+import { resolveEditorFilePath } from "./services/editorFilePath";
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
-import { registerLastOpenedFolderIpc } from "./ipc/lastOpenedFolderIpc";
 import { registerAiIpc } from "./ai/ipc/aiIpc";
 import { getAiAgentStatus } from "./ai/mastra";
 import { getRecentFiles } from "./services/recentFiles";
@@ -1102,16 +1101,20 @@ ipcMain.handle(IPC_CHANNELS.getUpdateLogs, async () => {
 
 registerWorkspaceIpc({ getMainWindow: () => mainWindow });
 registerRecentFilesIpc();
-registerLastOpenedFolderIpc();
 registerAiIpc({ getMainWindow: () => mainWindow });
 
 ipcMain.handle(IPC_CHANNELS.readFile, async (_event, filePath: string) => {
   try {
+    // 先校验：只有落在已授权目录（工作区、或对话框选过的文档目录）内的文件才允许读取。
+    // 校验通过后再把该文档登记为已授权，否则「从侧栏文件树 / 最近文件打开」的文档
+    // 只有内容可读，文档自身与同级资源（图片、附件）却仍被视为未授权，
+    // 编辑器加载图片时会报「无权访问该文件，请先通过打开对话框选择它」。
     const authorizedPath = assertAuthorizedPath(filePath);
     const [content, stats] = await Promise.all([
       fs.promises.readFile(authorizedPath, "utf-8"),
       fs.promises.stat(authorizedPath),
     ]);
+    authorizeDocument(authorizedPath);
     return { success: true, content, modifiedTime: stats.mtimeMs };
   } catch (error) {
     return { success: false, error: (error as Error).message };
@@ -1279,20 +1282,6 @@ async function readEditorImageDataUrl(filePath: string): Promise<string> {
   if (!mimeType) throw new Error("不支持的图片格式");
   const content = await fs.promises.readFile(filePath);
   return `data:${mimeType};base64,${content.toString("base64")}`;
-}
-
-function resolveEditorFilePath(
-  url: string,
-  currentDocumentPath: string | null,
-): string {
-  if (currentDocumentPath) assertAuthorizedPath(currentDocumentPath);
-  const resolvedPath = url.startsWith("file:")
-    ? fileURLToPath(url)
-    : path.resolve(
-        currentDocumentPath ? path.dirname(currentDocumentPath) : process.cwd(),
-        decodeURIComponent(url),
-      );
-  return assertAuthorizedPath(resolvedPath);
 }
 
 const videoMimeTypes: Record<string, string> = {
@@ -1619,9 +1608,41 @@ ipcMain.handle(
     }: { url: string; currentDocumentPath: string | null },
   ) => {
     if (/^https?:/i.test(url) || /^data:/i.test(url)) return url;
-    return readEditorImageDataUrl(
-      resolveEditorFilePath(url, currentDocumentPath),
-    );
+
+    const resolvedPath = resolveEditorFilePath(url, currentDocumentPath);
+
+    // 图片引用写错、或图片没随文档一起拷贝时，文件并不存在。
+    // 这种情况下如果继续按「读取失败」处理，用户看到的会是权限或格式一类的提示，
+    // 与真实原因无关、很难排查，因此先确认存在性再继续。
+    try {
+      await fs.promises.access(resolvedPath, fs.constants.F_OK);
+    } catch {
+      const outsideDocument = currentDocumentPath
+        && path.relative(path.dirname(currentDocumentPath), resolvedPath).startsWith("..");
+      throw new Error(
+        `图片文件不存在：${resolvedPath}${outsideDocument ? "（该图片不在文档所在目录内）" : ""}`,
+      );
+    }
+
+    // 格式由扩展名决定，先判断可给出比「读取失败」更明确的提示。
+    const extension = path.extname(resolvedPath).toLowerCase();
+    if (!editorImageMimeTypes[extension]) {
+      throw new Error(`不支持的图片格式：${extension || resolvedPath}`);
+    }
+
+    try {
+      return await readEditorImageDataUrl(resolvedPath);
+    } catch (error) {
+      // 走到这里属于非预期失败（如文件被占用、读取途中被删除），
+      // 输出定位信息便于直接看出是哪个资源、解析到了什么路径。
+      console.error("[read-editor-image] 读取图片失败", {
+        url,
+        currentDocumentPath,
+        resolvedPath,
+        reason: (error as Error).message,
+      });
+      throw error;
+    }
   },
 );
 
@@ -1650,7 +1671,19 @@ ipcMain.handle(
       currentDocumentPath,
     }: { url: string; currentDocumentPath: string | null },
   ) => {
-    const filePath = resolveEditorFilePath(url, currentDocumentPath);
+    // 远程地址与 data URL 无需检查本地文件是否存在。
+    if (/^https?:/i.test(url)) return true;
+    if (/^data:/i.test(url)) return true;
+
+    // 路径无法解析或不在授权范围内时，「不存在」就是准确的答案。
+    // 这里必须返回 false 而不是抛错：否则附件缺失提示会被一句
+    // 「无权访问该文件」顶掉，用户看到的是权限问题而不是文件缺失。
+    let filePath: string;
+    try {
+      filePath = resolveEditorFilePath(url, currentDocumentPath);
+    } catch {
+      return false;
+    }
     return fs.promises
       .stat(filePath)
       .then((stats) => stats.isFile())

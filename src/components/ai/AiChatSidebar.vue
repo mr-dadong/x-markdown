@@ -330,7 +330,7 @@ const handleModelSelect = (id: string): void => {
 }
 
 // 文档上下文
-const { hasDocument, hasSelection, resolveReferences } = useAiChatContext({
+const { resolveReferences } = useAiChatContext({
   getDocumentContent: props.getDocumentContext,
   getSelection: props.getSelection,
   getCursorOffset: props.getCursorOffset,

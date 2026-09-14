@@ -20,7 +20,6 @@ export const useAiChatContext = (options: AiChatContextOptions) => {
   const selectionContext = computed(() => options.getSelection().trim());
 
   const hasDocument = computed(() => documentContext.value.trim().length > 0);
-  const hasSelection = computed(() => selectionContext.value.length > 0);
 
   /**
    * 解析用户输入中的 @引用，返回处理后的消息和上下文。
@@ -60,10 +59,6 @@ export const useAiChatContext = (options: AiChatContextOptions) => {
   };
 
   return {
-    documentContext,
-    selectionContext,
-    hasDocument,
-    hasSelection,
     resolveReferences,
   };
 };

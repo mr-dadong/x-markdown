@@ -91,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { AiModelInfo } from '../../types/ai'
 
@@ -322,7 +322,11 @@ defineExpose({ setModels, setError, startLoading })
   color: var(--color-placeholder);
 }
 
-.model-selector-clear {
+/* 输入框右侧三个小图标按钮（清空、拉取模型、删除项）共用同一套外框样式，
+   只把各自不同的透明度与过渡时长写在后面的单独规则里，避免同一份样式抄三遍。 */
+.model-selector-clear,
+.model-selector-fetch,
+.model-selector-remove {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,6 +337,9 @@ defineExpose({ setModels, setError, startLoading })
   background: transparent;
   color: var(--color-muted);
   cursor: pointer;
+}
+
+.model-selector-clear {
   transition: background-color 0.1s, color 0.1s, opacity 0.15s;
   opacity: 0;
 }
@@ -343,16 +350,6 @@ defineExpose({ setModels, setError, startLoading })
 }
 
 .model-selector-fetch {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
   transition: background-color 0.1s, color 0.1s;
 }
 
@@ -488,16 +485,6 @@ defineExpose({ setModels, setError, startLoading })
 }
 
 .model-selector-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
   opacity: 0;
   transition: opacity 0.1s, background-color 0.1s, color 0.1s;
 }

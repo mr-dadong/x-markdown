@@ -94,8 +94,8 @@ const SHIFTED_CHARS: Record<string, string> = {
 
 const PUNCTUATION_KEYS = new Set(Object.keys(SHIFTED_CHARS))
 
-/** 平台主修饰键在设置页中的显示名称。 */
-export const PRIMARY_MODIFIER_LABEL = (): 'Cmd' | 'Ctrl' => (isMacPlatform() ? 'Cmd' : 'Ctrl')
+/** 平台主修饰键在设置页中的显示名称（仅本文件内的快捷键文案解析使用）。 */
+const PRIMARY_MODIFIER_LABEL = (): 'Cmd' | 'Ctrl' => (isMacPlatform() ? 'Cmd' : 'Ctrl')
 
 /** 判断当前是否运行在 macOS 上（渲染进程）。 */
 export function isMacPlatform(): boolean {

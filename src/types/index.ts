@@ -32,8 +32,5 @@ export interface OpenDocument {
   isModified: boolean;
 }
 
-// 主题类型
-export type Theme = "light" | "dark";
-
 // 侧边栏标签类型
 export type SidebarTab = "files" | "outline";

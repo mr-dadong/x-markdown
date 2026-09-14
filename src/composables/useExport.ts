@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { mediaService } from "../services/mediaService";
 import { buildDocx } from "../utils/htmlToDocx";
+import { decodeDataUrl } from "../utils/dataUrl";
 
 // —— HTML 导出 ——
 
@@ -210,22 +211,6 @@ const extractLocalResourceReferences = (markdown: string): string[] => {
   }
   for (const match of markdown.matchAll(htmlResource)) references.add(match[1]);
   return [...references];
-};
-
-// 把 data URL 解码成二进制，供打包进 ZIP 使用。
-const decodeDataUrl = (dataUrl: string): { mime: string; bytes: Uint8Array } | null => {
-  const match = /^data:([^;,]*)?(;base64)?,(.*)$/s.exec(dataUrl);
-  if (!match) return null;
-  const mime = match[1] || "application/octet-stream";
-  const payload = match[3];
-  if (match[2]) {
-    const binary = atob(payload);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return { mime, bytes };
-  }
-  const decoded = decodeURIComponent(payload);
-  return { mime, bytes: new TextEncoder().encode(decoded) };
 };
 
 const getResourceFileName = (reference: string, fallback: string): string => {

@@ -6,6 +6,8 @@
     "target": "ESNext",
     "lib": ["ESNext"],
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,

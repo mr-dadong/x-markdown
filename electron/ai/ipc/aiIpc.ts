@@ -505,7 +505,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
       });
 
       // 系统提示通过 system 参数传入，消息列表只保留 user/assistant 对话历史
-      const systemPrompt = buildChatSystemPrompt(request, retrieved);
+      const systemPrompt = buildChatSystemPrompt(retrieved);
       const messages = modelMessages
         .filter((m) => m.role !== "system")
         .map((m, i) => ({

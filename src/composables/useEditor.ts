@@ -1,12 +1,11 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
-import { Extension, type Editor } from "@tiptap/core";
+import { type Editor } from "@tiptap/core";
 import { DOMSerializer, DOMParser, type Slice } from "@tiptap/pm/model";
 import {
   AllSelection,
   EditorState,
   NodeSelection,
-  Plugin,
   PluginKey,
   TextSelection,
   type Transaction,
@@ -47,6 +46,7 @@ import { emojis, filterEmojis, type EmojiItem } from "../modules/emojis";
 import { useSettings } from "./useSettings";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
 import { hasMarkdownSyntax } from "../utils/markdownDetector";
+import { createAttachmentTransferTracker } from "../modules/attachmentTransferTracker";
 
 
 interface BlockPosition {
@@ -131,56 +131,23 @@ export const useMarkdownEditor = (
         settings.attachmentHandling === "copy-to-assets";
       const requestId = showCopyProgress ? crypto.randomUUID() : undefined;
       let transferInserted = false;
-
-      const findTransferPosition = (): number | null => {
-        if (!requestId || !editor.value) return null;
-        let position: number | null = null;
-        editor.value.state.doc.descendants((node, nodePosition) => {
-          if (node.type.name === "attachmentTransfer" && node.attrs.requestId === requestId) {
-            position = nodePosition;
-            return false;
-          }
-          return position === null;
-        });
-        return position;
-      };
+      // 进度卡片的查找/刷新/替换统一由 tracker 负责，这里只决定插入位置。
+      const tracker =
+        requestId && editor.value
+          ? createAttachmentTransferTracker(editor.value, requestId)
+          : null;
 
       // 粘贴与拖入附件复用斜杠菜单相同的进度事件，避免后台复制时界面没有反馈。
-      const removeProgressListener = requestId
+      const removeProgressListener = tracker
         ? mediaService.onAttachmentCopyProgress((progress) => {
-          if (progress.requestId !== requestId || !editor.value) return;
+          if (progress.requestId !== requestId) return;
           if (!transferInserted) {
             transferInserted = true;
-            editor.value.chain().focus().insertContentAt(insertPosition, [
-              {
-                type: "attachmentTransfer",
-                attrs: {
-                  requestId,
-                  fileName: progress.fileName,
-                  copiedBytes: progress.copiedBytes,
-                  totalBytes: progress.totalBytes,
-                  bytesPerSecond: progress.bytesPerSecond,
-                  status: progress.status,
-                  error: progress.error ?? "",
-                },
-              },
-              { type: "paragraph" },
-            ]).run();
+            tracker.insert(insertPosition, progress);
             return;
           }
 
-          const position = findTransferPosition();
-          if (position === null) return;
-          editor.value.view.dispatch(
-            editor.value.state.tr.setNodeMarkup(position, undefined, {
-              ...editor.value.state.doc.nodeAt(position)?.attrs,
-              copiedBytes: progress.copiedBytes,
-              totalBytes: progress.totalBytes,
-              bytesPerSecond: progress.bytesPerSecond,
-              status: progress.status,
-              error: progress.error ?? "",
-            }),
-          );
+          tracker.update(progress);
         })
         : null;
       try {
@@ -201,25 +168,7 @@ export const useMarkdownEditor = (
             : null;
         if (!imported) continue;
 
-        const transferPosition = findTransferPosition();
-        if (transferPosition !== null && editor.value) {
-          const transferNode = editor.value.state.doc.nodeAt(transferPosition);
-          if (transferNode) {
-            editor.value.view.dispatch(
-              editor.value.state.tr.replaceWith(
-                transferPosition,
-                transferPosition + transferNode.nodeSize,
-                editor.value.schema.nodes.attachment.create({
-                  fileName: imported.fileName,
-                  fileSize: imported.fileSize,
-                  fileType: imported.fileType,
-                  url: imported.url,
-                }),
-              ),
-            );
-            continue;
-          }
-        }
+        if (tracker?.replaceWithAttachment(imported)) continue;
 
         if (kind === "image") {
           content.push({ type: "image", attrs: { src: imported.url, alt: imported.fileName } });
@@ -314,7 +263,10 @@ export const useMarkdownEditor = (
   }));
 
   const activeBlockCollapsed = computed(() => {
-    editorRenderVersion.value;
+    // 折叠状态存在 ProseMirror plugin state 里，ref 变化不会自动让本计算属性失效，
+    // 这里刻意读取 editorRenderVersion 以建立依赖：编辑器状态每次变更都会自增它，
+    // 从而驱动折叠/展开后图标重算。用 void 明确表示「读取即目的」，不产生副作用。
+    void editorRenderVersion.value;
     if (!editor.value || !activeBlock.value?.isHeading) return false;
 
     return (
@@ -1376,7 +1328,7 @@ export const useMarkdownEditor = (
 
           return false;
         },
-        blur: (view, event) => {
+        blur: (_view, event) => {
           // 焦点移到菜单内部时不要关闭，否则点击滚动条或菜单项会丢失菜单。
           const related = event.relatedTarget as Node | null;
           if (related && slashMenu.value?.contains(related)) return false;
@@ -1545,7 +1497,6 @@ export const useMarkdownEditor = (
     blockControlPosition,
     dropIndicator,
     draggedBlockPosition,
-    editorRenderVersion,
     filteredCommands,
     commandGroups,
     slashMenuStyle,

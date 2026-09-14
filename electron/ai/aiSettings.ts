@@ -99,7 +99,6 @@ export function normalizeSettings(
     providers: normalizeProviders(
       input.providers,
       fallback.providers,
-      provider,
     ),
     temperature:
       typeof input.temperature === "number"
@@ -131,7 +130,6 @@ export function normalizeSettings(
 function normalizeProviders(
   input: Record<string, AiProviderConfig> | undefined,
   fallback: Record<string, AiProviderConfig>,
-  currentProvider: AiProvider,
 ): Record<string, AiProviderConfig> {
   if (!input) return fallback;
   const result: Record<string, AiProviderConfig> = { ...fallback };

@@ -13,7 +13,6 @@ import {
 import type { DocumentAgentEvent } from "../types/documentAgent";
 import {
   fingerprintDocument,
-  indexDocumentBlocks,
 } from "../utils/documentAgentBlocks";
 
 // 模型替身运行真正的 Mastra 循环，验证修改、收尾和最终事件。
@@ -24,7 +23,6 @@ const request = {
   documentVersion: fingerprintDocument("旧名"),
   selection: "",
 };
-const textBlockId = indexDocumentBlocks(request.document)[0].id;
 const resultStream = (
   toolName?: string,
   input?: unknown,
@@ -135,11 +133,6 @@ const otherFinishStream = () =>
       controller.close();
     },
   });
-const outcomes = {
-  outcomes: [
-    { id: "goal-1", state: "done", detail: "名称已统一为 XMD，等待审阅" },
-  ],
-};
 
 // 在实际 Mastra 循环中运行，验证无批次表单、完整历史与自然结束。
 describe("文档 Agent 草稿执行循环", () => {

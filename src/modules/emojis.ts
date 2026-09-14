@@ -1042,6 +1042,3 @@ export const filterEmojis = (query: string, limit = 60): EmojiItem[] => {
   }
   return [...prefixMatches, ...substringMatches].slice(0, limit);
 };
-
-export const getEmojiByShortcode = (shortcode: string): EmojiItem | undefined =>
-  emojis.find((item) => item.shortcode === shortcode);

@@ -1,6 +1,7 @@
 import type MarkdownIt from "markdown-it";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
+import { escapeTargetCharacter, isEscapedAt } from "../utils/backslashEscape";
 
 export type TableAlignment = "left" | "center" | "right" | null;
 
@@ -30,12 +31,25 @@ export const parseTableAlignment = (value: string | null): TableAlignment => {
     : null;
 };
 
-/** 根据单元格对齐方式生成 GFM 表格分隔行。 */
+/**
+ * 对齐方式与分隔行「冒号位置」的唯一映射：左对齐冒号在左、右对齐在右、
+ * 居中两侧各一个、不指定对齐则都不加。
+ * createTableDelimiter 与表格序列化内部的 renderDelimiter 共用它，
+ * 避免同一套对齐规则写两遍而出现不一致。
+ */
+const getDelimiterAffixes = (
+  alignment: TableAlignment,
+): { prefix: string; suffix: string } => {
+  if (alignment === "left") return { prefix: ":", suffix: "" };
+  if (alignment === "right") return { prefix: "", suffix: ":" };
+  if (alignment === "center") return { prefix: ":", suffix: ":" };
+  return { prefix: "", suffix: "" };
+};
+
+/** 根据单元格对齐方式生成固定宽度的 GFM 表格分隔行。 */
 export const createTableDelimiter = (alignment: TableAlignment): string => {
-  if (alignment === "left") return ":---";
-  if (alignment === "center") return ":---:";
-  if (alignment === "right") return "---:";
-  return "---";
+  const { prefix, suffix } = getDelimiterAffixes(alignment);
+  return `${prefix}---${suffix}`;
 };
 
 interface MarkdownRange {
@@ -123,10 +137,9 @@ export const renderMarkdownTable = (
       typeof originalWidth === "number" && Number.isFinite(originalWidth) && originalWidth >= 3
         ? Math.floor(originalWidth)
         : columnWidths[columnIndex];
-    if (alignment === "left") return `:${"-".repeat(width)}`;
-    if (alignment === "right") return `${"-".repeat(width)}:`;
-    if (alignment === "center") return `:${"-".repeat(width)}:`;
-    return "-".repeat(width);
+    // 冒号位置复用同一套对齐映射，只把中间的短横线换成按列宽计算的长度。
+    const { prefix, suffix } = getDelimiterAffixes(alignment);
+    return `${prefix}${"-".repeat(width)}${suffix}`;
   };
 
   const lines = [
@@ -255,29 +268,11 @@ export const escapeTablePipes = (
   value: string,
   escapeCodePipes = false,
 ): string => {
-  let result = "";
-  let consecutiveBackslashes = 0;
   const codeRanges = findInlineCodeRanges(value);
-
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index];
-    if (character === "|") {
-      if (
-        (!isInsideRanges(index, codeRanges) || escapeCodePipes) &&
-        consecutiveBackslashes % 2 === 0
-      ) {
-        result += "\\";
-      }
-      result += character;
-      consecutiveBackslashes = 0;
-      continue;
-    }
-
-    result += character;
-    consecutiveBackslashes = character === "\\" ? consecutiveBackslashes + 1 : 0;
-  }
-
-  return result;
+  // 普通文本里的竖线一律转义；escapeCodePipes 为真时连代码范围内的竖线一起转义。
+  return escapeTargetCharacter(value, "|", (index) =>
+    !isInsideRanges(index, codeRanges) || escapeCodePipes,
+  );
 };
 
 /** 判断原始表格是否明确使用了行内代码竖线转义。 */
@@ -287,11 +282,7 @@ export const hasEscapedCodePipes = (markdown: string): boolean =>
     return codeRanges.some((range) => {
       for (let index = range.from; index < range.to; index += 1) {
         if (line[index] !== "|") continue;
-        let backslashCount = 0;
-        for (let cursor = index - 1; cursor >= 0 && line[cursor] === "\\"; cursor -= 1) {
-          backslashCount += 1;
-        }
-        if (backslashCount % 2 === 1) return true;
+        if (isEscapedAt(line, index)) return true;
       }
       return false;
     });
@@ -305,14 +296,10 @@ const getTableRowCodePipeStyles = (line: string): boolean[] => {
 
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
-    let backslashCount = 0;
-    for (let cursor = index - 1; cursor >= 0 && line[cursor] === "\\"; cursor -= 1) {
-      backslashCount += 1;
-    }
     const isSeparator =
       character === "|" &&
       !isInsideRanges(index, codeRanges) &&
-      backslashCount % 2 === 0;
+      !isEscapedAt(line, index);
     if (isSeparator) {
       cells.push(cell);
       cell = "";
@@ -422,25 +409,8 @@ export const protectTableCodePipesForParsing = (markdown: string): string => {
       // 未闭合的反引号语义不明确，保持原文，避免把后续列分隔符写成反斜杠。
       if (codeRanges.length === 0) return line;
 
-      let result = "";
-      let consecutiveBackslashes = 0;
-
-      for (let index = 0; index < line.length; index += 1) {
-        const character = line[index];
-        const isInsideCode = isInsideRanges(index, codeRanges);
-        if (
-          character === "|" &&
-          isInsideCode &&
-          consecutiveBackslashes % 2 === 0
-        ) {
-          result += "\\";
-        }
-        result += character;
-        consecutiveBackslashes =
-          character === "\\" ? consecutiveBackslashes + 1 : 0;
-      }
-
-      return result;
+      // 只转义代码范围内的竖线，普通竖线由 escapeTablePipes 负责。
+      return escapeTargetCharacter(line, "|", (index) => isInsideRanges(index, codeRanges));
     })
     .join("\n");
 };

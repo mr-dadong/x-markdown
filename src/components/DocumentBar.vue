@@ -16,7 +16,7 @@
       @contextmenu.prevent="openContextMenu($event, document.id)"
       @dragstart="handleDragStart($event, document.id)"
       @dragover.prevent="handleDocumentDragOver($event, document.id)"
-      @drop.stop="handleDocumentDrop($event, document.id)" @dragend="handleDragEnd">
+      @drop.stop="handleDocumentDrop(document.id)" @dragend="handleDragEnd">
       <span v-if="dragOverDocumentId === document.id"
         class="pointer-events-none absolute bottom-1 top-1 w-0.5 rounded bg-accent"
         :class="dragOverPlaceAfter ? 'right-0' : 'left-0'" />
@@ -191,7 +191,7 @@ const handleDragStart = (event: DragEvent, documentId: number): void => {
   event.dataTransfer.setData('text/plain', String(documentId))
 }
 
-const handleDocumentDrop = (event: DragEvent, targetDocumentId: number): void => {
+const handleDocumentDrop = (targetDocumentId: number): void => {
   const sourceDocumentId = draggedDocumentId.value
   if (sourceDocumentId === null || sourceDocumentId === targetDocumentId) return
 

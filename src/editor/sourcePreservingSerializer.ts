@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { topLevelRangesFromTokens, type BlockTokenLike } from "../modules/viewSync";
+import { lcsMatches } from "../utils/longestCommonSubsequence";
 
 /**
  * 块级源码映射增量保存（方案 B）核心。
@@ -103,45 +104,6 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
     }
 
     return { text, segments, trailing: text.slice(previousCoreEnd) };
-};
-
-/**
- * 求两个指纹序列的最长公共子序列，返回相对下标匹配对（升序）。
- * 只在前缀/后缀裁剪后的残差上运行，编辑通常是局部的，残差很小。
- */
-const lcsMatches = (a: readonly string[], b: readonly string[]): Array<[number, number]> => {
-    const n = a.length;
-    const m = b.length;
-    if (n === 0 || m === 0) return [];
-
-    // lengths[i][j] = a[i..] 与 b[j..] 的 LCS 长度。
-    const lengths: number[][] = Array.from({ length: n + 1 }, () =>
-        new Array<number>(m + 1).fill(0),
-    );
-    for (let i = n - 1; i >= 0; i -= 1) {
-        for (let j = m - 1; j >= 0; j -= 1) {
-            lengths[i][j] =
-                a[i] === b[j]
-                    ? lengths[i + 1][j + 1] + 1
-                    : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
-        }
-    }
-
-    const matches: Array<[number, number]> = [];
-    let i = 0;
-    let j = 0;
-    while (i < n && j < m) {
-        if (a[i] === b[j]) {
-            matches.push([i, j]);
-            i += 1;
-            j += 1;
-        } else if (lengths[i + 1][j] >= lengths[i][j + 1]) {
-            i += 1;
-        } else {
-            j += 1;
-        }
-    }
-    return matches;
 };
 
 /**
