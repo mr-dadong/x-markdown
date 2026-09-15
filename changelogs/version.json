@@ -1,6 +1,82 @@
 {
-  "latest": "1.3.3",
+  "latest": "1.3.4",
   "releases": [
+    {
+      "version": "1.3.4",
+      "date": "2026-09-16",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：代码块支持导出为 PNG 图片，方便粘贴到文档或分享给他人",
+        "优化：二进制导出流程（ZIP / DOCX / PNG）统一重构，弹出保存对话框时自动处理文件名中的特殊字符，避免路径错乱",
+        "新增：图片预览功能增强，打开链接文档时同级图片可正常显示",
+        "优化：本地链接处理改进，以 `/` 开头的资源地址按文档所在目录解析，不再误解析到磁盘分区根目录",
+        "修复：AgentTimeline 组件代码样式格式化，提升可读性",
+        "优化：HTML块编辑交互，支持双击编辑源码",
+        "新增：添加导出进度条和状态信息",
+        "优化：代码块导出样式，确保长代码在静态导出中正确换行"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.3.4-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Windows-x64.exe",
+              "sha256": "ccfb3dd8e4c52579792fd395749a1c7afa08c36d513d04bd6fbebba67fccbe5f"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.4-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-macOS-arm64.dmg",
+              "sha256": "920674b2f0003f3fd24c11970bfcf8fcd66cfb00b400ea0fa9f0877ffa0d6a32"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.4-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-macOS-x64.dmg",
+              "sha256": "81f6be1a0f8476f21d266bb22c025c77823bb79f34a6581654b0281fd288045a"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.4-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Linux-x86_64.AppImage",
+              "sha256": "33ddb3c8f9637f405702ecdc40d79d48de746f28d0b9c6d73020f502932babbc"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.4-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Linux-arm64.AppImage",
+              "sha256": "e4e0dc66949614806b27570f7fcc5ab29ec04170f7c1216b7939d56a69781b9b"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.3.3",
       "date": "2026-09-14",
