@@ -18,8 +18,8 @@
           @update:model-value="selectLanguage" />
       </div>
 
-      <!-- 操作按钮只服务于编辑交互，克隆导出图片时会根据此标记整块移除。 -->
-      <div class="flex shrink-0 items-center gap-2" data-xmd-code-actions>
+      <!-- 操作按钮只服务于编辑交互；按钮区位于标题栏内部，导出图片时随标题栏（data-xmd-code-header）一起移除。 -->
+      <div class="flex shrink-0 items-center gap-2">
         <!-- 换行切换按钮：与设置面板的“代码块内自动换行”共用同一个开关，
              开启时用选中底色高亮，方便一眼看出当前状态。 -->
         <button type="button" :title="settings.codeWrap ? '关闭自动换行' : '开启自动换行'"
@@ -35,7 +35,7 @@
           <Icon :icon="copied ? 'lucide:check' : 'lucide:copy'" :size="14" />
         </button>
         <!-- 下载图片按钮：把当前代码块连同配色、语法高亮保存为 PNG 图片。 -->
-        <button type="button" title="下载为图片"
+        <button type="button" title="下载为图片" :disabled="exportingImage"
           class="flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerControlClass, activeCodeBlockStyle.headerHoverClass]"
           @click.stop="downloadAsImage">
@@ -110,19 +110,30 @@ const copyCode = async (): Promise<void> => {
 // NodeViewWrapper 渲染为单个根元素，通过组件实例的 $el 拿到代码块根 DOM。
 const codeBlockWrapper = ref<ComponentPublicInstance | null>(null)
 
+// 导出进行中标志：截图与保存对话框未结束时忽略重复点击，
+// 避免同时产生多个屏幕外克隆容器与保存对话框。
+const exportingImage = ref(false)
+
 /*
  * 把当前代码块导出为 PNG 图片：
  * 用 html-to-image 在渲染进程内直接克隆截图，语法高亮配色与所选外观
  * 原样保留，图片尺寸就是代码块内容尺寸；生成二进制后交给主进程弹窗保存。
  */
 const downloadAsImage = async (): Promise<void> => {
+  if (exportingImage.value) return
   const root = codeBlockWrapper.value?.$el as HTMLElement | null
   if (!root) return
+  exportingImage.value = true
   try {
     const bytes = await codeBlockToPngBytes(root, settings.codeWrap)
-    await exportService.exportPng(bytes, `代码块-${getCodeBlockLanguageLabel(currentLanguage.value)}`)
+    // 语言标签可能含路径分隔符（如 xml 的 "HTML / XML"），先替换成连字符，
+    // 避免拼出会被当成目录解析的默认文件名。
+    const languageLabel = getCodeBlockLanguageLabel(currentLanguage.value).replace(/[\\/]/g, '-')
+    await exportService.exportPng(bytes, `代码块-${languageLabel}`)
   } catch (error) {
     await window.electronAPI.showErrorMessage('导出图片失败', (error as Error).message)
+  } finally {
+    exportingImage.value = false
   }
 }
 </script>

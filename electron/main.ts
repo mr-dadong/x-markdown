@@ -46,6 +46,7 @@ import type {
   ExportHtmlData,
   ExportImageData,
   ExportPngData,
+  ExportResult,
   ExportTextData,
   ExportZipData,
   RendererDiagnosticEvent,
@@ -846,19 +847,35 @@ ipcMain.handle(
   },
 );
 
+/*
+ * 二进制导出的通用落盘流程：弹出保存对话框，把数据写入用户选择的路径。
+ * ZIP / DOCX / PNG 三种导出只差扩展名与筛选器文案，收敛到这里，
+ * 新增导出目标时只需传入扩展名与筛选器名称，对话框选项统一维护。
+ */
+const saveBinaryWithDialog = async (
+  data: Buffer,
+  suggestedName: string,
+  extension: string,
+  filterName: string,
+): Promise<ExportResult> => {
+  if (!mainWindow) return { canceled: true };
+  // suggestedName 来自渲染层（如代码块语言标签 "HTML / XML"），可能含路径分隔符
+  // 或 Windows 非法文件名字符，先替换成连字符再拼默认文件名，避免对话框路径错乱。
+  const safeName = suggestedName.replace(/[\\/:*?"<>|]/g, "-");
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: `${safeName}.${extension}`,
+    filters: [{ name: filterName, extensions: [extension] }],
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  await fs.promises.writeFile(result.filePath, data);
+  return { canceled: false, filePath: result.filePath };
+};
+
 // 导出为 ZIP 包：渲染进程已经完成 Markdown 与图片的打包，这里只负责落盘。
 ipcMain.handle(
   IPC_CHANNELS.exportZip,
-  async (_event, { zipData, suggestedName }: ExportZipData) => {
-    if (!mainWindow) return { canceled: true };
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: `${suggestedName}.zip`,
-      filters: [{ name: "ZIP 压缩包", extensions: ["zip"] }],
-    });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    await fs.promises.writeFile(result.filePath, Buffer.from(zipData));
-    return { canceled: false, filePath: result.filePath };
-  },
+  async (_event, { zipData, suggestedName }: ExportZipData) =>
+    saveBinaryWithDialog(Buffer.from(zipData), suggestedName, "zip", "ZIP 压缩包"),
 );
 
 // 导出为纯文本：文档原文本身就是 UTF-8 文本，直接选路径写 .txt 文件。
@@ -879,16 +896,8 @@ ipcMain.handle(
 // 导出为 Word 文档：渲染进程已组装好 docx 二进制，主进程只负责落盘。
 ipcMain.handle(
   IPC_CHANNELS.exportDocx,
-  async (_event, { docxData, suggestedName }: ExportDocxData) => {
-    if (!mainWindow) return { canceled: true };
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: `${suggestedName}.docx`,
-      filters: [{ name: "Word 文档", extensions: ["docx"] }],
-    });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    await fs.promises.writeFile(result.filePath, Buffer.from(docxData));
-    return { canceled: false, filePath: result.filePath };
-  },
+  async (_event, { docxData, suggestedName }: ExportDocxData) =>
+    saveBinaryWithDialog(Buffer.from(docxData), suggestedName, "docx", "Word 文档"),
 );
 
 // 导出为图片：用隐藏窗口加载导出的 HTML 后栅格化为 PNG，不影响当前编辑窗口。
@@ -981,19 +990,11 @@ ipcMain.handle(
 );
 
 // 保存 PNG 图片：渲染进程已用 html-to-image 生成 PNG 二进制，
-// 这里只负责弹出保存对话框并落盘，不再经过隐藏窗口栅格化。
+// 复用二进制导出的通用落盘流程，不再经过隐藏窗口栅格化。
 ipcMain.handle(
   IPC_CHANNELS.exportPng,
-  async (_event, { pngData, suggestedName }: ExportPngData) => {
-    if (!mainWindow) return { canceled: true };
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: `${suggestedName}.png`,
-      filters: [{ name: "PNG 图片", extensions: ["png"] }],
-    });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    await fs.promises.writeFile(result.filePath, Buffer.from(pngData));
-    return { canceled: false, filePath: result.filePath };
-  },
+  async (_event, { pngData, suggestedName }: ExportPngData) =>
+    saveBinaryWithDialog(Buffer.from(pngData), suggestedName, "png", "PNG 图片"),
 );
 
 ipcMain.handle(IPC_CHANNELS.openFile, async () => {

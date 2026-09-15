@@ -25,6 +25,7 @@ export const mountCodeBlockSnapshot = (
     clone.style.margin = "0";
     // 窗口式标题栏（含红绿灯、语言选择器与操作按钮）不进入分享图。
     clone.querySelectorAll("[data-xmd-code-header]").forEach((header) => header.remove());
+    const sourcePre = codeBlockRoot.querySelector("pre");
     const pre = clone.querySelector("pre");
     if (pre) {
         const preStyle = (pre as HTMLElement).style;
@@ -34,6 +35,23 @@ export const mountCodeBlockSnapshot = (
         // class 本身带 !important，需同样用 important 内联才能覆盖。
         preStyle.setProperty("border", "none", "important");
         preStyle.setProperty("border-radius", "10px", "important");
+        // 屏幕外容器脱离了编辑器的 .tiptap / .typography-pane 作用域，
+        // 那里的字号、行高与字体族规则对新克隆树不再匹配（会回落到 preflight 默认，
+        // 字号明显偏大）；把源 pre 的计算样式复制过来，保证图片排版与编辑器视觉一致。
+        if (sourcePre) {
+            const sourceStyle = getComputedStyle(sourcePre);
+            preStyle.fontSize = sourceStyle.fontSize;
+            preStyle.fontFamily = sourceStyle.fontFamily;
+            preStyle.lineHeight = sourceStyle.lineHeight;
+            // 代码正文的等宽字体来自 .tiptap code 规则，同样只作用于编辑器作用域；
+            // 一并复制到克隆 code，否则字体族会退回 preflight 的默认等宽栈。
+            const sourceCode = sourcePre.querySelector("code");
+            const snapshotCode = pre.querySelector("code");
+            if (sourceCode && snapshotCode) {
+                (snapshotCode as HTMLElement).style.fontFamily =
+                    getComputedStyle(sourceCode).fontFamily;
+            }
+        }
     }
     if (!wrap) {
         const code = pre?.querySelector("code");
@@ -77,7 +95,9 @@ export const codeBlockToPngBytes = async (
             },
         });
         const decoded = decodeDataUrl(dataUrl);
-        if (!decoded) throw new Error("PNG 数据解码失败");
+        // toPng 栅格化失败时会返回 "data:,"，解码结果是空字节而非 null；
+        // 一并拦下，避免落盘出打不开的 0 字节 PNG。
+        if (!decoded || decoded.bytes.length === 0) throw new Error("PNG 数据解码失败");
         return decoded.bytes;
     } finally {
         // 无论成败都移除屏幕外容器，不留临时节点。

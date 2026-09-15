@@ -135,7 +135,7 @@ describe("代码块截图克隆准备", () => {
     const root = document.createElement("div");
     root.className = "code-block-editor";
     root.innerHTML = [
-      '<div data-xmd-code-header class="code-header"><div data-xmd-code-actions><button type="button">复制</button></div></div>',
+      '<div data-xmd-code-header class="code-header"><div class="code-actions"><button type="button">复制</button></div></div>',
       '<pre class="whitespace-pre overflow-x-auto"><code class="language-ts"><span class="hljs-keyword">const</span> value = 1</code></pre>',
     ].join("");
     return root;
