@@ -11,6 +11,7 @@ import type {
   ImportEditorFileOptions,
   IpcChannel,
   OpenFileData,
+  OpenLocalLinkResult,
   RecoveryDraftData,
   RendererDiagnosticEvent,
   SaveFileData,
@@ -352,7 +353,7 @@ const electronAPI: ElectronAPI = {
   editorFileExists: (url: string, currentDocumentPath: string | null): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.editorFileExists, { url, currentDocumentPath }),
 
-  openLocalLink: (url: string, currentDocumentPath: string | null): Promise<void> =>
+  openLocalLink: (url: string, currentDocumentPath: string | null): Promise<OpenLocalLinkResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.openLocalLink, { url, currentDocumentPath }),
 
   checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.checkForUpdates),

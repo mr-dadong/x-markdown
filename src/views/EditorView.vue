@@ -19,10 +19,9 @@
                 <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
-                    :modal-open="isSettingsOpen || isUpdateModalOpen"
-                    @update:content="handleContentUpdate"
+                    :modal-open="isSettingsOpen || isUpdateModalOpen" @update:content="handleContentUpdate"
                     @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings"
-                    @add-to-selection="handleAddToSelection" />
+                    @add-to-selection="handleAddToSelection" @open-local-markdown="handleOpenFileFromSidebar" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
                     :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
                 <div v-if="!isDocumentOpen"
@@ -75,7 +74,7 @@
                                     <span class="min-w-0 flex-1">
                                         <span
                                             class="block truncate text-[13px] font-medium text-secondary group-hover:text-ink">{{
-                                            getFileName(filePath) }}</span>
+                                                getFileName(filePath) }}</span>
                                         <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
                                     </span>
                                     <span role="button" tabindex="-1" title="从最近列表移除"
@@ -92,17 +91,16 @@
             <!-- Chat 侧栏：放在 flex 行内，与编辑区并列 -->
             <AiChatSidebar :document-open="isDocumentOpen" :get-document-context="getAiDocumentContext"
                 :get-selection="getAiSelection" :get-cursor-offset="getAiCursorOffset"
-                :insert-at-cursor="insertAiAtCursor" :replace-selection="replaceAiSelection" :get-file-path="getAiFilePath"
-                :get-document-id="() => activeDocumentId" :apply-agent-document="applyAgentDocument"
-                :pending-selections="pendingSelections" @clear-pending-selections="clearPendingSelections"
-                @remove-pending-selection="removePendingSelection"
+                :insert-at-cursor="insertAiAtCursor" :replace-selection="replaceAiSelection"
+                :get-file-path="getAiFilePath" :get-document-id="() => activeDocumentId"
+                :apply-agent-document="applyAgentDocument" :pending-selections="pendingSelections"
+                @clear-pending-selections="clearPendingSelections" @remove-pending-selection="removePendingSelection"
                 @close="isAiChatOpen = false" @open-settings="openAiSettings" />
         </div>
 
         <AppStatusBar :line-count="documentStats.lineCount" :character-count="documentStats.characterCount"
-            :is-modified="isModified"
-            :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode" :document-open="isDocumentOpen"
-            @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
+            :is-modified="isModified" :sidebar-visible="isSidebarVisible" :source-mode="isSourceMode"
+            :document-open="isDocumentOpen" @toggle-sidebar="toggleSidebar" @toggle-source-mode="toggleSourceMode" />
         <SettingsModal />
         <UpdateModal />
         <ConfirmDialog />
@@ -159,10 +157,10 @@ const documentModes = new Map<number, boolean>()
 // 标签页视图状态：每个打开的文档独立保存自己的阅读位置，
 // 切换标签时保存旧文档锚点、恢复新文档锚点，避免超长文档来回切换时反复从头滚动。
 interface DocumentViewState {
-  // 渲染视图：视口顶部所在顶层块 + 块内偏移比例（与 viewSync 锚点体系一致）。
-  renderedAnchor: ViewportAnchor | null
-  // 源码视图：视口顶部行号（0 起始，与 markdown-it 一致）。
-  sourceLine: number | null
+    // 渲染视图：视口顶部所在顶层块 + 块内偏移比例（与 viewSync 锚点体系一致）。
+    renderedAnchor: ViewportAnchor | null
+    // 源码视图：视口顶部行号（0 起始，与 markdown-it 一致）。
+    sourceLine: number | null
 }
 const viewStates = new Map<number, DocumentViewState>()
 // 快速连续切换标签时只恢复最后一次激活的文档，避免旧回调覆盖新位置。
@@ -179,7 +177,7 @@ const openGeneralSettings = (): void => {
 
 // 点击右上角 AI 图标：开↔关切换，与快捷键 Ctrl+Shift+A 行为一致。
 const openAiChat = (): void => {
-isAiChatOpen.value = !isAiChatOpen.value
+    isAiChatOpen.value = !isAiChatOpen.value
 }
 
 // 查找替换控制器：同时服务所见即所得与源码两种编辑模式。
@@ -207,39 +205,39 @@ const getAiFilePath = (): string | null => currentFilePath.value
 // 原始 Markdown 通过源码事务写入，富文本视图由现有内容同步机制更新。
 // 单次接受与用户前后输入隔离，Ctrl+Z 不会连带撤销用户刚输入的文字。
 const applyAgentDocument = (expected: string, next: string): void => {
-  const view = sourceEditorRef.value?.getView()
-  if (!view || currentContent.value !== expected || view.state.doc.toString() !== expected) {
-    throw new Error('编辑器内容已变化，请重新读取文档后执行')
-  }
-  const richEditor = editorRef.value?.getEditor()
-  if (richEditor) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
-  view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: next },
-    annotations: isolateHistory.of('full'),
-  })
-  // 富文本同步在 Vue 更新阶段发生，完成后再隔离下一次用户输入。
-  void nextTick(() => {
-    if (richEditor && !richEditor.isDestroyed) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
-  })
+    const view = sourceEditorRef.value?.getView()
+    if (!view || currentContent.value !== expected || view.state.doc.toString() !== expected) {
+        throw new Error('编辑器内容已变化，请重新读取文档后执行')
+    }
+    const richEditor = editorRef.value?.getEditor()
+    if (richEditor) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+    view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: next },
+        annotations: isolateHistory.of('full'),
+    })
+    // 富文本同步在 Vue 更新阶段发生，完成后再隔离下一次用户输入。
+    void nextTick(() => {
+        if (richEditor && !richEditor.isDestroyed) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+    })
 }
 
 const insertAiAtCursor = (text: string): void => {
-  // 聊天插入的 AI 内容先归一化过度转义，源码模式与富文本模式统一受益
-  const normalized = normalizeAiMarkdown(text)
-  if (isSourceMode.value) {
-    sourceEditorRef.value?.insertAtCursor(normalized)
-    return
-  }
-  editorRef.value?.insertAtCursor(normalized)
+    // 聊天插入的 AI 内容先归一化过度转义，源码模式与富文本模式统一受益
+    const normalized = normalizeAiMarkdown(text)
+    if (isSourceMode.value) {
+        sourceEditorRef.value?.insertAtCursor(normalized)
+        return
+    }
+    editorRef.value?.insertAtCursor(normalized)
 }
 
 const replaceAiSelection = (text: string): void => {
-  const normalized = normalizeAiMarkdown(text)
-  if (isSourceMode.value) {
-    sourceEditorRef.value?.replaceSelection(normalized)
-    return
-  }
-  editorRef.value?.replaceSelection(normalized)
+    const normalized = normalizeAiMarkdown(text)
+    if (isSourceMode.value) {
+        sourceEditorRef.value?.replaceSelection(normalized)
+        return
+    }
+    editorRef.value?.replaceSelection(normalized)
 }
 
 // 添加选中文本到 AI Chat 输入框

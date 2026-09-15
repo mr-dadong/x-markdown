@@ -1,9 +1,9 @@
 <template>
   <!-- 填满主区域，不再按文档内容的固有宽度占位。 -->
   <div ref="editorShell" class="relative flex h-full min-w-0 flex-1 overflow-hidden bg-paper"
-    @mousemove="handleEditorMouseMove" @mouseover="handleLinkMouseOver" @click="handleEditorContentClick"
-    @keydown="handleAttachmentKeydown" @mouseleave="handleEditorAreaLeave" @dragover.capture="handleBlockDragOver"
-    @drop.capture="handleBlockDrop">
+    @mousemove="handleEditorMouseMove" @mouseover="(event) => { handleLinkMouseOver(event); updateHeadingBadge(event) }"
+    @click="handleEditorContentClick" @keydown="handleAttachmentKeydown" @mouseleave="handleEditorAreaLeave"
+    @dragover.capture="handleBlockDragOver" @drop.capture="handleBlockDrop">
     <!-- 编辑器内容区域：typography-pane 承载排版与预览缩放样式，通过 CSS 变量生效。 -->
     <editor-content :editor="editor" class="editor-scroll typography-pane h-full min-w-0 flex-1 overflow-y-auto"
       :style="typographyStyle" @scroll="handleEditorScroll" />
@@ -41,17 +41,17 @@
 
     <!-- AI 实时编写状态框 - 固定在编辑器底部，单独占一行 -->
     <div v-if="inlineWriterStatus !== 'idle'" class="ai-writer-status-bar">
-        <InlineWriterBar :status="inlineWriterStatus" :error="inlineWriterError" :current-action="inlineWriterAction"
-          :has-output="Boolean(inlineWriterGhostText)" :finish-reason="inlineWriterFinishReason"
-          :completion-tokens="inlineWriterCompletionTokens"
-          @accept="acceptInlineWriterResult" @reject="rejectInlineWriterResult" @cancel="cancelInlineWriter"
-          @retry="retryInlineWriter" />
+      <InlineWriterBar :status="inlineWriterStatus" :error="inlineWriterError" :current-action="inlineWriterAction"
+        :has-output="Boolean(inlineWriterGhostText)" :finish-reason="inlineWriterFinishReason"
+        :completion-tokens="inlineWriterCompletionTokens" @accept="acceptInlineWriterResult"
+        @reject="rejectInlineWriterResult" @cancel="cancelInlineWriter" @retry="retryInlineWriter" />
     </div>
 
     <!-- 左侧轨道仅保留操作热区，不使用边框和底色，避免拖拽柄抢夺正文注意力。 -->
     <div v-if="blockControlVisible && activeBlock" data-block-control
       class="fixed z-20 flex h-7 items-center text-muted/45" :style="blockControlStyle" contenteditable="false"
       @mousemove.stop @mouseleave="handleBlockControlLeave">
+      <!-- 标题层级标签：鼠标悬停时显示 H1/H2 等，帮助用户快速识别标题层级，无需切换到源码页或查看左侧大纲。 -->
       <button type="button" draggable="true" title="拖动内容块"
         class="flex h-7 w-6 cursor-grab items-center justify-center rounded hover:bg-control-hover hover:text-secondary active:cursor-grabbing focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @click.stop="toggleBlockMenu" @dragstart="handleBlockDragStart" @dragend="finishBlockDrag">
@@ -63,6 +63,13 @@
         :title="activeBlockCollapsed ? '展开章节' : '折叠章节'" @click="toggleActiveHeading">
         <Icon :icon="activeBlockCollapsed ? 'lucide:chevron-right' : 'lucide:chevron-down'" :size="14" />
       </button>
+    </div>
+
+    <!-- 标题层级悬浮标签：鼠标悬停标题时显示在标题右上角，快速识别 H1/H2 等层级。 -->
+    <div v-if="headingBadge" contenteditable="false"
+      class="pointer-events-none fixed z-30 flex h-5 items-center rounded-md bg-accent/20 px-1.5 font-mono text-[11px] font-medium text-accent"
+      :style="{ left: `${headingBadge.left}px`, top: `${headingBadge.top}px` }">
+      H{{ headingBadge.level }}
     </div>
 
     <!-- 块菜单沿用表格工具栏的深色风格，图标旁直接显示文字标签，不用悬停也能看懂功能。 -->
@@ -241,6 +248,7 @@ import { buildWriterContext } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
+import { documentService } from '../services/documentService'
 import { useSettings } from '../composables/useSettings'
 import type { EditorBodyFont, EditorLineWidth, PreviewZoomLevel } from '../composables/useSettings'
 import AiSelectionBar from './ai/AiSelectionBar.vue'
@@ -307,6 +315,8 @@ const emit = defineEmits<{
   'open-ai-panel': []
   'open-settings': []
   'add-to-selection': [text: string]
+  // 链接指向本地 Markdown 文档时，交给外层按普通文档打开（复用标签页流程）
+  'open-local-markdown': [filePath: string]
 }>()
 
 // AI 实时编写输入框状态
@@ -698,6 +708,8 @@ const handleEditorScroll = (): void => {
   refreshBlockControlPosition()
   handleSlashMenuScroll()
   handleAiWriterScroll()
+  // 滚动时重新计算标题标签位置，让标签跟随标题移动。
+  refreshHeadingBadge()
 }
 
 // 菜单使用 fixed 定位，需要按编辑区而非整个窗口限制上下边界，避免覆盖底部状态栏。
@@ -763,6 +775,9 @@ const linkCopied = ref(false)
 const linkInput = ref<HTMLInputElement | null>(null)
 let linkCloseTimer: ReturnType<typeof setTimeout> | null = null
 
+// 标题层级悬浮标签：记录当前悬停标题的层级与屏幕坐标，用于右上角定位。
+const headingBadge = ref<{ level: number; left: number; top: number } | null>(null)
+
 const linkMenuStyle = computed(() => ({
   left: `${activeLink.value?.left ?? 0}px`,
   top: `${activeLink.value?.top ?? 0}px`,
@@ -797,6 +812,48 @@ const handleLinkMouseOver = (event: MouseEvent): void => {
   }
   editingLink.value = false
   linkCopied.value = false
+}
+
+// 鼠标悬停标题时，在标题右上角显示 H1/H2 等层级标签，无需切换源码页或查看大纲。
+// 记录当前悬停的标题元素，滚动时用于重新计算标签位置，让标签跟随标题移动。
+let hoveredHeading: HTMLElement | null = null
+
+const refreshHeadingBadge = (): void => {
+  if (!hoveredHeading || !document.body.contains(hoveredHeading)) {
+    hoveredHeading = null
+    headingBadge.value = null
+    return
+  }
+  // 标题元素是块级、宽度占满容器，直接用 rect.right 会落到容器右边缘；
+  // 改用 Range 取标题文字第一行的实际边界，标签才能贴着文字右上角。
+  const range = document.createRange()
+  range.selectNodeContents(hoveredHeading)
+  const textRects = range.getClientRects()
+  const firstRect = textRects[0] ?? hoveredHeading.getBoundingClientRect()
+  headingBadge.value = {
+    level: Number(hoveredHeading.tagName.slice(1)),
+    // 标签放在标题文字第一行的右上角外侧。
+    left: firstRect.right + 8,
+    top: firstRect.top - 4,
+  }
+}
+
+const updateHeadingBadge = (event: MouseEvent): void => {
+  const target = event.target as HTMLElement | null
+  const editorDom = editor.value?.view.dom
+  if (!target || !editorDom || !editorDom.contains(target)) {
+    hoveredHeading = null
+    headingBadge.value = null
+    return
+  }
+  const heading = target.closest('h1, h2, h3, h4, h5, h6') as HTMLElement | null
+  if (!heading) {
+    hoveredHeading = null
+    headingBadge.value = null
+    return
+  }
+  hoveredHeading = heading
+  refreshHeadingBadge()
 }
 
 // Markdown 目录通常使用 GitHub 风格的标题锚点：保留中文，把空白转为连字符并移除标点。
@@ -849,9 +906,16 @@ const openMarkdownLink = async (href: string): Promise<void> => {
   }
 
   try {
-    await mediaService.openLocalLink(href, props.currentFilePath)
+    const result = await mediaService.openLocalLink(href, props.currentFilePath)
+    // Markdown 链接不进系统应用，在编辑器内以文档打开
+    if (result.kind === 'markdown') emit('open-local-markdown', result.filePath)
   } catch (error) {
     console.error('打开本地链接失败:', error)
+    // 失败原因（如文件不存在）弹窗告知，不能只留在控制台
+    await documentService.showErrorMessage(
+      '打开本地链接失败',
+      error instanceof Error ? error.message : String(error),
+    )
   }
 }
 
@@ -933,6 +997,7 @@ const scheduleLinkMenuClose = (): void => {
 const handleEditorAreaLeave = (event: MouseEvent): void => {
   handleEditorMouseLeave(event)
   scheduleLinkMenuClose()
+  headingBadge.value = null
 }
 
 const selectActiveLink = () => {
@@ -1444,6 +1509,34 @@ defineExpose<EditorHandle>({
 .tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image] {
   vertical-align: -0.3em;
   margin-right: 0.25em;
+}
+
+/*
+ * 独占一段的图片（真正的插图）：明确按正文列宽铺满显示。
+ * 根因：ProseMirror 会给「以图片等原子行内节点结尾」的段落自动补占位节点，
+ * 上面小图标规则里的 :only-child 排除条件因此永远不成立，
+ * 插图会被 max-height:1.5em 压成图标大小。
+ * 占位节点因浏览器而异（prosemirror-view addTextblockHacks）：
+ * - Chromium/Safari：[图片, img.ProseMirror-separator, br] 三个元素子节点；
+ * - 其他浏览器：[图片, br] 两个；
+ * 这里把三种真实结构（含理论上仅有的 [图片]）全部正向匹配并覆盖，
+ * 用 first-child + nth-last-child + 后邻占位节点确认，
+ * 不会误伤「图标+文字」这类段落（图片不在首位或后面跟着文字）。
+ * 小于列宽的图片不会放大（包装层宽度取内容自然宽度），避免低分辨率图变糊。
+ */
+.typography-pane .tiptap p>[data-xmd-image]:only-child,
+.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br),
+.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) {
+  vertical-align: baseline;
+  margin-right: 0;
+}
+
+.typography-pane .tiptap p>[data-xmd-image]:only-child img,
+.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br) img,
+.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) img {
+  width: 100%;
+  height: auto;
+  max-height: none;
 }
 
 /*

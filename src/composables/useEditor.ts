@@ -1398,7 +1398,7 @@ export const useMarkdownEditor = (
       (plugin) =>
         plugin.spec.key instanceof PluginKey &&
         typeof plugin.spec.key.getState(currentEditor.state)?.done?.eventCount ===
-          "number",
+        "number",
     );
     if (!historyPlugin) return;
     const historyKey = historyPlugin.spec.key as PluginKey;

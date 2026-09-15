@@ -20,7 +20,10 @@ import {
   authorizeDocument,
   authorizeFile,
 } from "./services/pathAccess";
-import { resolveEditorFilePath } from "./services/editorFilePath";
+import {
+  resolveEditorFilePath,
+  resolvePathFromDocument,
+} from "./services/editorFilePath";
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
@@ -1541,9 +1544,24 @@ ipcMain.handle(
     }: { url: string; currentDocumentPath: string | null },
   ) => {
     if (!currentDocumentPath) throw new Error("请先保存当前文档");
-    const filePath = resolveEditorFilePath(url, currentDocumentPath);
-    const errorMessage = await shell.openPath(filePath);
-    if (errorMessage) throw new Error(errorMessage);
+    // 本地链接可能带 #锚点 或 ?查询后缀，它们不属于文件名，解析前先去掉
+    const plainUrl = url.split(/[?#]/u)[0];
+    const filePath = resolvePathFromDocument(plainUrl, currentDocumentPath);
+    // 目标不存在时 shell.openPath 只会返回含糊的系统错误，先给出明确提示
+    const exists = await fs.promises
+      .access(filePath)
+      .then(() => true, () => false);
+    if (!exists) throw new Error(`文件不存在：${filePath}`);
+    // Markdown 链接在编辑器内以文档打开：点击链接等同于用户明确打开该文档，
+    // 与打开对话框同一规则加入授权名单（含文档目录之外的相对链接）
+    if (/\.markdown?$/iu.test(filePath)) {
+      authorizeDocument(filePath);
+      return { kind: "markdown", filePath };
+    }
+    // 其余本地文件交给系统默认应用，仍保留授权边界
+    const errorMessage = await shell.openPath(assertAuthorizedPath(filePath));
+    if (errorMessage) throw new Error(`系统应用打开失败：${errorMessage}`);
+    return { kind: "opened" };
   },
 );
 

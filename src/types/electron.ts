@@ -127,6 +127,12 @@ export interface ExportImageData {
   suggestedName: string;
 }
 
+// 本地链接打开结果：markdown 表示链接指向 Markdown 文档，
+// 由渲染进程在编辑器内以文档打开；opened 表示已交给系统默认应用。
+export type OpenLocalLinkResult =
+  | { kind: "markdown"; filePath: string }
+  | { kind: "opened" };
+
 export interface ElectronAPI {
   aiService: AiServiceApi;
   /** 当前文档 Agent 的执行和进度接口。 */
@@ -236,7 +242,7 @@ export interface ElectronAPI {
   openLocalLink: (
     url: string,
     currentDocumentPath: string | null,
-  ) => Promise<void>;
+  ) => Promise<OpenLocalLinkResult>;
   openExternalLink: (url: string) => Promise<void>;
   checkForUpdates: () => Promise<UpdateCheckResult>;
   downloadUpdate: () => Promise<UpdateDownloadResult>;

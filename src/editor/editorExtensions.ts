@@ -73,6 +73,7 @@ import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { MarkdownEscapeRelaxer } from "./markdownEscapeRelaxer";
 import { LiteralHardBreak } from "./hardBreakSerialization";
 import { mediaService } from "../services/mediaService";
+import { openImagePreview } from "../modules/imagePreviewOverlay";
 import {
   configureTyporaTableParsing,
   ensureTableCellsHaveContent,
@@ -243,13 +244,59 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         const wrapper = document.createElement("span");
         const image = document.createElement("img");
         const resizeHandle = document.createElement("span");
+        // 悬停在图片上时浮出的工具条：承载放大预览等操作按钮。
+        // 浅色主题下 accent 是近黑色，角上放方块按钮会像黑痂，
+        // 改用与编辑器其他浮层一致的纸底描边小工具条。
+        // 容器底部留 4px 透明 padding 作为 hover 过渡桥：
+        // 鼠标从图片移向按钮的路上不会离开 wrapper 的 hover 范围，工具条不会闪消。
+        const toolbar = document.createElement("span");
+        toolbar.className =
+          "absolute bottom-full right-0 hidden flex-col items-end pb-1 group-hover:flex";
+        toolbar.contentEditable = "false";
+        const toolbarPill = document.createElement("span");
+        toolbarPill.className =
+          "flex items-center gap-0.5 rounded-md border border-line bg-paper p-0.5";
+        const zoomButton = document.createElement("span");
+        zoomButton.className =
+          "flex h-6 w-6 cursor-pointer items-center justify-center rounded text-icon hover:bg-control-hover hover:text-ink";
+        zoomButton.title = "放大预览";
+        // 内联放大镜图标（填充路径绘制，不使用 stroke-width 属性）
+        zoomButton.innerHTML =
+          '<svg viewBox="0 0 16 16" class="h-3.5 w-3.5"><path fill="currentColor" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"></path></svg>';
+        toolbarPill.append(zoomButton);
+        toolbar.append(toolbarPill);
 
         // 行内容器保留图片与前后文字的关系，图片本身仍可单独选中和调整宽度。
-        wrapper.className = "relative inline-flex max-w-full align-middle rounded-sm";
+        // group：供工具条用 group-hover 在鼠标悬停时显示。
+        wrapper.className = "relative inline-flex max-w-full align-middle rounded-sm group";
         wrapper.dataset.xmdImage = "";
+        // 拖宽控制点：蓝色圆点与选中描边同色，纸色描边把它与图片内容隔开
         resizeHandle.className =
-          "absolute bottom-0 right-0 hidden h-4 w-4 translate-x-1/2 translate-y-1/2 cursor-nwse-resize rounded-sm border-2 border-white bg-accent";
+          "absolute bottom-0 right-0 hidden h-3.5 w-3.5 translate-x-1/2 translate-y-1/2 cursor-nwse-resize rounded-full border-2 border-paper bg-link";
         resizeHandle.contentEditable = "false";
+
+        const openPreview = (): void => {
+          openImagePreview({
+            src: currentNode.attrs.src,
+            alt: currentNode.attrs.alt ?? null,
+            currentDocumentPath: getCurrentDocumentPath?.() ?? null,
+          });
+        };
+
+        zoomButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openPreview();
+        });
+
+        // 双击图片本体同样打开放大预览；链接里的行内小图标除外，
+        // 那种图标双击的第一下已经触发「打开链接」，再叠预览会互相打扰。
+        wrapper.addEventListener("dblclick", (event) => {
+          if (wrapper.closest("a")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          openPreview();
+        });
 
         const renderImage = (src: string, alt: string | null, title: string | null): void => {
           image.alt = alt ?? "";
@@ -310,7 +357,7 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           resizeHandle.addEventListener("pointercancel", finishResize);
         });
 
-        wrapper.append(image, resizeHandle);
+        wrapper.append(image, resizeHandle, toolbar);
         renderImage(node.attrs.src, node.attrs.alt, node.attrs.title);
         return {
           dom: wrapper,
@@ -338,7 +385,9 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
             );
             resizeHandle.classList.add("hidden");
           },
-          stopEvent: (event) => event.target === resizeHandle,
+          stopEvent: (event) =>
+            event.target === resizeHandle ||
+            toolbar.contains(event.target as Node),
         };
       };
     },
