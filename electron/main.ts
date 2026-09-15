@@ -45,6 +45,7 @@ import type {
   ExportDocxData,
   ExportHtmlData,
   ExportImageData,
+  ExportPngData,
   ExportTextData,
   ExportZipData,
   RendererDiagnosticEvent,
@@ -976,6 +977,22 @@ ipcMain.handle(
     } finally {
       captureWindow.destroy();
     }
+  },
+);
+
+// 保存 PNG 图片：渲染进程已用 html-to-image 生成 PNG 二进制，
+// 这里只负责弹出保存对话框并落盘，不再经过隐藏窗口栅格化。
+ipcMain.handle(
+  IPC_CHANNELS.exportPng,
+  async (_event, { pngData, suggestedName }: ExportPngData) => {
+    if (!mainWindow) return { canceled: true };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `${suggestedName}.png`,
+      filters: [{ name: "PNG 图片", extensions: ["png"] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, Buffer.from(pngData));
+    return { canceled: false, filePath: result.filePath };
   },
 );
 

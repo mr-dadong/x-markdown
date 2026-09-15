@@ -38,6 +38,7 @@ export const IPC_CHANNELS = {
   exportText: "export-text",
   exportDocx: "export-docx",
   exportImage: "export-image",
+  exportPng: "export-png",
   readDirectory: "read-directory",
   createFileTreeEntry: "create-file-tree-entry",
   renameFileTreeEntry: "rename-file-tree-entry",

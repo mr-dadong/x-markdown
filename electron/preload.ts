@@ -6,6 +6,7 @@ import type {
   ExportDocxData,
   ExportHtmlData,
   ExportImageData,
+  ExportPngData,
   ExportTextData,
   ExportZipData,
   ImportEditorFileOptions,
@@ -369,6 +370,8 @@ const electronAPI: ElectronAPI = {
   exportDocx: (data: ExportDocxData) => ipcRenderer.invoke(IPC_CHANNELS.exportDocx, data),
 
   exportImage: (data: ExportImageData) => ipcRenderer.invoke(IPC_CHANNELS.exportImage, data),
+
+  exportPng: (data: ExportPngData) => ipcRenderer.invoke(IPC_CHANNELS.exportPng, data),
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 

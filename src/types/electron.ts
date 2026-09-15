@@ -127,6 +127,12 @@ export interface ExportImageData {
   suggestedName: string;
 }
 
+// 保存 PNG 图片：渲染进程（html-to-image）已生成 PNG 二进制，主进程只负责弹保存框并落盘。
+export interface ExportPngData {
+  pngData: Uint8Array;
+  suggestedName: string;
+}
+
 // 本地链接打开结果：markdown 表示链接指向 Markdown 文档，
 // 由渲染进程在编辑器内以文档打开；opened 表示已交给系统默认应用。
 export type OpenLocalLinkResult =
@@ -178,6 +184,7 @@ export interface ElectronAPI {
   exportText: (data: ExportTextData) => Promise<ExportResult>;
   exportDocx: (data: ExportDocxData) => Promise<ExportResult>;
   exportImage: (data: ExportImageData) => Promise<ExportResult>;
+  exportPng: (data: ExportPngData) => Promise<ExportResult>;
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>;
   createFileTreeEntry: (parentPath: string, name: string, isDirectory: boolean) => Promise<void>;
   renameFileTreeEntry: (entryPath: string, newName: string) => Promise<void>;

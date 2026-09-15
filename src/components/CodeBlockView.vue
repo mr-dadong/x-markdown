@@ -1,15 +1,11 @@
 <template>
-  <node-view-wrapper
-    class="code-block-editor group relative my-[0.8em] flex flex-col"
-    :class="activeCodeBlockStyle.tokenClass"
-    @mouseleave="copied = false"
-  >
-    <!-- 使用独立标题栏模拟 macOS 代码窗口，所有控件都不会写入 Markdown 正文。 -->
-    <div
-      contenteditable="false"
+  <node-view-wrapper ref="codeBlockWrapper" class="code-block-editor group relative my-[0.8em] flex flex-col"
+    :class="activeCodeBlockStyle.tokenClass" @mouseleave="copied = false">
+    <!-- 使用独立标题栏模拟 macOS 代码窗口，所有控件都不会写入 Markdown 正文。
+         导出图片时根据 data-xmd-code-header 标记整体移除，只保留纯代码内容。 -->
+    <div contenteditable="false" data-xmd-code-header
       class="flex h-10 items-center justify-between rounded-t-md border border-b-0 px-3"
-      :class="activeCodeBlockStyle.headerClass"
-    >
+      :class="activeCodeBlockStyle.headerClass">
       <div class="flex min-w-0 items-center gap-3">
         <div class="flex shrink-0 items-center gap-1.5" title="代码块">
           <span class="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
@@ -18,40 +14,40 @@
         </div>
 
         <!-- 语言选择器独立维护，便于新增语言或调整交互。 -->
-        <CodeLanguagePicker
-          :model-value="currentLanguage"
-          :style="activeCodeBlockStyle"
-          @update:model-value="selectLanguage"
-        />
+        <CodeLanguagePicker :model-value="currentLanguage" :style="activeCodeBlockStyle"
+          @update:model-value="selectLanguage" />
       </div>
 
-      <div class="flex shrink-0 items-center gap-2">
+      <!-- 操作按钮只服务于编辑交互，克隆导出图片时会根据此标记整块移除。 -->
+      <div class="flex shrink-0 items-center gap-2" data-xmd-code-actions>
         <!-- 换行切换按钮：与设置面板的“代码块内自动换行”共用同一个开关，
              开启时用选中底色高亮，方便一眼看出当前状态。 -->
-        <button
-          type="button"
-          :title="settings.codeWrap ? '关闭自动换行' : '开启自动换行'"
+        <button type="button" :title="settings.codeWrap ? '关闭自动换行' : '开启自动换行'"
           class="flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerHoverClass, settings.codeWrap ? activeCodeBlockStyle.menuSelectedClass : activeCodeBlockStyle.headerControlClass]"
-          @click.stop="settings.codeWrap = !settings.codeWrap"
-        >
+          @click.stop="settings.codeWrap = !settings.codeWrap">
           <Icon icon="lucide:wrap-text" :size="14" />
         </button>
-        <button
-          type="button"
-          :title="copied ? '已复制' : '复制代码'"
+        <button type="button" :title="copied ? '已复制' : '复制代码'"
           class="flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerControlClass, activeCodeBlockStyle.headerHoverClass]"
-          @click.stop="copyCode"
-        >
+          @click.stop="copyCode">
           <Icon :icon="copied ? 'lucide:check' : 'lucide:copy'" :size="14" />
+        </button>
+        <!-- 下载图片按钮：把当前代码块连同配色、语法高亮保存为 PNG 图片。 -->
+        <button type="button" title="下载为图片"
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
+          :class="[activeCodeBlockStyle.headerControlClass, activeCodeBlockStyle.headerHoverClass]"
+          @click.stop="downloadAsImage">
+          <Icon icon="lucide:image-down" :size="14" />
         </button>
       </div>
     </div>
 
     <!-- 换行开启时文字折行显示；关闭时保留完整行并横向滚动。
          折行后行号与代码行不再逐行对应，此时隐藏行号列避免错位。 -->
-    <pre class="!m-0 flex !rounded-b-md !rounded-t-none !px-4 !py-4" :class="[activeCodeBlockStyle.preClass, settings.codeWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre overflow-x-auto']"><span
+    <pre class="!m-0 flex !rounded-b-md !rounded-t-none !px-4 !py-4"
+      :class="[activeCodeBlockStyle.preClass, settings.codeWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre overflow-x-auto']"><span
       v-if="settings.codeLineNumbers && !settings.codeWrap"
       contenteditable="false"
       class="mr-4 flex shrink-0 select-none flex-col border-r border-current pr-3 text-right opacity-60"
@@ -65,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import type { NodeViewProps } from '@tiptap/core'
 import { Selection } from '@tiptap/pm/state'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
@@ -72,7 +69,9 @@ import { Icon } from '@iconify/vue/offline'
 import { computed, ref } from 'vue'
 import CodeLanguagePicker from './code-block/CodeLanguagePicker.vue'
 import { useSettings } from '../composables/useSettings'
-import { DEFAULT_CODE_BLOCK_LANGUAGE } from '../modules/codeBlockLanguages'
+import { exportService } from '../services/exportService'
+import { codeBlockToPngBytes } from '../utils/codeBlockImage'
+import { DEFAULT_CODE_BLOCK_LANGUAGE, getCodeBlockLanguageLabel } from '../modules/codeBlockLanguages'
 import { getCodeBlockStyle } from '../modules/codeBlockStyles'
 
 const props = defineProps<NodeViewProps>()
@@ -106,5 +105,24 @@ const selectLanguage = (language: string): void => {
 const copyCode = async (): Promise<void> => {
   await navigator.clipboard.writeText(props.node.textContent)
   copied.value = true
+}
+
+// NodeViewWrapper 渲染为单个根元素，通过组件实例的 $el 拿到代码块根 DOM。
+const codeBlockWrapper = ref<ComponentPublicInstance | null>(null)
+
+/*
+ * 把当前代码块导出为 PNG 图片：
+ * 用 html-to-image 在渲染进程内直接克隆截图，语法高亮配色与所选外观
+ * 原样保留，图片尺寸就是代码块内容尺寸；生成二进制后交给主进程弹窗保存。
+ */
+const downloadAsImage = async (): Promise<void> => {
+  const root = codeBlockWrapper.value?.$el as HTMLElement | null
+  if (!root) return
+  try {
+    const bytes = await codeBlockToPngBytes(root, settings.codeWrap)
+    await exportService.exportPng(bytes, `代码块-${getCodeBlockLanguageLabel(currentLanguage.value)}`)
+  } catch (error) {
+    await window.electronAPI.showErrorMessage('导出图片失败', (error as Error).message)
+  }
 }
 </script>

@@ -18,6 +18,7 @@ import heading1Icon from '@iconify-icons/lucide/heading-1'
 import heading2Icon from '@iconify-icons/lucide/heading-2'
 import heading3Icon from '@iconify-icons/lucide/heading-3'
 import imageIcon from '@iconify-icons/lucide/image'
+import imageDownIcon from '@iconify-icons/lucide/image-down'
 import link2Icon from '@iconify-icons/lucide/link-2'
 import listIcon from '@iconify-icons/lucide/list'
 import listChecksIcon from '@iconify-icons/lucide/list-checks'
@@ -113,6 +114,7 @@ addIcon('lucide:heading-1', heading1Icon)
 addIcon('lucide:heading-2', heading2Icon)
 addIcon('lucide:heading-3', heading3Icon)
 addIcon('lucide:image', imageIcon)
+addIcon('lucide:image-down', imageDownIcon)
 addIcon('lucide:link-2', link2Icon)
 addIcon('lucide:list', listIcon)
 addIcon('lucide:list-checks', listChecksIcon)

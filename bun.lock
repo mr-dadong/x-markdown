@@ -10,6 +10,7 @@
         "@tiptap/extension-subscript": "2.27.2",
         "@tiptap/extension-superscript": "2.27.2",
         "chokidar": "^4.0.3",
+        "html-to-image": "1.11.13",
         "markdown-it-mark": "4.0.0",
         "openai": "7.5.0",
       },
@@ -1213,6 +1214,8 @@
     "hosted-git-info": ["hosted-git-info@4.1.0", "https://registry.npmmirror.com/hosted-git-info/-/hosted-git-info-4.1.0.tgz", { "dependencies": { "lru-cache": "^6.0.0" } }, "sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA=="],
 
     "html-entities": ["html-entities@2.6.0", "https://registry.npmmirror.com/html-entities/-/html-entities-2.6.0.tgz", {}, "sha512-kig+rMn/QOVRvr7c86gQ8lWXq+Hkv6CbAH1hLu+RG338StTpE8Z0b44SDVaqVu7HGKf27frdmUYEs9hTUX/cLQ=="],
+
+    "html-to-image": ["html-to-image@1.11.13", "https://registry.npmmirror.com/html-to-image/-/html-to-image-1.11.13.tgz", {}, "sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg=="],
 
     "http-cache-semantics": ["http-cache-semantics@4.2.0", "https://registry.npmmirror.com/http-cache-semantics/-/http-cache-semantics-4.2.0.tgz", {}, "sha512-dTxcvPXqPvXBQpq5dUr6mEMJX4oIEFv6bwom3FDwKRDsuIjjJGANqhBuoAn9c1RQJIdAKav33ED65E2ys+87QQ=="],
 

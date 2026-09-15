@@ -9,6 +9,7 @@ let buildExportDocx: typeof import("./useExport").buildExportDocx;
 let buildExportHtml: typeof import("./useExport").buildExportHtml;
 let buildExportText: typeof import("./useExport").buildExportText;
 let buildExportZip: typeof import("./useExport").buildExportZip;
+let mountCodeBlockSnapshot: typeof import("../utils/codeBlockImage").mountCodeBlockSnapshot;
 
 const localResources = new Map<string, Uint8Array>([
   ["./images/same.png", new Uint8Array([1, 2, 3])],
@@ -30,6 +31,8 @@ before(async () => {
     },
   });
   ({ buildExportDocx, buildExportHtml, buildExportText, buildExportZip } = await import("./useExport"));
+  // 代码块截图模块与导出同主题，但依赖 html-to-image，这里只加载克隆准备函数。
+  ({ mountCodeBlockSnapshot } = await import("../utils/codeBlockImage"));
 });
 
 after(async () => {
@@ -123,5 +126,55 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(!documentXml?.includes("\u0001"));
     assert.ok(relationships?.includes('Target="https://example.com"'));
     assert.ok(coreXml?.includes("<dc:title>导出测试</dc:title>"));
+  });
+});
+
+describe("代码块截图克隆准备", () => {
+  // 模拟编辑器中已渲染的代码块 DOM：窗口式标题栏（含操作按钮区）+ 带语法高亮的 pre/code。
+  const createCodeBlockDom = (): HTMLElement => {
+    const root = document.createElement("div");
+    root.className = "code-block-editor";
+    root.innerHTML = [
+      '<div data-xmd-code-header class="code-header"><div data-xmd-code-actions><button type="button">复制</button></div></div>',
+      '<pre class="whitespace-pre overflow-x-auto"><code class="language-ts"><span class="hljs-keyword">const</span> value = 1</code></pre>',
+    ].join("");
+    return root;
+  };
+
+  test("只保留纯代码内容：去标题栏与边框，回为圆角卡片", () => {
+    const host = mountCodeBlockSnapshot(createCodeBlockDom(), false);
+    try {
+      // 屏幕外容器已挂到 body，宽度按最长代码行收缩，四周留白形成卡片效果。
+      assert.ok(document.body.contains(host));
+      assert.ok(host.style.width.includes("max-content"));
+      assert.ok(host.style.padding.includes("16px"));
+      // 窗口式标题栏（含红绿灯、语言选择器与操作按钮）不进入分享图。
+      assert.ok(!host.querySelector("[data-xmd-code-header]"));
+      assert.ok(!host.querySelector("button"));
+      // 语法高亮标记保留，长行从横向滚动改为完整展开。
+      assert.ok(host.querySelector(".hljs-keyword"));
+      const preStyle = (host.querySelector("pre") as HTMLElement).style;
+      assert.equal(preStyle.overflow, "visible");
+      // 去掉窗口边框，统一为独立圆角卡片；
+      // 用 borderStyle 断言，避免 happy-dom 与浏览器对 shorthand 序列化的差异。
+      assert.equal(preStyle.borderStyle, "none");
+      assert.equal(preStyle.borderRadius, "10px");
+      // code 改为按内容取宽，避免 flex 布局把代码行压窄；
+      // CSSOM 会把 shorthand 值 none 序列化为展开形式 0 0 auto。
+      assert.ok(["none", "0 0 auto"].includes((host.querySelector("code") as HTMLElement).style.flex));
+    } finally {
+      host.remove();
+    }
+  });
+
+  test("自动换行时固定宽度折行且保持 code 弹性", () => {
+    const host = mountCodeBlockSnapshot(createCodeBlockDom(), true);
+    try {
+      assert.ok(host.style.width.includes("800px"));
+      // 折行模式沿用 flex-1 填满固定宽度，不覆盖 code 的弹性。
+      assert.equal((host.querySelector("code") as HTMLElement).style.flex, "");
+    } finally {
+      host.remove();
+    }
   });
 });
