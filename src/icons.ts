@@ -36,6 +36,7 @@ import pilcrowIcon from '@iconify-icons/lucide/pilcrow'
 import quoteIcon from '@iconify-icons/lucide/quote'
 import searchIcon from '@iconify-icons/lucide/search'
 import searchXIcon from '@iconify-icons/lucide/search-x'
+import shareIcon from '@iconify-icons/lucide/share'
 import settingsIcon from '@iconify-icons/lucide/settings'
 import squareIcon from '@iconify-icons/lucide/square'
 import sunIcon from '@iconify-icons/lucide/sun'
@@ -132,6 +133,8 @@ addIcon('lucide:pilcrow', pilcrowIcon)
 addIcon('lucide:quote', quoteIcon)
 addIcon('lucide:search', searchIcon)
 addIcon('lucide:search-x', searchXIcon)
+// 方框上箭头贴近 macOS 的分享/导出符号，并保持离线可用。
+addIcon('lucide:share', shareIcon)
 addIcon('lucide:settings', settingsIcon)
 addIcon('lucide:square', squareIcon)
 addIcon('lucide:sun', sunIcon)

@@ -78,6 +78,21 @@ describe("纯文本与 ZIP 导出", () => {
     assert.ok(portableMarkdown?.includes("assets/same.png"));
     assert.ok(portableMarkdown?.includes("./images/missing.png"));
   });
+
+  test("ZIP 按资源处理和压缩阶段报告递增进度", async () => {
+    const progress: number[] = [];
+    await buildExportZip(
+      "![第一张](./images/same.png)\n![第二张](./other/same.png)",
+      null,
+      "article.md",
+      (item) => progress.push(item.percent),
+    );
+
+    assert.equal(progress[0], 5);
+    assert.ok(progress.includes(70));
+    assert.equal(progress.at(-1), 100);
+    assert.ok(progress.every((value, index) => index === 0 || value >= progress[index - 1]));
+  });
 });
 
 describe("HTML 与 DOCX 导出", () => {
@@ -103,6 +118,27 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(!html.includes("data-xmd-image"));
   });
 
+  test("HTML、PDF 与图片共用的导出页面会折行长代码且不保留横向滚动", async () => {
+    const longCode = `const message = "${"很长的代码内容".repeat(40)}";`;
+    const html = await buildExportHtml(`\`\`\`ts\n${longCode}\n\`\`\``, null, "长代码导出");
+
+    // 代码正文必须完整保留，导出专用样式位于页面样式末尾并覆盖编辑器的滚动样式。
+    const exportedDocument = new DOMParser().parseFromString(html, "text/html");
+    const pre = exportedDocument.querySelector("pre");
+    const code = pre?.querySelector("code");
+    assert.equal(code?.textContent, longCode);
+    assert.equal(pre?.classList.contains("overflow-x-auto"), false);
+    assert.equal(pre?.classList.contains("whitespace-pre"), false);
+    assert.equal(pre?.classList.contains("w-full"), true);
+    assert.equal(pre?.classList.contains("min-w-0"), true);
+    assert.equal(pre?.classList.contains("!overflow-x-visible"), true);
+    assert.equal(pre?.classList.contains("!whitespace-pre-wrap"), true);
+    assert.equal(pre?.classList.contains("whitespace-pre-wrap"), true);
+    assert.equal(pre?.classList.contains("!break-all"), true);
+    assert.equal(code?.classList.contains("!min-w-0"), true);
+    assert.equal(code?.classList.contains("!break-all"), true);
+  });
+
   test("DOCX 导出生成合法包结构、正文、链接和安全 XML", async () => {
     const data = await buildExportDocx(markdown, null, "导出测试");
     const zip = await JSZip.loadAsync(data);
@@ -126,6 +162,16 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(!documentXml?.includes("\u0001"));
     assert.ok(relationships?.includes('Target="https://example.com"'));
     assert.ok(coreXml?.includes("<dc:title>导出测试</dc:title>"));
+  });
+
+  test("DOCX 完整保留长代码并允许 Word 按页面宽度换行", async () => {
+    const longCode = `const token = "${"abcdef0123456789".repeat(40)}";`;
+    const data = await buildExportDocx(`\`\`\`ts\n${longCode}\n\`\`\``, null, "长代码 Word 导出");
+    const zip = await JSZip.loadAsync(data);
+    const documentXml = await zip.file("word/document.xml")?.async("string");
+
+    assert.ok(documentXml?.includes(longCode));
+    assert.ok(!documentXml?.includes("<w:noWrap"));
   });
 });
 

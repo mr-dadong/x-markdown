@@ -19,7 +19,7 @@
                 <FindReplacePanel :controller="findReplaceController" />
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
-                    :modal-open="isSettingsOpen || isUpdateModalOpen" @update:content="handleContentUpdate"
+                    :modal-open="isSettingsOpen || isUpdateModalOpen || isExporting" @update:content="handleContentUpdate"
                     @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings"
                     @add-to-selection="handleAddToSelection" @open-local-markdown="handleOpenFileFromSidebar" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
@@ -104,6 +104,8 @@
         <SettingsModal />
         <UpdateModal />
         <ConfirmDialog />
+        <ExportProgress :visible="isExporting" :format-label="exportFormatLabel" :message="exportProgressMessage"
+            :progress="exportProgressPercent" />
     </div>
 </template>
 
@@ -117,6 +119,7 @@ import AiChatSidebar from '../components/ai/AiChatSidebar.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import DocumentBar from '../components/DocumentBar.vue'
 import ExternalChangeBanner from '../components/ExternalChangeBanner.vue'
+import ExportProgress from '../components/ExportProgress.vue'
 import FindReplacePanel from '../components/FindReplacePanel.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownSourceEditor from '../components/MarkdownSourceEditor.vue'
@@ -125,6 +128,7 @@ import SettingsModal from '../components/SettingsModal.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
 import { buildExportDocx, buildExportHtml, buildExportText, buildExportZip } from '../composables/useExport'
+import type { ExportProgressReporter } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
 import { useRecentFiles } from '../composables/useRecentFiles'
 import { useSettings } from '../composables/useSettings'
@@ -153,6 +157,28 @@ const pendingSelections = ref<string[]>([])
 const { settings } = useSettings()
 const isSourceMode = ref(settings.editorMode === 'source')
 const documentModes = new Map<number, boolean>()
+
+type ExportType = 'html' | 'pdf' | 'zip' | 'text' | 'docx' | 'image'
+
+const isExporting = ref(false)
+const exportProgressPercent = ref(0)
+const exportProgressMessage = ref('正在准备导出')
+const exportFormatLabel = ref('')
+
+const exportFormatLabels: Record<ExportType, string> = {
+    html: 'HTML',
+    pdf: 'PDF',
+    zip: 'ZIP 包',
+    text: '纯文本',
+    docx: 'Word 文档',
+    image: '图片',
+}
+
+// 构建阶段占总进度的 75%，剩余部分用于保存对话框和主进程落盘。
+const reportBuildProgress: ExportProgressReporter = ({ percent, message }) => {
+    exportProgressPercent.value = Math.round(10 + percent * 0.65)
+    exportProgressMessage.value = message
+}
 
 // 标签页视图状态：每个打开的文档独立保存自己的阅读位置，
 // 切换标签时保存旧文档锚点、恢复新文档锚点，避免超长文档来回切换时反复从头滚动。
@@ -592,34 +618,67 @@ const getSuggestedName = (): string => {
 }
 
 // 统一导出入口：HTML/PDF/图片先渲染内容，TXT 直接输出原文，ZIP 打包 Markdown 与本地图片。
-const handleExport = async (type: 'html' | 'pdf' | 'zip' | 'text' | 'docx' | 'image'): Promise<void> => {
-    if (!isDocumentOpen.value) return
+const handleExport = async (type: ExportType): Promise<void> => {
+    if (!isDocumentOpen.value || isExporting.value) return
     const suggestedName = getSuggestedName()
+    isExporting.value = true
+    exportFormatLabel.value = exportFormatLabels[type]
+    exportProgressPercent.value = 5
+    exportProgressMessage.value = '正在准备导出'
+
     try {
+        // 先让 Vue 把进度窗口绘制出来，再开始文档渲染或资源打包。
+        await nextTick()
+        let result
+
         if (type === 'zip') {
             // ZIP 内的 Markdown 文件保留原文件名，未保存的新文档使用 untitled.md。
             const filePath = currentFilePath.value
             const fileName = filePath ? filePath.split(/[\\/]/).pop()! : 'untitled.md'
-            const zipData = await buildExportZip(currentContent.value, filePath, fileName)
-            await exportService.exportZip(zipData, suggestedName)
-            return
+            const zipData = await buildExportZip(currentContent.value, filePath, fileName, reportBuildProgress)
+            exportProgressPercent.value = 80
+            exportProgressMessage.value = '请选择保存位置并完成导出'
+            result = await exportService.exportZip(zipData, suggestedName)
+        } else if (type === 'text') {
+            exportProgressPercent.value = 75
+            exportProgressMessage.value = '请选择保存位置并完成导出'
+            result = await exportService.exportText(buildExportText(currentContent.value), suggestedName)
+        } else if (type === 'docx') {
+            const docxData = await buildExportDocx(
+                currentContent.value,
+                currentFilePath.value,
+                suggestedName,
+                reportBuildProgress,
+            )
+            exportProgressPercent.value = 80
+            exportProgressMessage.value = '请选择保存位置并完成导出'
+            result = await exportService.exportDocx(docxData, suggestedName)
+        } else {
+            const html = await buildExportHtml(
+                currentContent.value,
+                currentFilePath.value,
+                suggestedName,
+                reportBuildProgress,
+            )
+            exportProgressPercent.value = 80
+            exportProgressMessage.value = '请选择保存位置并完成导出'
+            if (type === 'html') result = await exportService.exportHtml(html, suggestedName)
+            else if (type === 'image') result = await exportService.exportImage(html, suggestedName)
+            else result = await exportService.exportPdf(html, suggestedName)
         }
-        if (type === 'text') {
-            await exportService.exportText(buildExportText(currentContent.value), suggestedName)
-            return
+
+        if (!result.canceled) {
+            exportProgressPercent.value = 100
+            exportProgressMessage.value = '导出完成'
+            // 短暂保留完成状态，让用户明确看到导出已成功。
+            await new Promise((resolve) => setTimeout(resolve, 450))
         }
-        if (type === 'docx') {
-            const docxData = await buildExportDocx(currentContent.value, currentFilePath.value, suggestedName)
-            await exportService.exportDocx(docxData, suggestedName)
-            return
-        }
-        const html = await buildExportHtml(currentContent.value, currentFilePath.value, suggestedName)
-        if (type === 'html') await exportService.exportHtml(html, suggestedName)
-        else if (type === 'image') await exportService.exportImage(html, suggestedName)
-        else await exportService.exportPdf(html, suggestedName)
     } catch (error) {
+        isExporting.value = false
         await window.electronAPI.showErrorMessage('导出失败', (error as Error).message)
+        return
     }
+    isExporting.value = false
 }
 
 // 文档内容或编辑模式变化时，若查找面板打开则重新收集匹配，保证计数与高亮始终准确。

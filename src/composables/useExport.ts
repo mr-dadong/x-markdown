@@ -6,6 +6,14 @@ import { mediaService } from "../services/mediaService";
 import { buildDocx } from "../utils/htmlToDocx";
 import { decodeDataUrl } from "../utils/dataUrl";
 
+// 导出构建阶段统一用百分比和中文说明向界面报告真实进度节点。
+export interface ExportBuildProgress {
+  percent: number;
+  message: string;
+}
+
+export type ExportProgressReporter = (progress: ExportBuildProgress) => void;
+
 // —— HTML 导出 ——
 
 // 等待隐藏导出编辑器把异步内容渲染完成：
@@ -82,6 +90,29 @@ const materializeHtmlBlocks = (host: HTMLElement): void => {
   });
 };
 
+// 编辑器中的代码块可以横向滚动，静态导出则必须把全部内容直接排进页面。
+// 移除交互态滚动类，并用 Tailwind 工具类让超长代码按导出宽度折行。
+const prepareCodeBlocksForStaticExport = (host: HTMLElement): void => {
+  host.querySelectorAll<HTMLElement>("pre").forEach((pre) => {
+    pre.classList.remove("overflow-x-auto", "whitespace-pre");
+    pre.classList.add(
+      "w-full",
+      "min-w-0",
+      "max-w-full",
+      "!overflow-x-visible",
+      "!whitespace-pre-wrap",
+      "whitespace-pre-wrap",
+      "!break-all",
+    );
+
+    // 代码块根节点本身也是 flex 容器，必须允许它收缩到导出页面宽度。
+    pre.closest<HTMLElement>(".code-block-editor")?.classList.add("w-full", "min-w-0", "max-w-full");
+
+    const code = pre.querySelector<HTMLElement>("code");
+    code?.classList.add("!min-w-0", "!whitespace-pre-wrap", "whitespace-pre-wrap", "!break-all");
+  });
+};
+
 // 导出页面自身的布局样式：让内容居中显示，并针对打印（PDF）做适配。
 const EXPORT_PAGE_STYLES = `
 body {
@@ -106,7 +137,9 @@ body {
 const renderExportContent = async (
   markdown: string,
   documentPath: string | null,
+  reportProgress?: ExportProgressReporter,
 ): Promise<{ content: HTMLElement; cleanup: () => void }> => {
+  reportProgress?.({ percent: 10, message: "正在准备文档" });
   // 创建隐藏渲染容器，放在屏幕外避免影响当前编辑界面。
   const host = document.createElement("div");
   host.style.cssText =
@@ -127,6 +160,7 @@ const renderExportContent = async (
       },
     },
   });
+  reportProgress?.({ percent: 35, message: "正在渲染文档内容" });
 
   try {
     // 等待异步节点渲染完成；超时不阻断导出，避免用户长时间无反馈。
@@ -134,10 +168,13 @@ const renderExportContent = async (
     if (!renderSettled) {
       console.warn("[export] 等待导出渲染超时，部分异步内容（Mermaid/公式）可能未渲染完整");
     }
+    reportProgress?.({ percent: 75, message: "正在整理导出内容" });
 
     // 去掉编辑交互用的小部件（图片缩放控制点），避免出现在导出结果里。
     host.querySelectorAll("[data-xmd-image] span").forEach((node) => node.remove());
     materializeHtmlBlocks(host);
+    prepareCodeBlocksForStaticExport(host);
+    reportProgress?.({ percent: 90, message: "文档内容准备完成" });
     const content = host.querySelector(".tiptap");
     return {
       content: (content ?? host) as HTMLElement,
@@ -161,8 +198,9 @@ export const buildExportHtml = async (
   markdown: string,
   documentPath: string | null,
   title: string,
+  reportProgress?: ExportProgressReporter,
 ): Promise<string> => {
-  const { content, cleanup } = await renderExportContent(markdown, documentPath);
+  const { content, cleanup } = await renderExportContent(markdown, documentPath, reportProgress);
   try {
     const contentHtml = content.innerHTML;
 
@@ -176,7 +214,7 @@ export const buildExportHtml = async (
       return entities[char];
     });
 
-    return [
+    const html = [
       "<!DOCTYPE html>",
       '<html lang="zh-CN">',
       "<head>",
@@ -193,6 +231,8 @@ export const buildExportHtml = async (
       "</body>",
       "</html>",
     ].join("\n");
+    reportProgress?.({ percent: 100, message: "HTML 内容生成完成" });
+    return html;
   } finally {
     cleanup();
   }
@@ -247,6 +287,7 @@ export const buildExportZip = async (
   markdown: string,
   documentPath: string | null,
   markdownFileName: string,
+  reportProgress?: ExportProgressReporter,
 ): Promise<ArrayBuffer> => {
   const zip = new JSZip();
   const references = extractLocalResourceReferences(markdown);
@@ -254,40 +295,58 @@ export const buildExportZip = async (
   let dataImageIndex = 0;
   let portableMarkdown = markdown;
 
-  for (const reference of references) {
+  reportProgress?.({
+    percent: references.length > 0 ? 5 : 70,
+    message: references.length > 0 ? `正在收集资源 0/${references.length}` : "文档中没有本地资源",
+  });
+
+  for (const [index, reference] of references.entries()) {
     const trimmed = reference.trim();
-    if (/^(?:https?:|blob:|#)/i.test(trimmed)) continue;
+    try {
+      if (/^(?:https?:|blob:|#)/i.test(trimmed)) continue;
 
-    let bytes: Uint8Array;
-    let fileName = getResourceFileName(trimmed, "resource");
-    if (/^data:/i.test(trimmed)) {
-      let decoded: { mime: string; bytes: Uint8Array } | null = null;
-      try {
-        decoded = decodeDataUrl(trimmed);
-      } catch {
-        continue;
+      let bytes: Uint8Array;
+      let fileName = getResourceFileName(trimmed, "resource");
+      if (/^data:/i.test(trimmed)) {
+        let decoded: { mime: string; bytes: Uint8Array } | null = null;
+        try {
+          decoded = decodeDataUrl(trimmed);
+        } catch {
+          continue;
+        }
+        if (!decoded) continue;
+        bytes = decoded.bytes;
+        const mimeExtension = decoded.mime.split("/").pop()?.replace("jpeg", "jpg") || "bin";
+        fileName = `image-${++dataImageIndex}.${mimeExtension}`;
+      } else {
+        try {
+          bytes = await mediaService.readFileBytes(trimmed, documentPath);
+        } catch {
+          // 单个资源缺失时保留原引用，其他可用资源仍正常导出。
+          continue;
+        }
       }
-      if (!decoded) continue;
-      bytes = decoded.bytes;
-      const mimeExtension = decoded.mime.split("/").pop()?.replace("jpeg", "jpg") || "bin";
-      fileName = `image-${++dataImageIndex}.${mimeExtension}`;
-    } else {
-      try {
-        bytes = await mediaService.readFileBytes(trimmed, documentPath);
-      } catch {
-        // 单个资源缺失时保留原引用，其他可用资源仍正常导出。
-        continue;
-      }
+
+      const zipPath = getAvailableZipPath(fileName, usedPaths);
+      zip.file(zipPath, bytes);
+      // 所有资源统一改成包内相对路径，绝对路径和上级目录引用传给他人后也能使用。
+      portableMarkdown = portableMarkdown.replaceAll(reference, zipPath);
+    } finally {
+      const completed = index + 1;
+      reportProgress?.({
+        percent: Math.round(5 + completed / references.length * 65),
+        message: `正在收集资源 ${completed}/${references.length}`,
+      });
     }
-
-    const zipPath = getAvailableZipPath(fileName, usedPaths);
-    zip.file(zipPath, bytes);
-    // 所有资源统一改成包内相对路径，绝对路径和上级目录引用传给他人后也能使用。
-    portableMarkdown = portableMarkdown.replaceAll(reference, zipPath);
   }
 
   zip.file(markdownFileName, portableMarkdown);
-  return zip.generateAsync({ type: "arraybuffer" });
+  return zip.generateAsync({ type: "arraybuffer" }, (metadata) => {
+    reportProgress?.({
+      percent: Math.round(70 + metadata.percent * 0.3),
+      message: "正在压缩导出文件",
+    });
+  });
 };
 
 // —— 纯文本导出 ——
@@ -303,10 +362,19 @@ export const buildExportDocx = async (
   markdown: string,
   documentPath: string | null,
   title: string,
+  reportProgress?: ExportProgressReporter,
 ): Promise<ArrayBuffer> => {
-  const { content, cleanup } = await renderExportContent(markdown, documentPath);
+  const { content, cleanup } = await renderExportContent(markdown, documentPath, (progress) => {
+    reportProgress?.({
+      percent: Math.round(progress.percent * 0.65),
+      message: progress.message,
+    });
+  });
   try {
-    return await buildDocx(content, title);
+    reportProgress?.({ percent: 70, message: "正在生成 Word 文档" });
+    const docx = await buildDocx(content, title);
+    reportProgress?.({ percent: 100, message: "Word 文档生成完成" });
+    return docx;
   } finally {
     cleanup();
   }
