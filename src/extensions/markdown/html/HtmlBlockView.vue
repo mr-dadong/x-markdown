@@ -14,7 +14,7 @@
           </span>
         </button>
         <span class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted">
-          <span>{{ editing ? '正在编辑源码' : '点击编辑源码' }}</span>
+          <span>{{ editing ? '正在编辑源码' : '双击预览编辑源码' }}</span>
           <button type="button" title="编辑 HTML 源码"
             class="flex h-6 w-6 items-center justify-center rounded hover:bg-line hover:text-secondary"
             @click.stop="startEditing">
@@ -28,16 +28,18 @@
         </span>
       </div>
 
-      <div class="relative flex min-h-14 w-full cursor-text px-3 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
-        role="button" tabindex="0" title="点击编辑 HTML 源码" @click.stop="startEditing"
+      <!-- 预览区：iframe 保留原生指针事件，用户可以直接选中/复制预览里的文字；
+           编辑入口收敛到顶栏铅笔按钮、外层双击与键盘 Enter/Space，避免误触吃掉选择操作。 -->
+      <div
+        class="relative flex min-h-14 w-full cursor-text px-3 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+        role="group" tabindex="0" title="双击空白处编辑 HTML 源码，预览内容可直接选中" @dblclick.stop="startEditing"
         @keydown.enter.prevent.stop="startEditing" @keydown.space.prevent.stop="startEditing">
-        <!-- iframe 隔离每个块的 CSS；禁用指针事件后，点击仍由外层统一进入源码编辑。 -->
-        <iframe v-if="hasVisiblePreview" ref="previewFrame" :srcdoc="previewDocument"
-          sandbox="allow-same-origin" tabindex="-1" title="HTML 隔离预览"
-          class="pointer-events-none flex w-full border-0 bg-transparent" :style="previewFrameStyle"
+        <!-- iframe 隔离每个块的 CSS；不再禁用指针事件，让预览内部支持原生文本选择。 -->
+        <iframe v-if="hasVisiblePreview" ref="previewFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
+          tabindex="-1" title="HTML 隔离预览" class="flex w-full border-0 bg-transparent" :style="previewFrameStyle"
           @load="handlePreviewLoad" />
         <div v-else class="flex flex-1 items-center justify-center text-[12px] text-muted">
-          这段 HTML 没有可见内容，点击编辑源码
+          这段 HTML 没有可见内容，双击编辑源码
         </div>
       </div>
     </div>
@@ -55,21 +57,22 @@
           </span>
           <button type="button" :title="lineWrapping ? '关闭自动换行' : '开启自动换行'"
             class="flex h-6 items-center justify-center gap-1 rounded px-2 font-mono text-[10px] text-[#969aa3] hover:bg-[#3a3b40] hover:text-[#e4e6eb]"
-            :class="lineWrapping ? 'bg-[#45464c] text-[#e4e6eb]' : ''" @mousedown.prevent="lineWrapping = !lineWrapping">
+            :class="lineWrapping ? 'bg-[#45464c] text-[#e4e6eb]' : ''"
+            @mousedown.prevent="lineWrapping = !lineWrapping">
             <Icon icon="lucide:wrap-text" :size="13" />
             <span>换行</span>
           </button>
         </div>
-        <HtmlSourceEditor v-model="draft" :line-wrapping="lineWrapping" :style="sourceEditorStyle" @submit="saveEditing" />
+        <HtmlSourceEditor v-model="draft" :line-wrapping="lineWrapping" :style="sourceEditorStyle"
+          @submit="saveEditing" />
       </div>
     </MarkdownModulePopover>
 
     <!-- 放大预览：全屏蒙层，内容保留真实宽度，超高/超宽时在蒙层内滚动。 -->
     <Teleport to="body">
       <div v-if="previewOpen" ref="previewModalRoot" tabindex="-1"
-        class="fixed inset-0 z-[160] flex flex-col bg-black/45 p-6 outline-none"
-        role="dialog" aria-modal="true" aria-label="HTML 放大预览"
-        @mousedown.self="closePreviewModal" @keydown.esc.prevent="closePreviewModal">
+        class="fixed inset-0 z-[160] flex flex-col bg-black/45 p-6 outline-none" role="dialog" aria-modal="true"
+        aria-label="HTML 放大预览" @mousedown.self="closePreviewModal" @keydown.esc.prevent="closePreviewModal">
         <div class="mb-4 flex shrink-0 items-center justify-between">
           <span class="flex items-center gap-2 text-[13px] font-semibold text-ink">
             <span class="flex h-7 w-7 items-center justify-center rounded-md bg-panel text-muted">
@@ -92,9 +95,8 @@
           </div>
         </div>
         <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-line bg-paper">
-          <iframe v-if="hasVisiblePreview" ref="previewModalFrame" :srcdoc="previewDocument"
-            sandbox="allow-same-origin" title="HTML 放大预览"
-            class="block w-full border-0 bg-transparent" :style="previewModalFrameStyle"
+          <iframe v-if="hasVisiblePreview" ref="previewModalFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
+            title="HTML 放大预览" class="block w-full border-0 bg-transparent" :style="previewModalFrameStyle"
             @load="handlePreviewModalLoad" />
         </div>
       </div>
