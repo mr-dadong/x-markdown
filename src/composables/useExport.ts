@@ -5,6 +5,8 @@ import { createEditorExtensions } from "../editor/editorExtensions";
 import { mediaService } from "../services/mediaService";
 import { buildDocx } from "../utils/htmlToDocx";
 import { decodeDataUrl } from "../utils/dataUrl";
+import { useSettings } from "./useSettings";
+import { getCodeBlockStyle } from "../modules/codeBlockStyles";
 
 // 导出构建阶段统一用百分比和中文说明向界面报告真实进度节点。
 export interface ExportBuildProgress {
@@ -90,9 +92,21 @@ const materializeHtmlBlocks = (host: HTMLElement): void => {
   });
 };
 
+/*
+ * 导出用的隐藏编辑器是 @tiptap/core 的 Editor，没有挂载 <EditorContent>，
+ * 因此 Vue 节点视图（CodeBlockView）不会渲染，代码块退化为普通 <pre><code>。
+ * CodeBlockView 的语法配色（tokenClass）本来挂在它的根节点上，退化后就丢失了，
+ * 导致导出的 PDF/HTML 里代码注释、关键字等没有颜色。
+ * 这里在导出前把当前代码块外观的配色类补写到 <pre>/<code> 上，效果与编辑器一致，
+ * 同时不引入编辑交互的标题栏。
+ */
+const splitClasses = (value: string): string[] => value.split(" ").filter(Boolean);
+
 // 编辑器中的代码块可以横向滚动，静态导出则必须把全部内容直接排进页面。
 // 移除交互态滚动类，并用 Tailwind 工具类让超长代码按导出宽度折行。
 const prepareCodeBlocksForStaticExport = (host: HTMLElement): void => {
+  const { settings } = useSettings();
+  const codeBlockStyle = getCodeBlockStyle(settings.codeBlockStyle);
   host.querySelectorAll<HTMLElement>("pre").forEach((pre) => {
     pre.classList.remove("overflow-x-auto", "whitespace-pre");
     pre.classList.add(
@@ -110,6 +124,13 @@ const prepareCodeBlocksForStaticExport = (host: HTMLElement): void => {
 
     const code = pre.querySelector<HTMLElement>("code");
     code?.classList.add("!min-w-0", "!whitespace-pre-wrap", "whitespace-pre-wrap", "!break-all");
+
+    // 只有真正的代码块（含 code 子节点）才补写配色，避免误伤其它 <pre>。
+    if (!code) return;
+    // tokenClass 用后代选择器给 .hljs-* 上色，挂在 <pre> 上即可覆盖其中的高亮 span。
+    pre.classList.add(...splitClasses(codeBlockStyle.preClass), ...splitClasses(codeBlockStyle.tokenClass));
+    // codeClass 是代码基础文字色，挂在 <code> 上，高亮 token 会各自覆盖它。
+    code.classList.add(...splitClasses(codeBlockStyle.codeClass));
   });
 };
 

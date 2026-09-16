@@ -561,7 +561,7 @@ watch(showAiWriterInput, (value) => {
 
 // AI 动作条在选中普通文本时出现；表格内选区由表格工具栏接管，此处不弹出。
 // AI 实时编写期间不弹出：操作由底部状态栏承接，弹出动作条会遮挡正在生成的内容。
-// 代码块内也允许选择文字类型，用户可以直接转回正文。
+// 代码块内选中的是代码文字，加粗/删除线/行内格式等动作没有意义，因此不弹出动作条。
 const shouldShowAiMenu = (): boolean => {
   // 块选区使用整块操作，隐藏基于旧文字选区定位的浮动菜单。
   if (editor.value && blockMarqueeKey.getState(editor.value.state)?.length) return false
@@ -591,6 +591,8 @@ const shouldShowAiMenu = (): boolean => {
   // 点击公式、Mermaid、图片等原子节点会形成 NodeSelection（整节点选中而非文本选区），
   // AI 润色/重写等动作对它们无意义，不弹出动作条。
   if (selection instanceof NodeSelection) return false
+  // 选区落在代码块内时，选中的是代码文字，格式类动作无意义，不弹出动作条。
+  if (selection.$from.parent.type.name === 'codeBlock') return false
   // 点击“添加到选取”后，同一段选区保持动作条隐藏，直到用户改变选区。
   if (isSameDismissedRange) return false
   return true

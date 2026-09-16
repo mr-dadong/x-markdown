@@ -15,6 +15,8 @@ export const installDomEnvironment = (): Window => {
     SVGElement: window.SVGElement,
     DOMParser: window.DOMParser,
     MutationObserver: window.MutationObserver,
+    // useSettings 在模块加载时读取 localStorage，测试环境需要把它挂到全局。
+    localStorage: window.localStorage,
     getComputedStyle: window.getComputedStyle.bind(window),
     requestAnimationFrame: window.requestAnimationFrame.bind(window),
     cancelAnimationFrame: window.cancelAnimationFrame.bind(window),

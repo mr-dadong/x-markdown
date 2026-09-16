@@ -28,6 +28,8 @@ before(async () => {
         return bytes;
       },
       readEditorImage: async () => "data:image/png;base64,AQID",
+      // useSettings 在模块加载时立即向主进程同步快捷键，导出测试需预先提供该 mock。
+      updateShortcuts: () => undefined,
     },
   });
   ({ buildExportDocx, buildExportHtml, buildExportText, buildExportZip } = await import("./useExport"));
@@ -137,6 +139,24 @@ describe("HTML 与 DOCX 导出", () => {
     assert.equal(pre?.classList.contains("!break-all"), true);
     assert.equal(code?.classList.contains("!min-w-0"), true);
     assert.equal(code?.classList.contains("!break-all"), true);
+  });
+
+  test("导出页面为代码块补写当前外观的语法配色类，保证 PDF/HTML 保留注释等颜色", async () => {
+    const { getCodeBlockStyle } = await import("../modules/codeBlockStyles");
+    const { useSettings } = await import("./useSettings");
+    const style = getCodeBlockStyle(useSettings().settings.codeBlockStyle);
+
+    const html = await buildExportHtml("```bash\ngo run main.go   # 直接跑\n```", null, "配色导出");
+    const exportedDocument = new DOMParser().parseFromString(html, "text/html");
+    const pre = exportedDocument.querySelector("pre");
+    const code = pre?.querySelector("code");
+
+    // 导出编辑器不渲染 Vue 节点视图，配色类需在导出阶段补写到 <pre>/<code> 上。
+    assert.ok(pre?.classList.contains("!bg-[#24262b]") || pre?.getAttribute("class")?.includes(style.preClass));
+    assert.ok(pre?.getAttribute("class")?.includes("hljs-comment"));
+    assert.ok(code?.getAttribute("class")?.includes(style.codeClass));
+    // 高亮 span 必须存在，tokenClass 才能通过后代选择器命中它们。
+    assert.ok(pre?.querySelector(".hljs-comment"));
   });
 
   test("DOCX 导出生成合法包结构、正文、链接和安全 XML", async () => {
