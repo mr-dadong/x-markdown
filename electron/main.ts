@@ -42,6 +42,7 @@ import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
 import type {
   AttachmentCopyProgress,
+  EditorFileStat,
   ExportDocxData,
   ExportHtmlData,
   ExportImageData,
@@ -1699,32 +1700,36 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
-  IPC_CHANNELS.editorFileExists,
+  IPC_CHANNELS.editorFileStat,
   async (
     _event,
     {
       url,
       currentDocumentPath,
     }: { url: string; currentDocumentPath: string | null },
-  ) => {
-    // 远程地址与 data URL 无需检查本地文件是否存在。
-    if (/^https?:/i.test(url)) return true;
-    if (/^data:/i.test(url)) return true;
+  ): Promise<EditorFileStat> => {
+    // 远程地址与 data URL 没有本地文件概念：存在性为真，大小记 0 表示未知。
+    if (/^https?:/i.test(url)) return { exists: true, size: 0 };
+    if (/^data:/i.test(url)) return { exists: true, size: 0 };
 
     // 路径无法解析或不在授权范围内时，「不存在」就是准确的答案。
-    // 这里必须返回 false 而不是抛错：否则附件缺失提示会被一句
+    // 这里必须返回 exists:false 而不是抛错：否则附件缺失提示会被一句
     // 「无权访问该文件」顶掉，用户看到的是权限问题而不是文件缺失。
     let filePath: string;
     try {
       filePath = resolveEditorFilePath(url, currentDocumentPath);
     } catch {
-      return false;
+      return { exists: false, size: 0 };
     }
+    // 存在性与字节大小一次 stat 取齐，附件卡片据此显示缺失徽标与真实大小。
     return fs.promises
       .stat(filePath)
-      .then((stats) => stats.isFile())
+      .then((stats) => ({
+        exists: stats.isFile(),
+        size: stats.isFile() ? stats.size : 0,
+      }))
       .catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ENOENT") return false;
+        if (error.code === "ENOENT") return { exists: false, size: 0 };
         throw error;
       });
   },

@@ -825,16 +825,30 @@ const refreshHeadingBadge = (): void => {
     return
   }
   // 标题元素是块级、宽度占满容器，直接用 rect.right 会落到容器右边缘；
-  // 改用 Range 取标题文字第一行的实际边界，标签才能贴着文字右上角。
+  // 改用 Range 取标题文字的实际边界，标签才能贴着文字右上角。
   const range = document.createRange()
   range.selectNodeContents(hoveredHeading)
-  const textRects = range.getClientRects()
-  const firstRect = textRects[0] ?? hoveredHeading.getBoundingClientRect()
+  const textRects = Array.from(range.getClientRects())
+  if (!textRects.length) {
+    const elementRect = hoveredHeading.getBoundingClientRect()
+    headingBadge.value = {
+      level: Number(hoveredHeading.tagName.slice(1)),
+      left: elementRect.right + 8,
+      top: elementRect.top - 4,
+    }
+    return
+  }
+  // 标题含行内代码、加粗等子元素时，Range 会按行内片段返回多个 rect，
+  // rects[0] 只是第一个片段；把与首行垂直重叠的片段合并，才得到首行完整右边界。
+  const firstRect = textRects[0]
+  const firstLineRects = textRects.filter(rect => rect.top < firstRect.bottom && rect.bottom > firstRect.top)
+  const firstLineRight = Math.max(...firstLineRects.map(rect => rect.right))
+  const firstLineTop = Math.min(...firstLineRects.map(rect => rect.top))
   headingBadge.value = {
     level: Number(hoveredHeading.tagName.slice(1)),
     // 标签放在标题文字第一行的右上角外侧。
-    left: firstRect.right + 8,
-    top: firstRect.top - 4,
+    left: firstLineRight + 8,
+    top: firstLineTop - 4,
   }
 }
 

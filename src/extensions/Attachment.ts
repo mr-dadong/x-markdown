@@ -75,11 +75,47 @@ export const formatAttachmentSize = (bytes: number): string => {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 };
 
+// 附件卡片展示用的大小文案：0 表示来源是手写链接、磁盘大小未知。
+// 传输进度视图里的 0 字节是真实数值，仍使用 formatAttachmentSize。
+export const formatAttachmentCardSize = (bytes: number): string =>
+  bytes > 0 ? formatAttachmentSize(bytes) : "未知大小";
+
+// 手写文件链接按后缀识别为附件卡片；图片与视频已有专门视图，不在此列。
+const plainAttachmentExtensions = new Set([
+  "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "tgz", "zst", "iso",
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "epub",
+  "exe", "msi", "dmg", "apk", "deb", "rpm", "jar",
+]);
+
+// 从链接地址提取最后一段扩展名（tar.gz 取 gz），与主进程 path.extname 行为一致。
+const getExtensionFromUrl = (url: string): string => {
+  // 先剥掉查询串与锚点，避免 x.zip?v=1.2 被识别成 .2。
+  const fileName = url.split(/[?#]/, 1)[0];
+  const dotIndex = fileName.lastIndexOf(".");
+  return dotIndex === -1 ? "" : fileName.slice(dotIndex + 1).toLocaleLowerCase();
+};
+
+// 链接独占所在段落时，替换成块级卡片才不会拆散与文字混排的行内内容。
+const isSoleParagraphChild = (link: HTMLAnchorElement): boolean => {
+  const paragraph = link.parentElement;
+  return paragraph?.tagName === "P" && paragraph.childNodes.length === 1;
+};
+
+// 手写的裸文件链接才会增强为卡片：带 title 的链接可能携带视频标题或用户备注，
+// 锚点与带协议的地址（http、mailto、file 等）也不是本地附件相对路径。
+const isPlainAttachmentLink = (link: HTMLAnchorElement): boolean => {
+  const href = link.getAttribute("href") ?? "";
+  if (link.hasAttribute("title")) return false;
+  if (href === "" || href.startsWith("#")) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false;
+  return plainAttachmentExtensions.has(getExtensionFromUrl(href));
+};
+
 const getAttachmentTypeLabel = (fileType: string): string =>
   fileType ? fileType.slice(0, 4).toLocaleUpperCase() : "FILE";
 
 const cardClasses =
-  "xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border border-line bg-paper px-3 text-left hover:border-muted hover:bg-toolbar focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent";
+  "xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border border-line bg-paper px-3 text-left hover:border-muted hover:bg-toolbar focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 export const Attachment = Node.create<AttachmentOptions>({
   name: "attachment",
@@ -148,7 +184,7 @@ export const Attachment = Node.create<AttachmentOptions>({
         "span",
         { class: "flex min-w-0 flex-1 flex-col gap-0.5" },
         ["span", { class: "truncate text-[13px] font-medium leading-5 text-ink" }, attrs.fileName],
-        ["span", { class: "text-[11px] leading-4 text-muted" }, formatAttachmentSize(Number(attrs.fileSize))],
+        ["span", { class: "text-[11px] leading-4 text-muted" }, formatAttachmentCardSize(Number(attrs.fileSize))],
       ],
       [
         "button",
@@ -179,17 +215,22 @@ export const Attachment = Node.create<AttachmentOptions>({
         },
         parse: {
           updateDOM(element: HTMLElement) {
-            element.querySelectorAll<HTMLAnchorElement>("a[title]").forEach((link) => {
+            element.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((link) => {
+              const href = link.getAttribute("href") ?? "";
               const metadata = decodeAttachmentMetadata(link.getAttribute("title"));
-              if (!metadata) return;
+              // 手写的裸文件链接（无 XMD 附件元数据）按后缀识别，也增强为文件卡片。
+              const isPlainFileLink =
+                !metadata && isSoleParagraphChild(link) && isPlainAttachmentLink(link);
+              if (!metadata && !isPlainFileLink) return;
 
               const attachment = document.createElement("div");
               attachment.dataset.xmdAttachment = "";
               attachment.dataset.xmdCompatibleAttachment = "";
               attachment.dataset.fileName = link.textContent || "未命名文件";
-              attachment.dataset.fileSize = String(metadata.fileSize);
-              attachment.dataset.fileType = metadata.fileType;
-              attachment.dataset.url = link.getAttribute("href") ?? "";
+              // 手写链接没有大小信息，记 0 让卡片显示「未知大小」；类型从地址后缀推导。
+              attachment.dataset.fileSize = String(metadata?.fileSize ?? 0);
+              attachment.dataset.fileType = metadata?.fileType ?? getExtensionFromUrl(href);
+              attachment.dataset.url = href;
               link.replaceWith(attachment);
             });
           },

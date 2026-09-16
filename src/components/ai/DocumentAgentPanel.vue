@@ -72,7 +72,11 @@
       </div>
     </div>
     <p v-if="running" class="px-3 pt-2 text-[11px] leading-5 text-muted">{{ currentActionTitle || stages.find(stage => stage.state === 'running')?.title || '模型正在处理下一步' }} · 已生成 {{ patches.length }} 处建议 · 可随时停止</p>
-    <AiChatInput ref="input" :is-streaming="running" :disabled="!canStart && !running" @send="send" @cancel="cancel">
+    <!-- 引用标签与 Chat 输入框共用同一队列：当前处于 Agent 模式时，问问 AI 添加的选区就显示在这里。 -->
+    <AiChatInput ref="input" :is-streaming="running" :disabled="!canStart && !running"
+      :pending-selections="pendingSelections"
+      @send="send" @cancel="cancel"
+      @remove-pending-selection="(index) => emit('remove-pending-selection', index)">
       <template #footer-left><slot name="footer-left" /></template>
       <template #footer-right><slot name="footer-right" :busy="running || settling" /></template>
     </AiChatInput>
@@ -89,8 +93,8 @@ import AgentExecutionStatus from './AgentExecutionStatus.vue'
 import AgentTimeline from './AgentTimeline.vue'
 
 // 父级提供编辑器操作，面板本身不接触磁盘文件。
-const props = defineProps<{ options: DocumentAgentOptions }>()
-const emit = defineEmits<{ busy: [value: boolean] }>()
+const props = defineProps<{ options: DocumentAgentOptions; pendingSelections?: string[] }>()
+const emit = defineEmits<{ busy: [value: boolean]; 'remove-pending-selection': [index: number] }>()
 const { status, instruction, stages, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, timeline, patches, issues, checkTarget, error, partialMessage, running, settling, pending, accepted,
   canReview, canStart, start, cancel, clear, accept, reject, undo } = useDocumentAgent(props.options)
 const input = ref<InstanceType<typeof AiChatInput> | null>(null)
@@ -103,7 +107,15 @@ const quickActions = [
 ]
 watch(() => running.value || settling.value, value => emit('busy', value))
 const send = async (text: string): Promise<void> => {
-  if (await start(text)) input.value?.clearDraft(text)
+  // 发送前复制引用：任务执行期间新增的选区不属于本轮任务。
+  const references = [...(props.pendingSelections ?? [])]
+  const succeeded = await start(text, references)
+  if (!succeeded) return
+  input.value?.clearDraft(text)
+  // 发送成功后移除本轮已消费的引用标签；从后往前移除，避免索引错位。
+  for (let index = references.length - 1; index >= 0; index--) {
+    if (props.pendingSelections?.[index] === references[index]) emit('remove-pending-selection', index)
+  }
 }
 // 标题栏通过此方法清除 Agent 记录，不直接操作面板内部状态。
 defineExpose({ clear })

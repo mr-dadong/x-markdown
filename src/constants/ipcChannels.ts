@@ -66,7 +66,7 @@ export const IPC_CHANNELS = {
   copyEditorImage: "copy-editor-image",
   resolveEditorVideo: "resolve-editor-video",
   openEditorFile: "open-editor-file",
-  editorFileExists: "editor-file-exists",
+  editorFileStat: "editor-file-stat",
   openLocalLink: "open-local-link",
   checkForUpdates: "check-for-updates",
   openExternalLink: "open-external-link",

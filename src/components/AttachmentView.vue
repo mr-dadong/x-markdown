@@ -6,7 +6,7 @@
     :data-file-type="node.attrs.fileType"
     :data-url="node.attrs.url"
     :title="isMissing ? `文件不存在：${node.attrs.url}` : undefined"
-    class="xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border px-3 text-left focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+    class="xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     :class="isMissing ? 'border-line bg-toolbar' : 'border-line bg-paper hover:border-muted hover:bg-toolbar'"
     contenteditable="false"
     tabindex="0"
@@ -37,12 +37,16 @@
     </span>
 
     <!-- 只有右侧按钮负责打开文件，点击卡片其他区域仍可正常选中附件节点。 -->
+    <!-- 拦截 mousedown 冒泡：避免 ProseMirror 把整个附件节点设为选中态，
+         否则点打开按钮后卡片会套上蓝色选中描边和蓝色边框；
+         描边改用 focus-visible，鼠标点击不留框，只有键盘 Tab 聚焦时才显示。 -->
     <button
       v-else
       type="button"
       data-xmd-attachment-open
-      class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted hover:bg-control hover:text-ink focus:outline focus:outline-2 focus:outline-accent"
+      class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted hover:bg-control hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
       title="使用默认应用打开"
+      @mousedown.stop
     >
       <Icon icon="lucide:external-link" :size="15" />
     </button>
@@ -54,6 +58,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { mediaService } from '../services/mediaService'
+import { formatAttachmentCardSize } from '../extensions/Attachment'
 
 const props = defineProps<NodeViewProps>()
 const exists = ref<boolean | null>(null)
@@ -65,7 +70,13 @@ const getCurrentDocumentPath = (): string | null => {
 }
 
 const refreshFileState = async (): Promise<void> => {
-  exists.value = await mediaService.fileExists(String(props.node.attrs.url), getCurrentDocumentPath())
+  const stat = await mediaService.fileStat(String(props.node.attrs.url), getCurrentDocumentPath())
+  exists.value = stat.exists
+  // 手写链接没有大小元数据（fileSize 为 0）：文件存在时读磁盘真实大小显示，
+  // 并写回节点属性，保存文档时大小会带入链接元数据，下次打开直接有大小。
+  if (stat.exists && stat.size > 0 && Number(props.node.attrs.fileSize) <= 0) {
+    props.updateAttributes({ fileSize: stat.size })
+  }
 }
 
 const handleWindowFocus = (): void => {
@@ -84,13 +95,7 @@ const typeLabel = computed(() => {
   return fileType ? fileType.slice(0, 4).toLocaleUpperCase() : 'FILE'
 })
 
-// 视图直接格式化节点中的字节数，避免文件卡片依赖 Electron 文件系统。
-const sizeLabel = computed(() => {
-  const bytes = Number(props.node.attrs.fileSize)
-  if (!Number.isFinite(bytes) || bytes < 0) return '未知大小'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
-})
+// 视图直接格式化节点中的字节数，避免文件卡片依赖 Electron 文件系统；
+// 手写链接转换来的附件没有大小信息（0），显示「未知大小」。
+const sizeLabel = computed(() => formatAttachmentCardSize(Number(props.node.attrs.fileSize)))
 </script>

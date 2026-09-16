@@ -488,6 +488,11 @@ export const createEditorExtensions = (options: {
     }),
     LinkWithTitle.configure({
       openOnClick: false,
+      // tiptap Link 的 XSS 白名单会把含「/」的相对路径链接整条丢弃（其内部正则
+      // 的 .-: 被当作字符范围，连带排除了 / 和数字），本地相对链接会静默变纯文本。
+      // 这里只在链接带协议头时才做协议白名单校验，相对路径交由主进程解析打开。
+      isAllowedUri: (url, ctx) =>
+        /^[a-z][a-z0-9+.-]*:/i.test(url) ? ctx.defaultValidate(url) : true,
     }),
     Color,
     TextStyle,

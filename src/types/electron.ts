@@ -139,6 +139,13 @@ export type OpenLocalLinkResult =
   | { kind: "markdown"; filePath: string }
   | { kind: "opened" };
 
+// 本地文件探测结果：exists 表示磁盘上是否存在该文件；
+// size 为真实字节数，文件不存在或地址没有本地文件概念（远程、data URL）时为 0。
+export interface EditorFileStat {
+  exists: boolean;
+  size: number;
+}
+
 export interface ElectronAPI {
   aiService: AiServiceApi;
   /** 当前文档 Agent 的执行和进度接口。 */
@@ -242,10 +249,10 @@ export interface ElectronAPI {
     url: string,
     currentDocumentPath: string | null,
   ) => Promise<string>;
-  editorFileExists: (
+  editorFileStat: (
     url: string,
     currentDocumentPath: string | null,
-  ) => Promise<boolean>;
+  ) => Promise<EditorFileStat>;
   openLocalLink: (
     url: string,
     currentDocumentPath: string | null,

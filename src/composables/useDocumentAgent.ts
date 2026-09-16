@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage, DocumentAgentTimelineEntry, DocumentPatch } from '../types/documentAgent';
-import { applyDocumentPatches, validateAgentDocument } from '../utils/documentAgent';
+import { applyDocumentPatches, toLfLineEndings, validateAgentDocument } from '../utils/documentAgent';
 import { fingerprintDocument } from '../utils/documentAgentBlocks';
 
 /** 接受修改通过编辑器事务写入，任务本身不会直接保存文件。 */
@@ -61,6 +61,11 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   let documentId: number | null = null;
   let documentVersion = '';
   let ownWrite = false;
+  // 写入栈：每次写入编辑器记录写入前基线、写入后内容与对应接受建议，
+  // 编辑器 Ctrl+Z 撤销某次写入时据此还原审阅状态，而不是报冲突。
+  const writeStack: Array<{ before: string; after: string; patchIds: string[] }> = [];
+  // 最近一次被编辑器撤销的写入：重做时恢复接受状态；新的写入使其失效。
+  let redoSlot: { before: string; after: string; patchIds: string[] } | null = null;
   const running = computed(() => status.value === 'running' || status.value === 'stopping');
   const pending = computed(() => patches.value.filter(patch => patch.decision === 'pending'));
   const accepted = computed(() => patches.value.filter(patch => patch.decision === 'accepted'));
@@ -126,11 +131,48 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     documentId = null;
     documentVersion = '';
     ownWrite = false;
+    writeStack.length = 0;
+    redoSlot = null;
     return true;
   };
   // flush: sync 捕获“修改后又撤销”的变化，不能仅靠最终字符串相等判定版本。
   const offWatch = watch([options.getDocument, options.getDocumentId], () => {
     if (ownWrite || status.value === 'idle') return;
+    const content = options.getDocument();
+    // 编辑器 Ctrl+Z 撤销了最近一次 AI 写入：按任务撤销处理，对应建议恢复待审阅。
+    const top = writeStack[writeStack.length - 1];
+    if (top && content === top.before) {
+      writeStack.pop();
+      redoSlot = top;
+      top.patchIds.forEach(id => {
+        const patch = patches.value.find(item => item.id === id);
+        if (patch && patch.decision === 'accepted') patch.decision = 'pending';
+      });
+      expected = content;
+      issues.value = validateAgentDocument(expected);
+      checkTarget.value = '当前文档';
+      status.value = 'review';
+      error.value = '';
+      logs.value.push('检测到编辑器撤销了对应修改，建议已恢复待审阅');
+      return;
+    }
+    // 编辑器 Ctrl+Shift+Z 重做了刚撤销的 AI 写入：按记录恢复接受状态。
+    if (redoSlot && content === redoSlot.after) {
+      const slot = redoSlot;
+      redoSlot = null;
+      writeStack.push(slot);
+      slot.patchIds.forEach(id => {
+        const patch = patches.value.find(item => item.id === id);
+        if (patch && patch.decision === 'pending') patch.decision = 'accepted';
+      });
+      expected = content;
+      issues.value = validateAgentDocument(expected);
+      checkTarget.value = '当前文档';
+      status.value = pending.value.length ? 'review' : 'done';
+      error.value = '';
+      logs.value.push('检测到编辑器重做了对应修改');
+      return;
+    }
     if (requestId.value) api.cancel(requestId.value);
     requestId.value = '';
     status.value = 'conflict';
@@ -138,7 +180,12 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     error.value = '文档已变化，本轮修改和任务撤销已停用。请重新读取并执行，已有正文不会被覆盖。';
   }, { flush: 'sync' });
 
-  const start = async (text: string): Promise<boolean> => {
+  /**
+   * 开始一轮任务。
+   * references 是输入区待发送的引用正文（问问 AI 添加的选区）；
+   * 有引用时拼接后作为本轮选区资料发送，不再读编辑器实时选区，与 Chat 的引用语义一致。
+   */
+  const start = async (text: string, references: string[] = []): Promise<boolean> => {
     if (!canStart.value || !text.trim()) return false;
     if (options.getDocumentId() === null) {
       error.value = '请先打开文档';
@@ -186,13 +233,18 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     partialMessage.value = '';
     status.value = 'running';
     settling.value = true;
+    // 新任务不继承上一轮的写入栈：撤销映射只属于本轮接受的建议。
+    writeStack.length = 0;
+    redoSlot = null;
     const id = crypto.randomUUID();
     requestId.value = id;
     try {
       const model = options.getModel();
+      // 引用优先于实时选区：用户显式附加的正文才是本轮要处理的选区资料。
+      const selection = references.length ? references.join('\n\n') : options.getSelection();
       const result = await api.invoke({
         requestId: id, instruction: instruction.value, document: original, documentVersion,
-        selection: options.getSelection(), ...(model ? { model } : {})
+        selection, ...(model ? { model } : {})
       });
       // 最终结果由 invoke 直接返回，事件即使稍后到达也不会误判任务失败。
       handleEvent(result);
@@ -341,7 +393,20 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       partialMessage.value = event.message ?? '';
       error.value = '';
       endedAt.value = Date.now();
+      // 任务结束是权威终点：结束事件丢失或被中断的操作在此收口，避免工具行图标永远旋转。
+      operations.value.forEach(operation => {
+        if (operation.state === 'running') {
+          operation.state = 'error';
+          operation.detail = '任务已结束，该操作被中断';
+          operation.endedAt = Date.now();
+        }
+      });
+      // 参数流随任务结束停止接收，清空后工具行自动收起，不留半截参数。
+      timeline.value.forEach(item => {
+        if (item.kind === 'tool') item.draft = '';
+      });
       stages.value.forEach(stage => {
+        if (stage.state === 'running') { stage.state = 'interrupted'; stage.detail = '任务已结束'; }
         if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = '本次未执行此阶段'; }
       });
       const review = stages.value.find(stage => stage.id === 'review');
@@ -367,8 +432,10 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       if (options.getDocumentId() !== documentId || options.getDocument() !== expected) throw new Error('文档已变化，请重新执行任务');
       ownWrite = true;
       options.applyDocument(expected, next);
-      if (options.getDocument() !== next) throw new Error('编辑器未完成写入，请重新读取文档');
-      expected = next;
+      // 编辑器内部统一 \n 换行，回读内容是 next 的 LF 形式，按同一坐标系核对写入结果。
+      if (options.getDocument() !== toLfLineEndings(next)) throw new Error('编辑器未完成写入，请重新读取文档');
+      // 写入后以编辑器实际内容为准（LF 形式），保证下一次接受或撤销的比较与编辑器逐字一致。
+      expected = options.getDocument();
       issues.value = validateAgentDocument(next);
       checkTarget.value = '当前文档';
       return true;
@@ -385,9 +452,13 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     const selected = pending.value.filter(patch => id === undefined || patch.id === id);
     if (!selected.length) return;
     try {
+      const before = expected;
       const next = applyDocumentPatches(original, [...accepted.value, ...selected]);
       if (!write(next)) return;
       selected.forEach(patch => { patch.decision = 'accepted'; });
+      // 入栈本次写入：编辑器按基线撤销它时，这些建议恢复待审阅。
+      redoSlot = null;
+      writeStack.push({ before, after: expected, patchIds: selected.map(patch => patch.id) });
       logs.value.push(`已接受 ${selected.length} 处修改，可撤销本次任务`);
       if (!pending.value.length) status.value = 'done';
     } catch (failure) {
@@ -406,6 +477,9 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const undo = (): void => {
     if (!canReview.value || !accepted.value.length || !write(original)) return;
     accepted.value.forEach(patch => { patch.decision = 'pending'; });
+    // 按钮撤销一次回到任务前原文，写入栈整体作废。
+    writeStack.length = 0;
+    redoSlot = null;
     status.value = 'review';
     logs.value.push('已撤销本次任务接受的全部修改');
   };

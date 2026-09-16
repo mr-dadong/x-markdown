@@ -116,6 +116,28 @@ describe('文档 Agent 审阅和生命周期', () => {
     assert.equal(state.agent.status.value, 'done');
     state.scope.stop();
   });
+  test('编辑器撤销 AI 写入按任务撤销处理，重做恢复接受状态', async () => {
+    const state = setup();
+    const task = state.agent.start('统一名称');
+    state.propose();
+    state.finish();
+    await task;
+    state.agent.accept();
+    assert.equal(state.document.value, 'XMD，正文');
+    // 模拟编辑器 Ctrl+Z 撤销这次写入：内容回到写入前基线。
+    state.document.value = '旧名，正文';
+    assert.equal(state.agent.status.value, 'review');
+    assert.equal(state.agent.patches.value[0].decision, 'pending');
+    assert.equal(state.agent.error.value, '');
+    // 模拟编辑器 Ctrl+Shift+Z 重做这次写入。
+    state.document.value = 'XMD，正文';
+    assert.equal(state.agent.status.value, 'done');
+    assert.equal(state.agent.patches.value[0].decision, 'accepted');
+    // 无关的外部变化仍走冲突。
+    state.document.value = '其它内容';
+    assert.equal(state.agent.status.value, 'conflict');
+    state.scope.stop();
+  });
   test('取消后等待后台结束，没有建议时进入已停止状态', async () => {
     const state = setup();
     const task = state.agent.start('统一名称');
@@ -337,6 +359,24 @@ describe('Agent 时间线', () => {
     assert.equal(state.agent.timeline.value.length, 0);
     state.finish();
     await next;
+    state.scope.stop();
+  });
+  test('任务结束收口仍在执行的操作，工具行不永远旋转', async () => {
+    const state = setup();
+    const task = state.agent.start('修改文档');
+    state.event({ requestId: '', type: 'operation', operation: { id: 'op-1', stage: 'edit', title: '修改文档', detail: '', state: 'running', startedAt: 1 } });
+    state.event({ requestId: '', type: 'draft', text: '半截参数' });
+    // 操作的结束事件在链路上丢失，任务直接进入完成：状态机必须在 done 收口。
+    state.finish();
+    await task;
+    const tool = state.agent.timeline.value.find(entry => entry.kind === 'tool');
+    if (tool?.kind === 'tool') {
+      assert.equal(tool.operation.state, 'error');
+      assert.ok((tool.operation.endedAt ?? 0) > 0);
+      // 参数流随任务结束清空，工具行不再保持展开。
+      assert.equal(tool.draft, '');
+    } else assert.fail('应存在工具行');
+    assert.equal(state.agent.operations.value[0].state, 'error');
     state.scope.stop();
   });
 });

@@ -141,6 +141,7 @@ import { exportService } from '../services/exportService'
 import { fileSystemService } from '../services/fileSystemService'
 import { getFileName } from '../utils/file'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
+import { toLfLineEndings, markAgentSync, clearAgentSync } from '../utils/documentAgent'
 import { matchesShortcut } from '../utils/shortcuts'
 import { blockFractionToSourceLine, getTopLevelBlockRanges, mapBlockIndex, sourceLineToBlockFraction } from '../modules/viewSync'
 import type { EditorHandle, SourceEditorHandle, ViewportAnchor } from '../types/editor'
@@ -232,18 +233,27 @@ const getAiFilePath = (): string | null => currentFilePath.value
 // 单次接受与用户前后输入隔离，Ctrl+Z 不会连带撤销用户刚输入的文字。
 const applyAgentDocument = (expected: string, next: string): void => {
     const view = sourceEditorRef.value?.getView()
-    if (!view || currentContent.value !== expected || view.state.doc.toString() !== expected) {
+    // 源码编辑器 doc.toString() 始终是 \n 换行，而 expected 可能是磁盘原文的 \r\n 换行，
+    // 归一化后再比较，否则未改动的 Windows 文档也会被误判为“编辑器内容已变化”。
+    if (!view || currentContent.value !== expected || view.state.doc.toString() !== toLfLineEndings(expected)) {
         throw new Error('编辑器内容已变化，请重新读取文档后执行')
     }
     const richEditor = editorRef.value?.getEditor()
     if (richEditor) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+    // 登记本次 Agent 写入的目标内容：富文本同步到它时保留撤销历史，Ctrl+Z 才能撤销 AI 写入。
+    const lfNext = toLfLineEndings(next)
+    markAgentSync(lfNext)
     view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: next },
+        // CodeMirror 插入时会把 \r\n 归一为 \n，统一按 \n 写入，
+        // 写入后编辑器回读内容才能与 write 的校验基准逐字一致。
+        changes: { from: 0, to: view.state.doc.length, insert: lfNext },
         annotations: isolateHistory.of('full'),
     })
     // 富文本同步在 Vue 更新阶段发生，完成后再隔离下一次用户输入。
     void nextTick(() => {
         if (richEditor && !richEditor.isDestroyed) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
+        // 同步窗口结束：富文本未消费标记（如源码模式）时清掉，避免陈旧标记影响后续载入。
+        clearAgentSync()
     })
 }
 

@@ -1,12 +1,18 @@
 import type { DocumentPatch } from '../types/documentAgent';
 
+/** 把 \r\n 和旧式单独 \r 的换行统一为 \n，与 CodeMirror 文档文本的拆行规则一致，
+ *  供编辑器回写比较时把磁盘原文和编辑器文本放到同一坐标系。 */
+export function toLfLineEndings(content: string): string {
+  return content.replace(/\r\n?/g, '\n');
+}
+
 /** 写入前再次核对原文和范围；重复、重叠或过期修改一律报错。 */
 export function applyDocumentPatches(document: string, patches: DocumentPatch[]): string {
   const sorted = [...patches].sort((a, b) => a.start - b.start || a.end - b.end);
   for (let index = 0; index < sorted.length; index++) {
     const patch = sorted[index];
     if (!Number.isInteger(patch.start) || !Number.isInteger(patch.end) ||
-        patch.start < 0 || patch.end < patch.start || patch.end > document.length) {
+      patch.start < 0 || patch.end < patch.start || patch.end > document.length) {
       throw new Error('修改位置无效，请重新读取文档');
     }
     if (document.slice(patch.start, patch.end) !== patch.before) {
@@ -27,6 +33,27 @@ export function applyDocumentPatches(document: string, patches: DocumentPatch[])
   }
   parts.push(document.slice(cursor));
   return parts.join('');
+}
+
+// Agent 写入同步标记：富文本编辑器同步到这份内容时不清空撤销历史，
+// 让 Ctrl+Z 能原生撤销 AI 写入；其他外部载入仍清空历史，避免跨文档撤销。
+let agentSyncContent: string | null = null;
+
+/** 写入编辑器前登记本次 Agent 同步的目标内容（LF 形式）。 */
+export function markAgentSync(content: string): void {
+  agentSyncContent = content;
+}
+
+/** 内容同步时核对并消费标记：命中代表这次同步来自 Agent 写入。 */
+export function consumeAgentSync(content: string): boolean {
+  if (agentSyncContent !== content) return false;
+  agentSyncContent = null;
+  return true;
+}
+
+/** 同步窗口结束后清理未消费的标记，避免陈旧标记影响后续载入。 */
+export function clearAgentSync(): void {
+  agentSyncContent = null;
 }
 
 /** 只检查可确定的 Markdown 结构问题，不宣称验证文章事实或语言质量。 */

@@ -66,8 +66,8 @@ export const mediaService = {
     window.electronAPI.resolveEditorVideo(url, currentDocumentPath),
   openFile: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.openEditorFile(url, currentDocumentPath),
-  fileExists: (url: string, currentDocumentPath: string | null) =>
-    window.electronAPI.editorFileExists(url, currentDocumentPath),
+  fileStat: (url: string, currentDocumentPath: string | null) =>
+    window.electronAPI.editorFileStat(url, currentDocumentPath),
   openLocalLink: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.openLocalLink(url, currentDocumentPath),
 };

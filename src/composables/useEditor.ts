@@ -45,6 +45,7 @@ import {
 import { emojis, filterEmojis, type EmojiItem } from "../modules/emojis";
 import { useSettings } from "./useSettings";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
+import { consumeAgentSync } from "../utils/documentAgent";
 import { hasMarkdownSyntax } from "../utils/markdownDetector";
 import { createAttachmentTransferTracker } from "../modules/attachmentTransferTracker";
 
@@ -1445,8 +1446,9 @@ export const useMarkdownEditor = (
       editor.value.commands.setContent(newContent, false);
       // setContent 之后文档与 newContent 一致，重建原文基准。
       baseline = captureBaseline(editor.value, newContent);
-      // 清空上一个文档遗留的撤销/重做历史，避免新文档里 Ctrl+Z 回退到上一个文档内容。
-      resetHistoryAfterDocumentLoad(editor.value);
+      // Agent 写入的同步保留撤销历史：Ctrl+Z 能原生撤销这次 AI 写入；
+      // 其他外部载入仍清空历史，避免新文档里 Ctrl+Z 回退到上一个文档内容。
+      if (!consumeAgentSync(newContent)) resetHistoryAfterDocumentLoad(editor.value);
     },
   );
 

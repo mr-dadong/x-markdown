@@ -61,7 +61,11 @@
 
     <!-- 对话区域 -->
     <template v-else>
-      <DocumentAgentPanel ref="agentPanelRef" v-show="mode === 'agent'" :options="agentOptions" @busy="agentBusy = $event">
+      <!-- 引用队列与 Chat 共用：Agent 模式下输入框展示同一批待发送选区标签。 -->
+      <DocumentAgentPanel ref="agentPanelRef" v-show="mode === 'agent'" :options="agentOptions"
+        :pending-selections="props.pendingSelections"
+        @busy="agentBusy = $event"
+        @remove-pending-selection="(index) => emit('remove-pending-selection', index)">
         <template #footer-left>
           <AiModeSelector v-model="mode" :disabled="isStreaming || agentBusy" />
         </template>

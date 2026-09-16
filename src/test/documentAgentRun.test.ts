@@ -137,10 +137,12 @@ const otherFinishStream = () =>
 // 在实际 Mastra 循环中运行，验证无批次表单、完整历史与自然结束。
 describe("文档 Agent 草稿执行循环", () => {
   test("截图中的标题整理可一轮提交四处编辑，读一次成稿后正常结束", async () => {
+    // fixture 换行跟随平台 checkout（Windows 为 CRLF），而草稿契约统一 LF，
+    // 读入后先归一化，避免断言随环境漂移；CRLF 坐标还原由草稿专项测试覆盖。
     const document = readFileSync(
       new URL("./fixtures/document-agent-plain-text.txt", import.meta.url),
       "utf8",
-    );
+    ).replaceAll("\r\n", "\n");
     const events: DocumentAgentEvent[] = [];
     let step = 0;
     const model = new MastraLanguageModelV2Mock({
@@ -158,10 +160,10 @@ describe("文档 Agent 草稿执行循环", () => {
               typeof message.content === "string"
                 ? message.content
                 : message.content
-                    .flatMap((part) =>
-                      part.type === "text" ? [part.text] : [],
-                    )
-                    .join(""),
+                  .flatMap((part) =>
+                    part.type === "text" ? [part.text] : [],
+                  )
+                  .join(""),
             )
             .join("\n");
           const line = prompt
@@ -244,9 +246,9 @@ describe("文档 Agent 草稿执行循环", () => {
               ? resultStream("edit", { old_string: "旧名", new_string: "XMD" })
               : current === 1
                 ? resultStream("edit", {
-                    old_string: "XMD",
-                    new_string: "XMD 编辑器",
-                  })
+                  old_string: "XMD",
+                  new_string: "XMD 编辑器",
+                })
                 : resultStream(),
         };
       },
@@ -273,30 +275,30 @@ describe("文档 Agent 草稿执行循环", () => {
         stream:
           step++ === 0
             ? new ReadableStream({
-                start(controller) {
-                  controller.enqueue({ type: "stream-start", warnings: [] });
-                  for (const [id, old_string, new_string] of [
-                    ["first", "旧名", "中间版本"],
-                    ["second", "中间版本", "最终版本"],
-                  ])
-                    controller.enqueue({
-                      type: "tool-call",
-                      toolCallId: id,
-                      toolName: "edit",
-                      input: JSON.stringify({ old_string, new_string }),
-                    });
+              start(controller) {
+                controller.enqueue({ type: "stream-start", warnings: [] });
+                for (const [id, old_string, new_string] of [
+                  ["first", "旧名", "中间版本"],
+                  ["second", "中间版本", "最终版本"],
+                ])
                   controller.enqueue({
-                    type: "finish",
-                    finishReason: "tool-calls",
-                    usage: {
-                      inputTokens: 10,
-                      outputTokens: 10,
-                      totalTokens: 20,
-                    },
+                    type: "tool-call",
+                    toolCallId: id,
+                    toolName: "edit",
+                    input: JSON.stringify({ old_string, new_string }),
                   });
-                  controller.close();
-                },
-              })
+                controller.enqueue({
+                  type: "finish",
+                  finishReason: "tool-calls",
+                  usage: {
+                    inputTokens: 10,
+                    outputTokens: 10,
+                    totalTokens: 20,
+                  },
+                });
+                controller.close();
+              },
+            })
             : resultStream(),
       }),
     });
@@ -327,16 +329,16 @@ describe("文档 Agent 草稿执行循环", () => {
           stream:
             current === 0
               ? resultStream("edit", {
-                  old_string: "不存在的名称",
-                  new_string: "XMD",
-                })
+                old_string: "不存在的名称",
+                new_string: "XMD",
+              })
               : current === 1
                 ? resultStream("read", {})
                 : current === 2
                   ? resultStream("edit", {
-                      old_string: "旧名",
-                      new_string: "XMD",
-                    })
+                    old_string: "旧名",
+                    new_string: "XMD",
+                  })
                   : resultStream(),
         };
       },
@@ -363,9 +365,9 @@ describe("文档 Agent 草稿执行循环", () => {
         stream:
           step++ === 0
             ? resultStream("edit", {
-                old_string: "不存在",
-                new_string: "新内容",
-              })
+              old_string: "不存在",
+              new_string: "新内容",
+            })
             : resultStream(),
       }),
     });
@@ -555,7 +557,7 @@ describe("文档 Agent 草稿执行循环", () => {
         maxTokens: 1000,
         temperature: 0,
         controller: new AbortController(),
-        report: () => {},
+        report: () => { },
       }),
       /单次输出限制/,
     );
@@ -572,7 +574,7 @@ describe("文档 Agent 草稿执行循环", () => {
         maxTokens: 1000,
         temperature: 0,
         controller: new AbortController(),
-        report: () => {},
+        report: () => { },
       }),
       /other/,
     );
@@ -585,12 +587,12 @@ describe("文档 Agent 草稿执行循环", () => {
         stream:
           step++ === 0
             ? streamedToolCall(
-                "edit",
-                JSON.stringify({
-                  old_string: "旧名",
-                  new_string: "新的 Markdown 内容",
-                }),
-              )
+              "edit",
+              JSON.stringify({
+                old_string: "旧名",
+                new_string: "新的 Markdown 内容",
+              }),
+            )
             : resultStream(),
       }),
     });
@@ -627,7 +629,7 @@ describe("文档 Agent 草稿执行循环", () => {
       maxTokens: 1000,
       temperature: 0,
       controller,
-      report: () => {},
+      report: () => { },
     });
     await ready;
     controller.abort(new Error("用户停止"));
@@ -775,7 +777,7 @@ test("明确完成且校验通过时一轮结束，并在完成前发布差异",
   );
   assert.ok(
     events.findIndex((event) => event.type === "patches") <
-      events.findIndex((event) => event.type === "done"),
+    events.findIndex((event) => event.type === "done"),
   );
 });
 
@@ -790,10 +792,10 @@ test("完成摘要不能绕过结构校验", async () => {
         stream:
           calls === 1
             ? resultStream("edit", {
-                old_string: "旧名",
-                new_string: "# 标题\n### 小节",
-                summary: "完成",
-              })
+              old_string: "旧名",
+              new_string: "# 标题\n### 小节",
+              summary: "完成",
+            })
             : resultStream(),
       };
     },

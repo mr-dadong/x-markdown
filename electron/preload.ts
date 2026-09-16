@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ApplicationMenuPosition,
   AttachmentCopyProgress,
+  EditorFileStat,
   ElectronAPI,
   ExportDocxData,
   ExportHtmlData,
@@ -351,8 +352,8 @@ const electronAPI: ElectronAPI = {
   openEditorFile: (url: string, currentDocumentPath: string | null): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.openEditorFile, { url, currentDocumentPath }),
 
-  editorFileExists: (url: string, currentDocumentPath: string | null): Promise<boolean> =>
-    ipcRenderer.invoke(IPC_CHANNELS.editorFileExists, { url, currentDocumentPath }),
+  editorFileStat: (url: string, currentDocumentPath: string | null): Promise<EditorFileStat> =>
+    ipcRenderer.invoke(IPC_CHANNELS.editorFileStat, { url, currentDocumentPath }),
 
   openLocalLink: (url: string, currentDocumentPath: string | null): Promise<OpenLocalLinkResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.openLocalLink, { url, currentDocumentPath }),
