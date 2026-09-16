@@ -1,20 +1,18 @@
 {
-  "latest": "1.3.4",
+  "latest": "1.3.5",
   "releases": [
     {
-      "version": "1.3.4",
+      "version": "1.3.5",
       "date": "2026-09-16",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：代码块支持导出为 PNG 图片，方便粘贴到文档或分享给他人",
-        "优化：二进制导出流程（ZIP / DOCX / PNG）统一重构，弹出保存对话框时自动处理文件名中的特殊字符，避免路径错乱",
-        "新增：图片预览功能增强，打开链接文档时同级图片可正常显示",
-        "优化：本地链接处理改进，以 `/` 开头的资源地址按文档所在目录解析，不再误解析到磁盘分区根目录",
-        "修复：AgentTimeline 组件代码样式格式化，提升可读性",
-        "优化：HTML块编辑交互，支持双击编辑源码",
-        "新增：添加导出进度条和状态信息",
-        "优化：代码块导出样式，确保长代码在静态导出中正确换行"
+        "新增：附件卡片显示文件大小与缺失状态",
+        "新增：手写文件链接自动转换为附件卡片功能",
+        "优化：标题标签定位算法支持多行内元素",
+        "优化：完善AI代理模式下的撤销重做机制",
+        "优化：代码块内选中代码文字时不再弹出AI动作条",
+        "优化：导出PDF/HTML时为代码块补写当前外观的语法配色类"
       ],
       "downloads": {
         "windows": {
@@ -25,9 +23,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.3.4-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Windows-x64.exe",
-              "sha256": "ccfb3dd8e4c52579792fd395749a1c7afa08c36d513d04bd6fbebba67fccbe5f"
+              "filename": "XMD-1.3.5-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.5/XMD-1.3.5-Windows-x64.exe",
+              "sha256": "d26021f7f48cba8e00a7342b9988fa1c10f0eaa94952cce641a60b5747ac2fa7"
             }
           ]
         },
@@ -39,17 +37,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.4-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-macOS-arm64.dmg",
-              "sha256": "920674b2f0003f3fd24c11970bfcf8fcd66cfb00b400ea0fa9f0877ffa0d6a32"
+              "filename": "XMD-1.3.5-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.5/XMD-1.3.5-macOS-arm64.dmg",
+              "sha256": "290afe1443582133e6178d17da9ba69a68fe8b526b34a33647a5b1b2871e871d"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.4-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-macOS-x64.dmg",
-              "sha256": "81f6be1a0f8476f21d266bb22c025c77823bb79f34a6581654b0281fd288045a"
+              "filename": "XMD-1.3.5-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.5/XMD-1.3.5-macOS-x64.dmg",
+              "sha256": "761154fd7ff98b3fa4e3c9699d588f60cd3abce3e118a5564ebe4b0d1e6c148b"
             }
           ]
         },
@@ -61,17 +59,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.4-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Linux-x86_64.AppImage",
-              "sha256": "33ddb3c8f9637f405702ecdc40d79d48de746f28d0b9c6d73020f502932babbc"
+              "filename": "XMD-1.3.5-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.5/XMD-1.3.5-Linux-x86_64.AppImage",
+              "sha256": "f9d66fdc4690d74e75f982210fa7e865ee8b535b898f28987c5dac42b75c0174"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.4-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.4/XMD-1.3.4-Linux-arm64.AppImage",
-              "sha256": "e4e0dc66949614806b27570f7fcc5ab29ec04170f7c1216b7939d56a69781b9b"
+              "filename": "XMD-1.3.5-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.5/XMD-1.3.5-Linux-arm64.AppImage",
+              "sha256": "3a6e20d1c48f61f65b0d8a9f85ea86a9522efc230c86909c6b7adaa5203e2dfb"
             }
           ]
         }
