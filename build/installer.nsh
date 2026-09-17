@@ -52,7 +52,12 @@
 
   WriteRegStr HKCU "Software\Classes\.md\OpenWithProgids" "XMD.Markdown" ""
   WriteRegStr HKCU "Software\Classes\.markdown\OpenWithProgids" "XMD.Markdown" ""
-  WriteRegStr HKCU "Software\Classes\.txt\OpenWithProgids" "XMD.Markdown" ""
+  ; 故意不把 XMD.Markdown 写入 .txt 的 OpenWithProgids：系统自带的 .txt 类型
+  ; （txtfilelegacy）没有自己的名称和图标，一旦 .txt 的 OpenWithProgids 里出现带图标的
+  ; XMD.Markdown，Windows 11 就会让“新建 -> 文本文档”连同所有 .txt 文件都改用 XMD 的
+  ; Markdown 图标。这里主动删除历史版本写入的值，让老用户覆盖安装后也能恢复；
+  ; “用 XMD 打开 .txt”仍由上面的 SupportedTypes 与右键菜单提供，不受影响。
+  DeleteRegValue HKCU "Software\Classes\.txt\OpenWithProgids" "XMD.Markdown"
 
   ; 注册 Windows 资源管理器“右键 -> 新建”菜单，创建一个空的 Markdown 文件。
   ; 仅注册常用的 .md 扩展名，避免 .md 和 .markdown 在“新建”菜单中重复出现。

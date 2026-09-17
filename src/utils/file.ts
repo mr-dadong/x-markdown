@@ -35,10 +35,9 @@ export const getDirectoryName = (dirPath: string | null): string => {
  * @returns 是否是 Markdown 文件
  */
 export const isMarkdownFile = (fileName: string): boolean => {
-  return (
-    fileName.toLowerCase().endsWith(".md") ||
-    fileName.toLowerCase().endsWith(".markdown")
-  );
+  // 只转一次小写再比较，避免重复调用 toLowerCase。
+  const lowerName = fileName.toLowerCase();
+  return lowerName.endsWith(".md") || lowerName.endsWith(".markdown");
 };
 
 /**
@@ -48,5 +47,6 @@ export const isMarkdownFile = (fileName: string): boolean => {
  */
 export const getFileName = (filePath: string | null): string => {
   if (!filePath) return "未命名.md";
-  return filePath.split(/[/\\]/).pop() ?? "未命名.md";
+  // 用 || 而非 ??：路径以分隔符结尾时 pop() 会得到空串，此时也应回退到默认名。
+  return filePath.split(/[/\\]/).pop() || "未命名.md";
 };
