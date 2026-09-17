@@ -35,11 +35,14 @@
         role="group" tabindex="0" title="双击空白处编辑 HTML 源码，预览内容可直接选中" @dblclick.stop="startEditing"
         @keydown.enter.prevent.stop="startEditing" @keydown.space.prevent.stop="startEditing">
         <!-- iframe 隔离每个块的 CSS；不再禁用指针事件，让预览内部支持原生文本选择。 -->
-        <iframe v-if="hasVisiblePreview" ref="previewFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
+        <iframe v-if="hasVisiblePreview && previewDocument" ref="previewFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
           tabindex="-1" title="HTML 隔离预览" class="flex w-full border-0 bg-transparent" :style="previewFrameStyle"
           @load="handlePreviewLoad" />
+        <div v-else-if="previewError" class="flex flex-1 items-center justify-center text-[12px] text-danger">
+          {{ previewError }}
+        </div>
         <div v-else class="flex flex-1 items-center justify-center text-[12px] text-muted">
-          这段 HTML 没有可见内容，双击编辑源码
+          {{ hasVisiblePreview ? '正在加载 HTML 预览' : '这段 HTML 没有可见内容，双击编辑源码' }}
         </div>
       </div>
     </div>
@@ -95,7 +98,7 @@
           </div>
         </div>
         <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-line bg-paper">
-          <iframe v-if="hasVisiblePreview" ref="previewModalFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
+          <iframe v-if="hasVisiblePreview && previewDocument" ref="previewModalFrame" :srcdoc="previewDocument" sandbox="allow-same-origin"
             title="HTML 放大预览" class="block w-full border-0 bg-transparent" :style="previewModalFrameStyle"
             @load="handlePreviewModalLoad" />
         </div>
@@ -111,7 +114,8 @@ import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import HtmlSourceEditor from './HtmlSourceEditor.vue'
 import MarkdownModulePopover from '../shared/MarkdownModulePopover.vue'
-import { createHtmlPreviewDocument } from './htmlPreview'
+import { createResolvedHtmlPreviewDocument } from './htmlPreview'
+import { mediaService } from '../../../services/mediaService'
 
 const props = defineProps<NodeViewProps>()
 
@@ -135,8 +139,30 @@ const lineNumbers = computed(() => Array.from({ length: draft.value.split('\n').
 const sourceEditorStyle = computed(() => ({
   height: `${Math.min(280, Math.max(96, lineNumbers.value.length * 20 + 24))}px`,
 }))
-// 原始字符串仍单独保存在节点属性中；预览文档会过滤危险标签并隔离用户 CSS。
-const previewDocument = computed(() => createHtmlPreviewDocument(source.value))
+// 原始字符串仍单独保存在节点属性中；本地图片读取为 data URL 后再交给隔离 iframe。
+const previewDocument = ref('')
+const previewError = ref('')
+let previewRequestId = 0
+const getCurrentDocumentPath = (): string | null => {
+  const options = props.extension.options as { getCurrentDocumentPath?: () => string | null }
+  return options.getCurrentDocumentPath?.() ?? null
+}
+const refreshPreviewDocument = async (value: string): Promise<void> => {
+  const requestId = ++previewRequestId
+  previewDocument.value = ''
+  previewError.value = ''
+  if (!value.trim()) return
+  try {
+    const document = await createResolvedHtmlPreviewDocument(
+      value,
+      url => mediaService.readImage(url, getCurrentDocumentPath()),
+    )
+    if (requestId === previewRequestId) previewDocument.value = document
+  } catch (error) {
+    if (requestId !== previewRequestId) return
+    previewError.value = `HTML 预览加载失败：${error instanceof Error ? error.message : String(error)}`
+  }
+}
 const hasVisiblePreview = computed(() => source.value.trim().length > 0)
 const previewFrameStyle = computed(() => ({ height: `${previewHeight.value}px` }))
 const previewModalFrameStyle = computed(() => ({ height: `${previewModalHeight.value}px` }))
@@ -260,8 +286,9 @@ watch(source, (value) => {
   draft.value = value
   previewHeight.value = 56
   disconnectPreviewObserver()
+  void refreshPreviewDocument(value)
   void nextTick(updatePreviewHeight)
-})
+}, { immediate: true })
 
 // 编辑期间源码变化，放大预览使用同一个 previewDocument，随节点属性实时刷新。
 watch(draft, (value) => {

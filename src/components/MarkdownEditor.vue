@@ -1543,6 +1543,7 @@ defineExpose<EditorHandle>({
 .typography-pane .tiptap p>[data-xmd-image]:only-child,
 .typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br),
 .typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) {
+  @apply my-6 flex rounded-lg;
   vertical-align: baseline;
   margin-right: 0;
 }
@@ -1550,6 +1551,7 @@ defineExpose<EditorHandle>({
 .typography-pane .tiptap p>[data-xmd-image]:only-child img,
 .typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br) img,
 .typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) img {
+  @apply rounded-lg;
   width: 100%;
   height: auto;
   max-height: none;
@@ -1567,6 +1569,12 @@ defineExpose<EditorHandle>({
 .tiptap.is-all-selected [data-xmd-video],
 .tiptap.is-all-selected [data-xmd-attachment] {
   @apply outline outline-2 outline-offset-[3px] outline-link;
+}
+
+/* 图片采用视频块框选时的贴边细轮廓，避免外扩描边只露出底部一条。 */
+.tiptap [data-xmd-image].ProseMirror-selectednode,
+.tiptap.is-all-selected [data-xmd-image] {
+  @apply rounded-lg outline-1 outline-offset-0 outline-[#007aff]/70 dark:outline-[#0a84ff]/80;
 }
 
 /* 文件卡片再增加整块底色，避免选中反馈只落在文件名文字上。 */

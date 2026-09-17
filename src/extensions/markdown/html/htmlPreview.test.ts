@@ -5,10 +5,11 @@ import { installDomEnvironment } from '../../../test/domEnvironment'
 
 let browserWindow: Window
 let createHtmlPreviewDocument: typeof import('./htmlPreview').createHtmlPreviewDocument
+let createResolvedHtmlPreviewDocument: typeof import('./htmlPreview').createResolvedHtmlPreviewDocument
 
 before(async () => {
   browserWindow = installDomEnvironment()
-  ;({ createHtmlPreviewDocument } = await import('./htmlPreview'))
+  ;({ createHtmlPreviewDocument, createResolvedHtmlPreviewDocument } = await import('./htmlPreview'))
 })
 
 after(async () => {
@@ -40,6 +41,21 @@ describe('HTML 隔离预览', () => {
     assert.match(document, /default-src 'none'/)
     assert.match(document, /style-src 'unsafe-inline'/)
     assert.match(document, /form-action 'none'/)
+  })
+
+  test('本地相对图片转换为 CSP 允许的 data URL', async () => {
+    const resolvedUrls: string[] = []
+    const document = await createResolvedHtmlPreviewDocument(
+      '<img src="./images/demo.png" alt="示例">',
+      async url => {
+        resolvedUrls.push(url)
+        return 'data:image/png;base64,AQID'
+      },
+    )
+
+    assert.deepEqual(resolvedUrls, ['./images/demo.png'])
+    assert.match(document, /src="data:image\/png;base64,AQID"/)
+    assert.doesNotMatch(document, /src="\.\/images\/demo\.png"/)
   })
 
   test('不再以 flex 强制压缩内容宽度，保留横向滚动而非裁掉内容', () => {

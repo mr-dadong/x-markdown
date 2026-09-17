@@ -9,12 +9,26 @@ import { writeMarkdownBlock } from "../shared/markdownRuleUtils";
 
 const configuredParsers = new WeakSet<MarkdownIt>();
 
-export const HtmlBlock = Node.create({
+// 独占一行的单个 img 属于图片内容，不需要套用通用 HTML iframe 预览。
+const isStandaloneImageHtml = (source: string): boolean =>
+  /^\s*<img\b[^>]*>\s*$/iu.test(source);
+
+interface HtmlBlockOptions {
+  getCurrentDocumentPath: () => string | null;
+}
+
+export const HtmlBlock = Node.create<HtmlBlockOptions>({
   name: "htmlBlock",
   group: "block",
   atom: true,
   selectable: true,
   draggable: true,
+
+  addOptions() {
+    return {
+      getCurrentDocumentPath: () => null,
+    };
+  },
 
   addAttributes() {
     return {
@@ -62,8 +76,12 @@ export const HtmlBlock = Node.create({
             configuredParsers.add(markdown);
 
             // 将 HTML 块转为专用占位节点，源码只作为文本传入，绝不在编辑器中直接执行。
-            markdown.renderer.rules.html_block = (tokens: Token[], index: number) =>
-              `<pre data-xmd-html-block>${markdown.utils.escapeHtml(tokens[index].content)}</pre>`;
+            markdown.renderer.rules.html_block = (tokens: Token[], index: number) => {
+              const source = tokens[index].content;
+              // 包进段落后交给图片扩展解析，width/height 等属性会进入图片节点。
+              if (isStandaloneImageHtml(source)) return `<p>${source.trim()}</p>`;
+              return `<pre data-xmd-html-block>${markdown.utils.escapeHtml(source)}</pre>`;
+            };
           },
         },
       },

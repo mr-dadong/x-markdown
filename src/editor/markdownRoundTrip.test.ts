@@ -10,6 +10,13 @@ let EditorConstructor: typeof import("@tiptap/core").Editor;
 
 before(async () => {
   browserWindow = installDomEnvironment();
+  // 独占一行的 img 现在使用真实图片节点，测试环境提供最小本地图片读取接口。
+  (browserWindow as unknown as { electronAPI: unknown }).electronAPI = {
+    readEditorImage: async (url: string) => url,
+    readEditorFileBytes: async () => new Uint8Array(),
+    onAttachmentCopyProgress: () => () => {},
+    getPathForFile: () => "",
+  };
   ({ Editor: EditorConstructor } = await import("@tiptap/core"));
   ({ createEditorExtensions } = await import("./editorExtensions"));
 });

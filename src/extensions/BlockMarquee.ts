@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core'
 import { Fragment, Slice, type Node as DocumentNode } from '@tiptap/pm/model'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, Selection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 
 // 范围始终落在完整节点的前后，列表按任务项或列表项选择。
@@ -9,9 +9,23 @@ export const blockMarqueeKey = new PluginKey<BlockRange[]>('blockMarquee')
 const isList = (node: DocumentNode): boolean =>
   ['bulletList', 'orderedList', 'taskList'].includes(node.type.name)
 
+// 独占段落的图片虽然外层节点是 paragraph，但视觉主体是内部图片容器。
+// 不能按普通文字块处理，否则段落行盒只会在图片底部显示一条选中色。
+const isImageBlock = (node: DocumentNode): boolean =>
+  node.type.name === 'paragraph'
+  && node.childCount === 1
+  && node.firstChild?.type.name === 'image'
+
 // 普通文字块直接使用底色，带内部背景的组件另外绘制表面选中层。
 const isTextBlock = (node: DocumentNode): boolean =>
   ['paragraph', 'heading', 'listItem', 'taskItem'].includes(node.type.name)
+  && !isImageBlock(node)
+
+// 图片块的顶层 DOM 是段落，框选表面必须对齐内部真实图片容器。
+const getSelectionSurfaceDom = (node: DocumentNode, dom: HTMLElement): HTMLElement =>
+  isImageBlock(node)
+    ? dom.querySelector<HTMLElement>('[data-xmd-image]') ?? dom
+    : dom
 
 // 列表拆成独立条目；其他顶层块保持完整，避免同时选中父子节点。
 export const selectableBlocks = (doc: DocumentNode): BlockRange[] => {
@@ -55,8 +69,13 @@ export const deleteSelectedBlocks = (view: EditorView): void => {
   const ranges = blockMarqueeKey.getState(view.state)
   if (!ranges?.length) return
   const transaction = view.state.tr
+  const firstDeletedPosition = Math.min(...ranges.map(range => range.from))
   for (const range of [...ranges].reverse()) transaction.deleteRange(range.from, range.to)
-  view.dispatch(transaction.setMeta(blockMarqueeKey, []).setMeta('uiEvent', 'cut').scrollIntoView())
+  // 块框选不会改变 ProseMirror 原有的文字光标；删除后必须把逻辑光标移到删除位置，
+  // 否则后续操作仍会引用旧光标。这里不强制滚动，保持用户删除时看到的当前视口。
+  const selectionPosition = Math.min(firstDeletedPosition, transaction.doc.content.size)
+  transaction.setSelection(Selection.near(transaction.doc.resolve(selectionPosition), 1))
+  view.dispatch(transaction.setMeta(blockMarqueeKey, []).setMeta('uiEvent', 'cut'))
 }
 
 // 主编辑器的快捷键优先于扩展，复用同一入口以免旧光标触发标题降级等操作。
@@ -106,6 +125,7 @@ export const BlockMarquee = Extension.create({
             // 正文使用轻浅的系统蓝底色，避免每行都像获得焦点的输入框。
             const node = state.doc.nodeAt(range.from)
             const textBlock = node && isTextBlock(node)
+            if (node && isImageBlock(node)) return Decoration.node(range.from, range.to, {})
             // 不透明组件保留贴边的细轮廓；取消外扩间距，消除代码卡片周围的白缝。
             const className = textBlock
               ? '!bg-[#007aff]/[0.12] dark:!bg-[#0a84ff]/[0.22] rounded-[4px]'
@@ -147,10 +167,10 @@ export const BlockMarquee = Extension.create({
             const node = view.state.doc.nodeAt(range.from)
             const dom = view.nodeDOM(range.from)
             if (!node || isTextBlock(node) || !(dom instanceof HTMLElement)) continue
-            const rect = dom.getBoundingClientRect()
+            const rect = getSelectionSurfaceDom(node, dom).getBoundingClientRect()
             if (rect.width === 0 || rect.height === 0 || rect.bottom <= viewport.top || rect.top >= viewport.bottom) continue
             const surface = owner.createElement('div')
-            surface.className = 'pointer-events-none absolute flex rounded-md bg-[#007aff]/[0.20] dark:bg-[#0a84ff]/[0.24]'
+            surface.className = 'pointer-events-none absolute flex rounded-lg bg-[#007aff]/[0.20] outline outline-1 outline-[#007aff]/70 outline-offset-0 dark:bg-[#0a84ff]/[0.24] dark:outline-[#0a84ff]/80'
             Object.assign(surface.style, {
               left: `${rect.left - viewport.left}px`, top: `${rect.top - viewport.top}px`,
               width: `${rect.width}px`, height: `${rect.height}px`,
@@ -192,9 +212,10 @@ export const BlockMarquee = Extension.create({
             height: `${Math.max(0, Math.min(bottom, viewport.bottom) - Math.max(top, viewport.top))}px`,
           })
           const ranges = selectableBlocks(view.state.doc).filter(range => {
+            const node = view.state.doc.nodeAt(range.from)
             const dom = view.nodeDOM(range.from)
-            if (!(dom instanceof HTMLElement)) return false
-            const rect = dom.getBoundingClientRect()
+            if (!node || !(dom instanceof HTMLElement)) return false
+            const rect = getSelectionSurfaceDom(node, dom).getBoundingClientRect()
             return rect.width > 0 && rect.height > 0 && left < rect.right && right > rect.left && top < rect.bottom && bottom > rect.top
           })
           const previous = blockMarqueeKey.getState(view.state) ?? []

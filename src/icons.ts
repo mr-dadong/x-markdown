@@ -30,6 +30,8 @@ import moonIcon from '@iconify-icons/lucide/moon'
 import panelLeftIcon from '@iconify-icons/lucide/panel-left'
 import paperclipIcon from '@iconify-icons/lucide/paperclip'
 import penLineIcon from '@iconify-icons/lucide/pen-line'
+import playIcon from '@iconify-icons/lucide/play'
+import pauseIcon from '@iconify-icons/lucide/pause'
 import maximize2Icon from '@iconify-icons/lucide/maximize-2'
 import minimize2Icon from '@iconify-icons/lucide/minimize-2'
 import pilcrowIcon from '@iconify-icons/lucide/pilcrow'
@@ -127,6 +129,8 @@ addIcon('lucide:moon', moonIcon)
 addIcon('lucide:panel-left', panelLeftIcon)
 addIcon('lucide:paperclip', paperclipIcon)
 addIcon('lucide:pen-line', penLineIcon)
+addIcon('lucide:play', playIcon)
+addIcon('lucide:pause', pauseIcon)
 addIcon('lucide:maximize-2', maximize2Icon)
 addIcon('lucide:minimize-2', minimize2Icon)
 addIcon('lucide:pilcrow', pilcrowIcon)

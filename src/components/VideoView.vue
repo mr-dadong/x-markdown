@@ -34,11 +34,12 @@
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="flex h-7 w-7 items-center justify-center rounded text-base hover:bg-[rgba(255,255,255,0.14)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-white"
+            class="flex h-7 w-7 items-center justify-center rounded hover:bg-[rgba(255,255,255,0.14)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-white"
             :title="playing ? '暂停' : '播放'"
             @click.stop="togglePlayback"
           >
-            {{ playing ? 'Ⅱ' : '▶' }}
+            <!-- 使用固定矢量图标，避免播放字符在 Windows 上被渲染成彩色 Emoji。 -->
+            <Icon :icon="playing ? 'lucide:pause' : 'lucide:play'" :size="15" />
           </button>
           <span class="font-mono text-[11px] tabular-nums text-[#e5e7eb]">
             {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
@@ -78,6 +79,7 @@
 <script setup lang="ts">
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
+import { Icon } from '@iconify/vue/offline'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { mediaService } from '../services/mediaService'
 

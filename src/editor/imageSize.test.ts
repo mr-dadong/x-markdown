@@ -10,9 +10,7 @@ import { installDomEnvironment } from "../test/domEnvironment";
 // 此前 image 节点只认 width，height 被静默丢弃，图片退化成自然尺寸，
 // 24×24 或 48×48 的图标放进正文会明显大于文字。
 //
-// 注意测试写法：独占一段的裸 <img> 会被 markdown-it 判为 HTML 块，
-// 走 HtmlBlock 原样保留路径（也安全，但不是图片节点）。
-// 只有「行内」的 <img> 才会进入图片节点的解析逻辑，所以这里一律放进链接或文字中间。
+// 行内与独占一段的 <img> 都应进入图片节点，统一获得预览、框选和尺寸调整能力。
 
 let browserWindow: Window;
 let createEditorExtensions: typeof import("./editorExtensions").createEditorExtensions;
@@ -74,6 +72,25 @@ describe("图片尺寸属性", () => {
     assert.match(style, /height:\s*16px/u);
   });
 
+  test("选中图片时使用与视频一致的标准节点选中类", () => {
+    withEditor("![普通图](https://example.com/b.png)", (editor) => {
+      let imagePosition = -1;
+      editor.state.doc.descendants((node, position) => {
+        if (node.type.name !== "image") return true;
+        imagePosition = position;
+        return false;
+      });
+      assert.ok(imagePosition >= 0, "应能找到图片节点");
+
+      editor.commands.setNodeSelection(imagePosition);
+
+      const wrapper = editor.view.dom.querySelector<HTMLElement>("[data-xmd-image]");
+      assert.ok(wrapper?.classList.contains("ProseMirror-selectednode"));
+      const selectionSurface = wrapper?.querySelector<HTMLElement>(".bg-\\[\\#007aff\\]\\/\\[0\\.20\\]");
+      assert.ok(selectionSurface && !selectionSurface.classList.contains("hidden"));
+    });
+  });
+
   test("非法尺寸被忽略，不会写入 NaN", () => {
     const image = withEditor(inlineImage('width="auto" height="-5"'), findImageNode);
     assert.equal(image?.attrs.width, null);
@@ -118,10 +135,17 @@ describe("图片尺寸属性", () => {
     assert.equal(markdown, "![普通图](https://example.com/b.png)");
   });
 
-  test("独占一段的裸 img 由 HtmlBlock 原样保留，内容不丢", () => {
+  test("独占一段的裸 img 解析为图片节点并保留尺寸", () => {
     const raw = '<img src="https://example.com/icon.ico" alt="icon" width="16" height="16">';
-    const markdown = withEditor(raw, (editor) => editor.storage.markdown.getMarkdown());
-    assert.equal(markdown, raw);
+    const result = withEditor(raw, (editor) => ({
+      image: findImageNode(editor),
+      htmlBlockCount: editor.state.doc.content.content.filter(node => node.type.name === "htmlBlock").length,
+      markdown: editor.storage.markdown.getMarkdown(),
+    }));
+    assert.equal(result.image?.attrs.width, 16);
+    assert.equal(result.image?.attrs.height, 16);
+    assert.equal(result.htmlBlockCount, 0);
+    assert.equal(result.markdown, raw);
   });
 
   test("手动调整宽度后会清掉固定高度，避免宽高比锁死把图片拉变形", () => {

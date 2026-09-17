@@ -82,6 +82,56 @@ test('不透明组件的外层保留蓝色选中轮廓，取消后移除且不�
   assert.equal(document.querySelector('[data-block-selection-surfaces]'), null)
 })
 
+test('独占段落的图片按真实图片高度绘制框选层，而不是只覆盖段落底部', () => {
+  const image = TiptapNode.create({
+    name: 'image',
+    group: 'inline',
+    inline: true,
+    atom: true,
+    addAttributes: () => ({ src: { default: null } }),
+    parseHTML: () => [{ tag: 'img[src]' }],
+    renderHTML: ({ HTMLAttributes }) => ['img', HTMLAttributes],
+    addNodeView() {
+      return () => {
+        const dom = document.createElement('span')
+        dom.dataset.xmdImage = ''
+        dom.append(document.createElement('img'))
+        return { dom }
+      }
+    },
+  })
+  const editor = new Editor({
+    extensions: [StarterKit, image, BlockMarquee],
+    content: '<p><img src="demo.png"></p>',
+  })
+  const scroller = document.createElement('div')
+  scroller.className = 'editor-scroll'
+  document.body.append(scroller)
+  scroller.append(editor.view.dom)
+  const rect = (top: number, height: number): DOMRect =>
+    ({ left: 20, right: 620, top, bottom: top + height, width: 600, height, x: 20, y: top, toJSON() {} })
+  scroller.getBoundingClientRect = () => rect(0, 400)
+  Object.defineProperty(scroller, 'clientWidth', { value: 640 })
+  Object.defineProperty(scroller, 'clientHeight', { value: 400 })
+  const range = selectableBlocks(editor.state.doc)[0]
+  const paragraph = editor.view.nodeDOM(range.from) as HTMLElement
+  const imageWrapper = paragraph.querySelector<HTMLElement>('[data-xmd-image]')!
+  paragraph.getBoundingClientRect = () => rect(216, 4)
+  imageWrapper.getBoundingClientRect = () => rect(20, 200)
+
+  try {
+    editor.view.dispatch(editor.state.tr.setMeta(blockMarqueeKey, [range]))
+    const surface = document.querySelector<HTMLElement>('[data-block-selection-surfaces]')?.firstElementChild as HTMLElement
+    assert.equal(surface.style.top, '20px')
+    assert.equal(surface.style.height, '200px')
+    assert.ok(surface.classList.contains('outline-1'))
+    assert.equal(paragraph.classList.contains('outline'), false)
+  } finally {
+    editor.destroy()
+    scroller.remove()
+  }
+})
+
 test('任务项独立选中，复制保留同一个列表和完成状态', () => {
   const editor = createEditor()
   try {
@@ -110,6 +160,28 @@ test('删除一个任务项保留另一项，删除全部任务项不留下空�
     deleteSelectedBlocks(editor.view)
     assert.equal(editor.state.doc.childCount, 2)
     assert.equal(editor.state.doc.textContent, '前文后文')
+  } finally { editor.destroy() }
+})
+
+test('删除框选块后光标回到删除位置且不强制滚动旧光标', () => {
+  const editor = createEditor()
+  try {
+    // 先把普通文字光标放到文档末尾，复现框选前遗留旧光标的场景。
+    editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+    const firstRange = selectableBlocks(editor.state.doc)[0]
+    editor.view.dispatch(editor.state.tr.setMeta(blockMarqueeKey, [firstRange]))
+    let requestedScroll = false
+    const originalDispatch = editor.view.dispatch.bind(editor.view)
+    editor.view.dispatch = transaction => {
+      requestedScroll = transaction.scrolledIntoView
+      originalDispatch(transaction)
+    }
+
+    deleteSelectedBlocks(editor.view)
+
+    assert.equal(requestedScroll, false)
+    assert.ok(editor.state.selection.from < editor.state.doc.content.size - 1)
+    assert.match(editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n'), /^第一项/u)
   } finally { editor.destroy() }
 })
 

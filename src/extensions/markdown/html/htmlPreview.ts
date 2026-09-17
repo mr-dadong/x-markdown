@@ -43,3 +43,27 @@ export const createHtmlPreviewDocument = (source: string): string => {
 <body>${safeContent}</body>
 </html>`
 }
+
+/**
+ * HTML 预览 iframe 只允许 data/blob 图片。本地相对路径必须先由主进程读取，
+ * 否则浏览器会把它解析成渲染页的 http 地址并被 CSP 拦截。
+ */
+export const createResolvedHtmlPreviewDocument = async (
+  source: string,
+  resolveLocalImage: (url: string) => Promise<string>,
+): Promise<string> => {
+  const previewDocument = new DOMParser().parseFromString(
+    createHtmlPreviewDocument(source),
+    'text/html',
+  )
+  const images = Array.from(previewDocument.querySelectorAll<HTMLImageElement>('img[src]'))
+
+  await Promise.all(images.map(async image => {
+    const url = image.getAttribute('src') ?? ''
+    // 网络图片继续由预览 CSP 明确拦截；这里只转换文档附近的本地资源。
+    if (!url || /^(?:data:|blob:|https?:|\/\/)/i.test(url)) return
+    image.setAttribute('src', await resolveLocalImage(url))
+  }))
+
+  return `<!doctype html>\n${previewDocument.documentElement.outerHTML}`
+}

@@ -243,6 +243,8 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         let currentNode = node;
         const wrapper = document.createElement("span");
         const image = document.createElement("img");
+        // 选中遮罩复用视频块框选时的半透明蓝色表面，让大图中部也能看出选中状态。
+        const selectionSurface = document.createElement("span");
         const resizeHandle = document.createElement("span");
         // 悬停在图片上时浮出的工具条：承载放大预览等操作按钮。
         // 浅色主题下 accent 是近黑色，角上放方块按钮会像黑痂，
@@ -270,6 +272,9 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         // group：供工具条用 group-hover 在鼠标悬停时显示。
         wrapper.className = "relative inline-flex max-w-full align-middle rounded-sm group";
         wrapper.dataset.xmdImage = "";
+        selectionSurface.className =
+          "pointer-events-none absolute inset-0 hidden rounded-lg bg-[#007aff]/[0.20] dark:bg-[#0a84ff]/[0.24]";
+        selectionSurface.contentEditable = "false";
         // 拖宽控制点：蓝色圆点与选中描边同色，纸色描边把它与图片内容隔开
         resizeHandle.className =
           "absolute bottom-0 right-0 hidden h-3.5 w-3.5 translate-x-1/2 translate-y-1/2 cursor-nwse-resize rounded-full border-2 border-paper bg-link";
@@ -357,7 +362,7 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           resizeHandle.addEventListener("pointercancel", finishResize);
         });
 
-        wrapper.append(image, resizeHandle, toolbar);
+        wrapper.append(image, selectionSurface, resizeHandle, toolbar);
         renderImage(node.attrs.src, node.attrs.alt, node.attrs.title);
         return {
           dom: wrapper,
@@ -368,21 +373,14 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
             return true;
           },
           selectNode: () => {
-            wrapper.classList.add(
-              "outline",
-              "outline-2",
-              "outline-offset-[3px]",
-              "outline-link",
-            );
+            // 与视频节点统一使用 ProseMirror 的标准选中类，共用同一套选中样式。
+            wrapper.classList.add("ProseMirror-selectednode");
+            selectionSurface.classList.remove("hidden");
             resizeHandle.classList.remove("hidden");
           },
           deselectNode: () => {
-            wrapper.classList.remove(
-              "outline",
-              "outline-2",
-              "outline-offset-[3px]",
-              "outline-link",
-            );
+            wrapper.classList.remove("ProseMirror-selectednode");
+            selectionSurface.classList.add("hidden");
             resizeHandle.classList.add("hidden");
           },
           stopEvent: (event) =>
@@ -445,7 +443,7 @@ export const createEditorExtensions = (options: {
     LegacyMediaFilter,
     RawMarkdownBlock,
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
-    HtmlBlock,
+    HtmlBlock.configure({ getCurrentDocumentPath: getCurrentDocumentPath ?? (() => null) }),
     MermaidBlock,
     MathBlock,
     MathInline,
