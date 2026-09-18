@@ -1,6 +1,83 @@
 {
-  "latest": "1.3.5",
+  "latest": "1.3.6",
   "releases": [
+    {
+      "version": "1.3.6",
+      "date": "2026-09-18",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：支持直接打开 .zip 压缩包进行编辑，保存时自动将修改写回原压缩包",
+        "新增：打开或写回压缩包失败（损坏、无文档、超出大小上限等）时给出明确提示，避免静默失败或修改丢失",
+        "优化：图片块被框选或单击选中时，完整显示圆角高亮边框和半透明背景，选中效果与视频块保持一致",
+        "优化：独立的 img HTML 标签使用普通图片节点显示和编辑，并保留 src、alt、title、width、height 属性",
+        "修复：Windows 安装 XMD 后，右键“新建 → 文本文档”及 .txt 文件图标被错误显示为 Markdown 图标的问题",
+        "修复：删除框选内容后，编辑视图偶尔突然滚动到底部或其他位置的问题",
+        "修复：HTML 预览中的本地相对路径图片被内容安全策略拦截，导致图片无法显示的问题",
+        "修复：视频播放按钮显示为蓝色方块表情或图标缺失的问题",
+        "修复：在渲染视图与源码视图之间反复切换时，阅读位置逐次向段落开头偏移的问题"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.3.6-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.6/XMD-1.3.6-Windows-x64.exe",
+              "sha256": "573e6d053fc68516878333004552eb723cc34be7b89c7dd96794457bbd5abf7a"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.6-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.6/XMD-1.3.6-macOS-arm64.dmg",
+              "sha256": "8aa24d4ba9f71b610a73799fcd5d85c1a1cf2189b5e792e0b124e0360bfbcf9c"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.6-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.6/XMD-1.3.6-macOS-x64.dmg",
+              "sha256": "b2a5aebdd0a9da67a1d4384ef616d98ec247e666aeb7d20529fb7b453dd8d69e"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.6-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.6/XMD-1.3.6-Linux-x86_64.AppImage",
+              "sha256": "15d1d531cecd03ac17bc27ee905825faa9cb90eb59759425b96a8fb45f0915a1"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.6-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.6/XMD-1.3.6-Linux-arm64.AppImage",
+              "sha256": "b00c1d36d884a189781d93fdc50ddf287f5a3f310b982290d9d8535a44320ba2"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.3.5",
       "date": "2026-09-16",
