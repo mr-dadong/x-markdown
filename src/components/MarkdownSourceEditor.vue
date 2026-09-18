@@ -342,6 +342,15 @@ const scrollToSourceLine = (line: number): void => {
   })
 }
 
+// 新文档打开时把共享滚动容器归零：上一个文档的滚动距离会残留，
+// 新文档较短时会被浏览器钳制到底部，必须显式清零。
+// 0 是边界值不涉及行高估算，可直接赋值，与 scrollToSourceLine 的校正逻辑无关。
+const scrollToTop = (): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+  sourceView.scrollDOM.scrollTop = 0
+}
+
 const getView = (): EditorView | null => view.value
 
 const getSelectionText = (): string => {
@@ -383,6 +392,7 @@ const getCursorOffset = (): number | null => {
 defineExpose<SourceEditorHandle>({
   getViewportSourceLine,
   scrollToSourceLine,
+  scrollToTop,
   getView,
   updateSearch: (matches: { from: number; to: number }[], currentIndex: number) => {
     if (view.value) updateSearch(view.value, matches, currentIndex)

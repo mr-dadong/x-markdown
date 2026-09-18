@@ -16,6 +16,8 @@ export interface EditorHandle {
   getViewportAnchor: () => ViewportAnchor | null;
   getBlockCount: () => number;
   scrollToBlockFraction: (index: number, fraction: number) => void;
+  // 新打开的文档回到顶部：滚动容器跨文档共享，需显式清零残留的滚动位置。
+  scrollToTop: () => void;
   // 查找替换等编辑视图能力通过编辑器实例对外提供。
   getEditor: () => Editor | null;
   getSelectionText: () => string;
@@ -31,6 +33,8 @@ export interface SourceEditorHandle {
   getViewportSourceLine: () => number | null;
   // 把指定小数行（0 起始）滚到视口顶部；允许小数才能避免往返切换每次向块顶漂一行。
   scrollToSourceLine: (line: number) => void;
+  // 新打开的文档回到顶部：滚动容器跨文档共享，需显式清零残留的滚动位置。
+  scrollToTop: () => void;
   // 源码模式查找替换通过 CodeMirror 视图操作文档与选区。
   getView: () => EditorView | null;
   // 查找面板调用：把匹配列表同步为 CodeMirror 行内高亮装饰。

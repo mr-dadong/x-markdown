@@ -469,7 +469,13 @@ const restoreViewState = async (documentId: number): Promise<void> => {
     if (sequence !== restoreSequence) return
     if (activeDocumentId.value !== documentId) return
     const state = viewStates.get(documentId)
-    if (!state) return
+    // 新打开的文档没有历史阅读位置；滚动容器是跨文档共享的，上一个文档的滚动距离
+    // 会残留（新文档较短时被浏览器钳制到底部），这里显式回到顶部。
+    if (!state) {
+        if (isSourceMode.value) sourceEditorRef.value?.scrollToTop()
+        else editorRef.value?.scrollToTop()
+        return
+    }
     if (isSourceMode.value) {
         if (state.sourceLine !== null) sourceEditorRef.value?.scrollToSourceLine(state.sourceLine)
     } else if (state.renderedAnchor !== null) {

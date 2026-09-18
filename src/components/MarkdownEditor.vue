@@ -155,7 +155,7 @@
           class="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="openActiveLink">
           <Icon icon="lucide:link-2" :size="15" class="shrink-0 text-link" />
-          <span class="max-w-[260px] truncate text-[12px] text-secondary">{{ activeLink.href }}</span>
+          <span class="max-w-[260px] truncate text-[12px] text-secondary">{{ activeLink.displayHref }}</span>
           <Icon icon="lucide:external-link" :size="13" class="shrink-0 text-muted" />
         </button>
         <span class="h-5 w-px bg-line" />
@@ -764,6 +764,9 @@ const shouldShowTableMenu = (): boolean => {
 
 interface ActiveLink {
   href: string
+  // 悬停浮层的展示用地址：把百分号编码的中文等字符解码成原文，
+  // 底层 href 保持原样，打开、编辑、复制链接的行为不受影响。
+  displayHref: string
   from: number
   to: number
   left: number
@@ -804,9 +807,18 @@ const handleLinkMouseOver = (event: MouseEvent): void => {
 
   cancelLinkMenuClose()
   const rect = anchor.getBoundingClientRect()
+  const href = anchor.getAttribute('href') ?? ''
+  // 展示地址按 URL 规则解码：非法百分号编码无法解码，保持原始属性展示。
+  let displayHref = href
+  try {
+    displayHref = decodeURIComponent(href)
+  } catch {
+    // 保持原始属性展示。
+  }
   activeLink.value = {
     // 读取原始属性，避免浏览器把相对路径展开成 Electron 页面绝对地址。
-    href: anchor.getAttribute('href') ?? '',
+    href,
+    displayHref,
     from: editor.value.view.posAtDOM(anchor, 0),
     to: editor.value.view.posAtDOM(anchor, anchor.childNodes.length),
     left: Math.max(12, Math.min(rect.left, window.innerWidth - 460)),
@@ -1078,6 +1090,14 @@ const scrollToBlockFraction = (index: number, fraction: number): void => {
   scroller.scrollTop += delta
 }
 
+// 新文档打开时把共享滚动容器归零：上一个文档的滚动距离会残留，
+// 新文档较短时会被浏览器钳制到底部，必须显式清零。
+const scrollToTop = (): void => {
+  const scroller = getEditorScroller()
+  if (!scroller) return
+  scroller.scrollTop = 0
+}
+
 const startEditLink = async (): Promise<void> => {
   if (!activeLink.value) return
   linkDraft.value = activeLink.value.href
@@ -1158,6 +1178,7 @@ defineExpose<EditorHandle>({
   getViewportAnchor,
   getBlockCount,
   scrollToBlockFraction,
+  scrollToTop,
   getEditor: () => editor.value ?? null,
   getSelectionText,
   replaceSelection,
@@ -1301,7 +1322,7 @@ defineExpose<EditorHandle>({
 }
 
 .tiptap h1 {
-  font-size: 1.75em;
+  font-size: 2em;
   font-weight: 700;
   margin: 1.4em 0 0.5em;
   padding-bottom: 0.25em;
@@ -1309,7 +1330,7 @@ defineExpose<EditorHandle>({
 }
 
 .tiptap h2 {
-  font-size: 1.4em;
+  font-size: 1.5em;
   font-weight: 600;
   margin: 1.3em 0 0.4em;
   padding-bottom: 0.2em;
@@ -1317,13 +1338,13 @@ defineExpose<EditorHandle>({
 }
 
 .tiptap h3 {
-  font-size: 1.2em;
+  font-size: 1.25em;
   font-weight: 600;
   margin: 1.2em 0 0.4em;
 }
 
 .tiptap h4 {
-  font-size: 1.05em;
+  font-size: 1.1em;
   font-weight: 600;
   margin: 1.1em 0 0.3em;
 }
@@ -1335,7 +1356,7 @@ defineExpose<EditorHandle>({
 }
 
 .tiptap h6 {
-  font-size: 0.95em;
+  font-size: 0.9em;
   font-weight: 600;
   margin: 1em 0 0.3em;
 }
