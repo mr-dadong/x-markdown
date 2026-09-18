@@ -49,7 +49,7 @@
                                 <span>打开文档</span>
                             </button>
                         </div>
-                        <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md 与 .markdown 文件</p>
+                        <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md、.markdown、.txt 和 .zip</p>
 
                         <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。
                              首页默认只展示最近 5 条，避免挤占品牌区；完整记录仍可在

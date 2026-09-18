@@ -2,6 +2,7 @@ import { app } from "electron";
 import fs from "fs";
 import path from "path";
 import { authorizeDocument } from "./pathAccess";
+import { findZipWorkspaceForFile } from "./zipWorkspace";
 import { rebuildApplicationMenu } from "../app/applicationMenu";
 
 const MAX_RECENT_FILES = 10;
@@ -78,7 +79,11 @@ export function getRecentFiles(): string[] {
 
 // 批量打开时按传入顺序依次置顶，最后打开的文件成为列表第一项。
 export async function addRecentFiles(filePaths: string[]): Promise<void> {
-  const validPaths = filePaths.filter(isValidRecentFile);
+  const validPaths = filePaths.filter(isValidRecentFile).filter((filePath) => {
+    // 压缩包文档的实际路径在临时工作区里，工作区随文档关闭被清理后，
+    // 最近列表里的这类条目必然失效，因此不记录（重新打开压缩包即可）。
+    return findZipWorkspaceForFile(filePath) === null;
+  });
   if (validPaths.length === 0) return;
   loadState();
 

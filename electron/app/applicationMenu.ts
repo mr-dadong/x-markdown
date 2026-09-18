@@ -1,6 +1,7 @@
 import { app, dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
 import path from "path";
 import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
+import { OPEN_FILE_DIALOG_FILTERS } from "../../src/constants";
 import {
   getLastOpenedFolderPath,
   setLastOpenedFolderPath,
@@ -91,21 +92,21 @@ function buildApplicationMenu(): void {
     recentFiles.length === 0
       ? [{ label: "暂无最近打开的文档", enabled: false }]
       : [
-          ...recentFiles.map((filePath) => ({
-            label: path.basename(filePath),
-            toolTip: filePath,
-            click: () =>
-              getMainWindow()?.webContents.send(
-                IPC_CHANNELS.menuOpenRecentFile,
-                filePath,
-              ),
-          })),
-          { type: "separator" },
-          {
-            label: "清空最近打开",
-            click: () => send(IPC_CHANNELS.menuClearRecentFiles),
-          },
-        ];
+        ...recentFiles.map((filePath) => ({
+          label: path.basename(filePath),
+          toolTip: filePath,
+          click: () =>
+            getMainWindow()?.webContents.send(
+              IPC_CHANNELS.menuOpenRecentFile,
+              filePath,
+            ),
+        })),
+        { type: "separator" },
+        {
+          label: "清空最近打开",
+          click: () => send(IPC_CHANNELS.menuClearRecentFiles),
+        },
+      ];
   const template: MenuItemConstructorOptions[] = [
     {
       label: "文件",
@@ -121,15 +122,23 @@ function buildApplicationMenu(): void {
               // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
               defaultPath: getLastOpenedFolderPath() ?? undefined,
               properties: ["openFile", "multiSelections"],
-              filters: [
-                { name: "Markdown", extensions: ["md", "markdown", "txt"] },
-                { name: "所有文件", extensions: ["*"] },
-              ],
+              filters: OPEN_FILE_DIALOG_FILTERS,
             });
             if (result.canceled) return;
             // 记录本次打开的目录，供下次打开对话框跳转。
             await setLastOpenedFolderPath(path.dirname(result.filePaths[0]));
-            const files = await readDocuments(result.filePaths);
+            let files: OpenDocumentData[];
+            try {
+              files = await readDocuments(result.filePaths);
+            } catch (error) {
+              // 压缩包损坏、无文档、超限等失败必须让用户看见，不能静默无响应。
+              await dialog.showMessageBox(mainWindow, {
+                type: "error",
+                title: "无法打开文档",
+                message: (error as Error).message,
+              });
+              return;
+            }
             files.forEach((file) => getMainWindow()?.webContents.send(IPC_CHANNELS.menuOpenFile, file));
           },
         },

@@ -26,7 +26,9 @@ export function authorizeFile(filePath: string): void {
   authorizedFiles.add(normalizeFilePath(filePath));
 }
 
-function isPathInside(candidatePath: string, directoryPath: string): boolean {
+// 判断 candidatePath 是否落在 directoryPath 内部（或等于它）。
+// zip 工作区等新模块复用同一套边界判断，保证授权语义一致。
+export function isPathInside(candidatePath: string, directoryPath: string): boolean {
   const relativePath = path.relative(directoryPath, candidatePath);
   return (
     relativePath === "" ||

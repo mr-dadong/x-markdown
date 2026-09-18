@@ -18,6 +18,7 @@ import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
 import { fileSystemService } from "../services/fileSystemService";
 import { IPC_CHANNELS } from "../constants/ipcChannels";
+import { OPENABLE_FILE_EXTENSIONS } from "../constants";
 import { useSettings } from "./useSettings";
 import { useRecentFiles } from "./useRecentFiles";
 import { matchesShortcut, parseShortcut } from "../utils/shortcuts";
@@ -406,12 +407,17 @@ export const useDocument = () => {
   };
 
   const handleOpenFile = async (): Promise<void> => {
-    const files = await documentService.openFiles();
-    if (files) applyOpenedFiles(files);
+    try {
+      const files = await documentService.openFiles();
+      if (files) applyOpenedFiles(files);
+    } catch (error) {
+      // 压缩包损坏、无 Markdown 文档、超大小上限等失败要明确提示，与最近文件打开保持一致。
+      await documentService.showErrorMessage("无法打开文档", (error as Error).message);
+    }
   };
 
   const handleDroppedFiles = async (files: File[]): Promise<void> => {
-    const supportedExtensions = [".md", ".markdown", ".txt"];
+    const supportedExtensions: readonly string[] = OPENABLE_FILE_EXTENSIONS;
     const supportedFiles = files.filter((file) =>
       supportedExtensions.some((extension) =>
         file.name.toLowerCase().endsWith(extension),
@@ -422,7 +428,7 @@ export const useDocument = () => {
     if (unsupportedFiles.length > 0) {
       await documentService.showErrorMessage(
         "无法打开部分文件",
-        `仅支持 .md、.markdown 和 .txt 文件：\n${unsupportedFiles.map((file) => file.name).join("\n")}`,
+        `仅支持 .md、.markdown、.txt 和 .zip 文件：\n${unsupportedFiles.map((file) => file.name).join("\n")}`,
       );
     }
 
@@ -432,8 +438,13 @@ export const useDocument = () => {
       .filter((filePath): filePath is string => Boolean(filePath));
     if (filePaths.length === 0) return;
 
-    const openedFiles = await documentService.openDroppedFiles(filePaths);
-    applyOpenedFiles(openedFiles);
+    try {
+      const openedFiles = await documentService.openDroppedFiles(filePaths);
+      applyOpenedFiles(openedFiles);
+    } catch (error) {
+      // 拖入的压缩包损坏、无 Markdown 文档、超大小上限等失败要明确提示，不能毫无反应。
+      await documentService.showErrorMessage("无法打开文档", (error as Error).message);
+    }
   };
 
   const handleOpenFileFromSidebar = async (filePath: string): Promise<void> => {

@@ -26,8 +26,10 @@ export interface EditorHandle {
 }
 
 export interface SourceEditorHandle {
-  // 视图切换定位：源码视图以视口顶部行号为锚点（0 起始，与 markdown-it 一致）。
+  // 视图切换定位：源码视图以“小数行号”为锚点（0 起始，整数部分=视口顶部所在行，
+  // 小数部分=切入该行的深度），与 scrollToSourceLine 共用同一套像素↔行号换算。
   getViewportSourceLine: () => number | null;
+  // 把指定小数行（0 起始）滚到视口顶部；允许小数才能避免往返切换每次向块顶漂一行。
   scrollToSourceLine: (line: number) => void;
   // 源码模式查找替换通过 CodeMirror 视图操作文档与选区。
   getView: () => EditorView | null;

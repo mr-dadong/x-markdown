@@ -4,6 +4,7 @@ import path from "path";
 import chokidar, { type FSWatcher } from "chokidar";
 import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
 import { assertAuthorizedPath, authorizeDirectory } from "../services/pathAccess";
+import { syncZipWorkspaceUsage } from "../services/zipWorkspace";
 
 interface WorkspaceIpcDependencies {
   getMainWindow: () => BrowserWindow | null;
@@ -94,6 +95,16 @@ export function registerWorkspaceIpc({ getMainWindow }: WorkspaceIpcDependencies
   ipcMain.handle(
     IPC_CHANNELS.watchExternalFiles,
     async (_event, filePaths: string[]) => {
+      // 这份全量路径就是「当前打开的文档集合」，顺便同步给压缩包工作区做引用计数：
+      // 集合里已没有任何工作区内的文档时，该工作区会被清理。
+      // 注意要在下面的提前返回之前调用，文档全部关闭（空数组）时也触达清理。
+      // 工作区删除失败（如文件被占用）不能阻断后面的监听重建，只记录日志。
+      try {
+        await syncZipWorkspaceUsage(filePaths);
+      } catch (error) {
+        console.error("[watch-external-files] 同步压缩包工作区占用失败", error);
+      }
+
       await externalFileWatcher?.close();
       externalFileWatcher = null;
       // 清理旧路径的残留定时器，避免关闭文档后仍触发无意义的事件。

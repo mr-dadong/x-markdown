@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorView, keymap, placeholder, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view'
-import { EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state'
+import { EditorState, StateEffect, StateField, type Extension, type Line, type Range } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { HighlightStyle, Language, LanguageDescription, bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
@@ -278,8 +278,20 @@ watch(
   },
 )
 
-// 视图切换定位：源码视图以视口顶部行号为锚点。
-// 返回 0 起始行号，与 markdown-it token.map 的行号体系一致；文档为空时返回空。
+// 测量某个逻辑行在源码视图里占据的像素高度。
+// 开启了 lineWrapping，一个逻辑行可能折成多个可视块，只取首块会低估行高，
+// 因此用行尾字符所在块的 bottom 减去行首块的 top，得到整行的真实高度。
+const measureLogicalLineHeight = (sourceView: EditorView, line: Line): number => {
+  const topBlock = sourceView.lineBlockAt(line.from)
+  const endPos = line.length > 0 ? line.to - 1 : line.from
+  const bottomBlock = endPos === line.from ? topBlock : sourceView.lineBlockAt(endPos)
+  return Math.max(1, bottomBlock.bottom - topBlock.top)
+}
+
+// 视图切换定位：源码视图以“小数行号”为锚点，行号 0 起始，与 markdown-it token.map 一致。
+// 返回的是带小数的精确行（整数部分=视口顶部所在行，小数部分=切入该行的深度），
+// 与 scrollToSourceLine 使用同一套像素↔行号换算，渲染↔源码往返才能落到同一位置、不再漂移。
+// 文档为空时返回 null。
 const getViewportSourceLine = (): number | null => {
   const sourceView = view.value
   if (!sourceView || sourceView.state.doc.length === 0) return null
@@ -288,22 +300,45 @@ const getViewportSourceLine = (): number | null => {
   // 这里改用几何换算：滚动容器可见顶部相对文档顶部的距离，交给 lineBlockAtHeight
   // 换算成真实可见首行；滚到底部留白时该方法会钳制到最后一行。
   const visibleTop = sourceView.scrollDOM.getBoundingClientRect().top + 1 - sourceView.documentTop
-  const topBlock = sourceView.lineBlockAtHeight(Math.max(0, visibleTop))
-  // CodeMirror 行号 1 起始，减 1 换算为 0 起始。
-  return sourceView.state.doc.lineAt(topBlock.from).number - 1
+  const block = sourceView.lineBlockAtHeight(Math.max(0, visibleTop))
+  const line = sourceView.state.doc.lineAt(block.from)
+  // CodeMirror 行号 1 起始，减 1 换算为 0 起始；再叠加上行内小数偏移。
+  const lineTop = sourceView.lineBlockAt(line.from).top
+  const lineHeight = measureLogicalLineHeight(sourceView, line)
+  const fraction = Math.min(1, Math.max(0, (visibleTop - lineTop) / lineHeight))
+  return line.number - 1 + fraction
 }
 
-// 把指定行（0 起始，允许小数，向下取整）滚动到视口顶部，不改动光标与选区。
-// 用 scrollIntoView 效果而非直接写 scrollTop：编辑器刚从隐藏切回显示时，
-// 直接写 scrollTop 可能落在过期的高度估算上，交给 CodeMirror 测量更可靠。
+// 计算把视口顶部滚到指定小数行所需的滚动增量。
+// 目标行高度与当前视口顶部高度都在同一 documentTop 坐标系下，相减即得增量：
+// 正数向下滚、负数向上滚，与 getViewportSourceLine 的读取公式完全对称。
+const computeSourceScrollDelta = (sourceView: EditorView, line: number): number => {
+  const document = sourceView.state.doc
+  const clamped = Math.max(0, Math.min(line, document.lines - 1))
+  const integer = Math.floor(clamped)
+  const targetLine = document.line(integer + 1)
+  const lineTop = sourceView.lineBlockAt(targetLine.from).top
+  const lineHeight = measureLogicalLineHeight(sourceView, targetLine)
+  const targetHeight = lineTop + (clamped - integer) * lineHeight
+  const currentTop = sourceView.scrollDOM.getBoundingClientRect().top + 1 - sourceView.documentTop
+  return targetHeight - currentTop
+}
+
+// 把指定行（0 起始，允许小数）滚动到视口顶部，不改动光标与选区。
+// 不再对小数行向下取整——取整正是往返切换每次向块顶漂移一行的根因。
 const scrollToSourceLine = (line: number): void => {
   const sourceView = view.value
   if (!sourceView) return
-  const document = sourceView.state.doc
-  const lineNumber = Math.max(1, Math.min(Math.floor(line) + 1, document.lines))
-  const targetLine = document.line(lineNumber)
-  sourceView.dispatch({
-    effects: EditorView.scrollIntoView(targetLine.from, { y: 'start' }),
+  // 第一次按当前测量结果立即滚动，消除切换瞬间的空白感。
+  sourceView.scrollDOM.scrollTop += computeSourceScrollDelta(sourceView, line)
+  // 编辑器刚从 v-show 隐藏切回显示、或目标行原本在可视区之外时，CodeMirror 对
+  // 离屏行仍按默认行高估算，首次滚动会落在过期的高度上。等本轮测量完成、目标行
+  // 进入可视区拿到真实高度后，再精确校正一次（read 取值、write 写入，符合测量规范）。
+  sourceView.requestMeasure({
+    read: (measuredView) => computeSourceScrollDelta(measuredView, line),
+    write: (delta, measuredView) => {
+      measuredView.scrollDOM.scrollTop += delta
+    },
   })
 }
 

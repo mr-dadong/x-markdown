@@ -21,6 +21,13 @@ import {
   authorizeFile,
 } from "./services/pathAccess";
 import {
+  findZipWorkspaceForFile,
+  markZipWorkspaceDirty,
+  readDocumentsWithZipSupport,
+  repackZipWorkspace,
+  cleanStaleZipWorkspaces,
+} from "./services/zipWorkspace";
+import {
   resolveEditorFilePath,
   resolvePathFromDocument,
 } from "./services/editorFilePath";
@@ -40,6 +47,10 @@ import {
 } from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
+import {
+  OPENABLE_FILE_EXTENSIONS,
+  OPEN_FILE_DIALOG_FILTERS,
+} from "../src/constants";
 import type {
   AttachmentCopyProgress,
   EditorFileStat,
@@ -63,7 +74,7 @@ let verifiedUpdate: { filePath: string; sha256: string } | null = null;
 let updateDownloadInProgress = false;
 let updateInstallInProgress = false;
 const pendingFilePaths: string[] = [];
-const supportedFileExtensions = new Set([".md", ".markdown", ".txt"]);
+const supportedFileExtensions = new Set<string>(OPENABLE_FILE_EXTENSIONS);
 // 更新检测和官网共用最新版小清单（体积恒定）；更新日志另读全量历史接口，
 // 两份数据由同一个发布流程生成，不会出现版本信息不一致。
 const updateManifestUrl = "https://www.x-markdown.com/api/version";
@@ -372,16 +383,8 @@ async function takePendingFiles(): Promise<
 > {
   if (pendingFilePaths.length === 0) return [];
   const filePaths = pendingFilePaths.splice(0, pendingFilePaths.length);
-  return Promise.all(
-    filePaths.map(async (filePath) => {
-      authorizeDocument(filePath);
-      const [content, stats] = await Promise.all([
-        fs.promises.readFile(filePath, "utf-8"),
-        fs.promises.stat(filePath),
-      ]);
-      return { filePath, content, modifiedTime: stats.mtimeMs };
-    }),
-  );
+  // 启动参数与拖放、菜单共用同一读取入口，命令行直接传 .zip 也能打开。
+  return readDocumentsWithZipSupport(filePaths);
 }
 
 // 使用流式哈希校验大型安装包，避免把整个文件一次性读入主进程内存。
@@ -393,10 +396,22 @@ async function calculateFileSha256(filePath: string): Promise<string> {
 
 async function openPendingFiles(): Promise<void> {
   if (!mainWindow || !rendererReady) return;
-  const files = await takePendingFiles();
-  files.forEach((file) =>
-    mainWindow?.webContents.send(IPC_CHANNELS.menuOpenFile, file),
-  );
+  try {
+    const files = await takePendingFiles();
+    files.forEach((file) =>
+      mainWindow?.webContents.send(IPC_CHANNELS.menuOpenFile, file),
+    );
+  } catch (error) {
+    // 启动参数里的压缩包打不开（损坏、无文档、超限等）时明确提示，不能静默失败。
+    console.error("打开启动参数中的文件失败:", error);
+    if (mainWindow) {
+      await dialog.showMessageBox(mainWindow, {
+        type: "error",
+        title: "无法打开文档",
+        message: (error as Error).message,
+      });
+    }
+  }
 }
 
 function queueFilesToOpen(filePaths: string[]): void {
@@ -448,17 +463,8 @@ function createWindow(): void {
 function createMenu(): void {
   createApplicationMenu({
     getMainWindow: () => mainWindow,
-    readDocuments: async (filePaths) =>
-      Promise.all(
-        filePaths.map(async (filePath) => {
-          authorizeDocument(filePath);
-          const [content, stats] = await Promise.all([
-            fs.promises.readFile(filePath, "utf-8"),
-            fs.promises.stat(filePath),
-          ]);
-          return { filePath, content, modifiedTime: stats.mtimeMs };
-        }),
-      ),
+    // 菜单打开与对话框、拖放共用同一入口，.zip 会在其中解压为工作区文档。
+    readDocuments: readDocumentsWithZipSupport,
     getRecentFiles,
   });
 }
@@ -717,6 +723,29 @@ ipcMain.handle(
           }
         }
         await writeTextFileAtomically(authorizedPath, content);
+        // 保存目标位于压缩包工作区内时，把工作区最新内容回写到来源 zip，
+        // 这样 zip 内文档的编辑结果会跟随保存动作落回压缩包。
+        const zipWorkspaceDir = findZipWorkspaceForFile(authorizedPath);
+        if (zipWorkspaceDir) {
+          try {
+            await repackZipWorkspace(zipWorkspaceDir);
+          } catch (zipError) {
+            // 文档本身已保存到工作区，丢的是「写回压缩包」这一步：
+            // 标记工作区为脏（同时持久化到清单）并明确弹窗提示，清理流程会跳过它，修改不会丢。
+            await markZipWorkspaceDirty(zipWorkspaceDir);
+            console.error("[save-file] 写回压缩包失败", {
+              filePath: authorizedPath,
+              workspaceDir: zipWorkspaceDir,
+              reason: (zipError as Error).message,
+            });
+            await dialog.showMessageBox(mainWindow!, {
+              type: "error",
+              title: "写回压缩包失败",
+              message: `文档已保存到临时工作区，但写回压缩包失败：${(zipError as Error).message}`,
+              detail: `临时工作区已保留，位置：${zipWorkspaceDir}\n请勿手动删除该目录，否则未写回的修改会丢失。`,
+            });
+          }
+        }
         const stats = await fs.promises.stat(authorizedPath);
         return {
           success: true,
@@ -1005,26 +1034,15 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
     // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
     defaultPath: getLastOpenedFolderPath() ?? undefined,
     properties: ["openFile", "multiSelections"],
-    filters: [
-      { name: "Markdown", extensions: ["md", "markdown", "txt"] },
-      { name: "所有文件", extensions: ["*"] },
-    ],
+    filters: OPEN_FILE_DIALOG_FILTERS,
   });
   if (result.canceled || result.filePaths.length === 0) return null;
 
   // 记录本次打开的目录，供下次打开对话框跳转。
   await setLastOpenedFolderPath(path.dirname(result.filePaths[0]));
 
-  return Promise.all(
-    result.filePaths.map(async (filePath) => {
-      authorizeDocument(filePath);
-      const [content, stats] = await Promise.all([
-        fs.promises.readFile(filePath, "utf-8"),
-        fs.promises.stat(filePath),
-      ]);
-      return { filePath, content, modifiedTime: stats.mtimeMs };
-    }),
-  );
+  // .zip 会在读取入口内解压为临时工作区并展开其中的文档。
+  return readDocumentsWithZipSupport(result.filePaths);
 });
 
 ipcMain.handle(
@@ -1148,16 +1166,8 @@ ipcMain.handle(
   async (_event, filePaths: string[]) => {
     // 拖放路径来自渲染页面，主进程仍需逐个校验扩展名和文件类型。
     const checkedPaths = await getFilePathsFromArguments(filePaths);
-    return Promise.all(
-      checkedPaths.map(async (filePath) => {
-        authorizeDocument(filePath);
-        const [content, stats] = await Promise.all([
-          fs.promises.readFile(filePath, "utf-8"),
-          fs.promises.stat(filePath),
-        ]);
-        return { filePath, content, modifiedTime: stats.mtimeMs };
-      }),
-    );
+    // 与对话框、菜单共用同一读取入口，拖入 .zip 会解压后展开其中文档。
+    return readDocumentsWithZipSupport(checkedPaths);
   },
 );
 
@@ -1796,6 +1806,12 @@ app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
 
   await refreshRendererCacheWhenBuildChanges();
+
+  // 清理上次异常退出遗留的过旧压缩包工作区（正常退出在文档关闭时已清理）。
+  // 清单里标记为脏（回写失败）的工作区会被保留，不会被这里删除。
+  void cleanStaleZipWorkspaces().catch((error) => {
+    console.error("清理过旧压缩包工作区失败:", error);
+  });
 
   queueFilesToOpen(await getFilePathsFromArguments(process.argv));
   createWindow();
