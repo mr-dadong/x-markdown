@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="model-selector">
+  <div class="model-selector">
     <div class="model-selector-input-wrap" :class="{ 'model-selector-focus': focused }">
       <Icon icon="lucide:cube" :size="15" class="model-selector-icon" />
       <input ref="inputRef" v-model="inputValue" type="text" class="model-selector-input" :placeholder="placeholder"
@@ -107,7 +107,6 @@ const emit = defineEmits<{
   fetch: []
 }>()
 
-const rootRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 const itemRefs = ref<(HTMLElement | null)[]>([])
 

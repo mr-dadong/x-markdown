@@ -1,5 +1,4 @@
-import type MarkdownIt from "markdown-it";
-import type ParserInline from "markdown-it/lib/parser_inline";
+import type { MarkdownIt, StateInline } from "markdown-it";
 import type { Fragment, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import HardBreak from "@tiptap/extension-hard-break";
@@ -13,9 +12,13 @@ type BreakSerializerState = MarkdownSerializerState & {
   inTable: boolean;
 };
 
+// markdown-it 15 用泛型 Ruler 取代了 ParserInline.RuleInline 命名空间，
+// 行内规则签名即 ParserInline['ruler'] 的规则类型。
+type InlineRule = (state: StateInline, silent: boolean) => boolean;
+
 interface InlineRuleEntry {
   name: string;
-  fn: ParserInline.RuleInline;
+  fn: InlineRule;
 }
 
 const configuredHardBreakParsers = new WeakSet<MarkdownIt>();

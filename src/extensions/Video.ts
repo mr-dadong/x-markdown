@@ -4,7 +4,9 @@ import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import VideoView from "../components/VideoView.vue";
 
-interface VideoOptions {
+// TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
+// 的导出类型因此需要能具名引用它，必须显式导出。
+export interface VideoOptions {
   getCurrentDocumentPath: () => string | null;
 }
 

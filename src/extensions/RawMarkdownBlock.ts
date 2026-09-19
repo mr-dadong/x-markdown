@@ -1,7 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type MarkdownIt from "markdown-it";
-import type Token from "markdown-it/lib/token";
-import type StateBlock from "markdown-it/lib/rules_block/state_block";
+import type { MarkdownIt, StateBlock, Token } from "markdown-it";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 

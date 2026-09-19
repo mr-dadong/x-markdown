@@ -41,7 +41,7 @@ const withEditor = <T>(content: string, run: (editor: Editor) => T): T => {
 const mergeAfterEdit = (baselineMarkdown: string, editedMarkdown: string): string =>
     withEditor(baselineMarkdown, (editor) => {
         const baseline = captureBaseline(editor, baselineMarkdown);
-        editor.commands.setContent(editedMarkdown, false);
+        editor.commands.setContent(editedMarkdown, { emitUpdate: false });
         return serializePreservingSource(editor, baseline);
     });
 

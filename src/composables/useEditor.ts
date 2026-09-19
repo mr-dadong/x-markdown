@@ -1443,7 +1443,7 @@ export const useMarkdownEditor = (
       ) return;
 
       // 外部载入文档或切换文件目录时不触发编辑事件，避免文档被误标记为已修改。
-      editor.value.commands.setContent(newContent, false);
+      editor.value.commands.setContent(newContent, { emitUpdate: false });
       // setContent 之后文档与 newContent 一致，重建原文基准。
       baseline = captureBaseline(editor.value, newContent);
       // Agent 写入的同步保留撤销历史：Ctrl+Z 能原生撤销这次 AI 写入；

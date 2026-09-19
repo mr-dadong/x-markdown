@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  ClipboardItem,
   dialog,
   ipcMain,
   net,
@@ -1771,7 +1772,16 @@ ipcMain.handle(
     }
 
     if (image.isEmpty()) throw new Error("无法读取选中的图片");
-    clipboard.writeImage(image);
+    // Electron 44 起 clipboard 对齐 W3C 异步 API：writeImage 等便捷方法已移除，
+    // 图片需要按 MIME 类型包成 ClipboardItem（Blob 负载）后整体写入。
+    // nativeImage.toPNG() 返回的 Buffer 底层可能是 SharedArrayBuffer，BlobPart 不接受，
+    // 复制成普通 Uint8Array 再交给 Blob。
+    const pngBytes = new Uint8Array(image.toPNG());
+    await clipboard.write([
+      new ClipboardItem({
+        "image/png": new Blob([pngBytes], { type: "image/png" }),
+      }),
+    ]);
   },
 );
 

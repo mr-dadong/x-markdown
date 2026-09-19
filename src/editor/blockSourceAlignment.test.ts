@@ -14,6 +14,13 @@ let EditorConstructor: typeof import("@tiptap/core").Editor;
 
 before(async () => {
     browserWindow = installDomEnvironment();
+    // 图片节点视图会通过 electronAPI 读取本地资源，测试里给一个最小替身。
+    (browserWindow as unknown as { electronAPI: unknown }).electronAPI = {
+        readEditorImage: async () => "",
+        readEditorFileBytes: async () => new Uint8Array(),
+        onAttachmentCopyProgress: () => () => {},
+        getPathForFile: () => "",
+    };
     ({ Editor: EditorConstructor } = await import("@tiptap/core"));
     ({ createEditorExtensions } = await import("./editorExtensions"));
 });

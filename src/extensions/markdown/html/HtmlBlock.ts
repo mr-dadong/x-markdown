@@ -1,7 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type MarkdownIt from "markdown-it";
-import type Token from "markdown-it/lib/token";
+import type { MarkdownIt, Token } from "markdown-it";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
@@ -13,7 +12,9 @@ const configuredParsers = new WeakSet<MarkdownIt>();
 const isStandaloneImageHtml = (source: string): boolean =>
   /^\s*<img\b[^>]*>\s*$/iu.test(source);
 
-interface HtmlBlockOptions {
+// TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
+// 的导出类型因此需要能具名引用它，必须显式导出。
+export interface HtmlBlockOptions {
   getCurrentDocumentPath: () => string | null;
 }
 

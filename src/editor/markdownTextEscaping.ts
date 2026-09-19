@@ -114,6 +114,10 @@ export const escapeMarkdownText = (value: string, startOfLine: boolean): string 
  * 序列化时按扩展名查找（`markdownExtensions.find(e => e.name === 'text')`），
  * 因此改不到那个对象。不过它取规则时会用编辑器 schema 里同名扩展的
  * `storage.markdown` 覆盖内置实现，所以把规则写到 schema 的 text 扩展上即可生效。
+ *
+ * TipTap v3 起 `Extension.storage` 变成只读 getter（每次读取都由 `config.addStorage()`
+ * 现算一份），不能再直接给 `storage` 赋值。这里改为覆盖 `config.addStorage`，
+ * 使每次算出的 `storage.markdown` 都是本函数接管的序列化规则。
  */
 export const installMarkdownTextSerializer = (editor: Editor): void => {
   const textExtension = editor.extensionManager.extensions.find(
@@ -123,7 +127,7 @@ export const installMarkdownTextSerializer = (editor: Editor): void => {
     throw new Error("未找到 text 节点扩展，无法接管正文文本的 Markdown 序列化");
   }
 
-  textExtension.storage = {
+  textExtension.config.addStorage = () => ({
     markdown: {
       serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
         const textState = state as TextSerializerState;
@@ -131,5 +135,5 @@ export const installMarkdownTextSerializer = (editor: Editor): void => {
         state.text(escapeMarkdownText(node.text ?? "", textState.atBlockStart), false);
       },
     },
-  };
+  });
 };

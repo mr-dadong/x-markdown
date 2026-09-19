@@ -1,8 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type MarkdownIt from "markdown-it";
-import type StateBlock from "markdown-it/lib/rules_block/state_block";
-import type StateInline from "markdown-it/lib/rules_inline/state_inline";
+import type { MarkdownIt, StateBlock, StateInline } from "markdown-it";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import FootnoteDefinitionView from "./FootnoteDefinitionView.vue";
@@ -86,7 +84,9 @@ const configureDefinitionParser = (markdown: MarkdownIt): void => {
   configuredDefinitionParsers.add(markdown);
   markdown.block.ruler.before("xmd_raw_markdown", DEFINITION_TOKEN, footnoteDefinitionRule);
   markdown.renderer.rules[DEFINITION_TOKEN] = (tokens, index) => {
-    const meta = tokens[index].meta as FootnoteDefinitionMeta;
+    // meta 由本文件的 footnoteDefinitionRule 写入，形状确定；markdown-it 15 把 token.meta
+    // 从 any 收紧为 Record<string, unknown>，因此需要显式断言。
+    const meta = tokens[index].meta as unknown as FootnoteDefinitionMeta;
     return [
       `<div data-xmd-footnote-definition data-identifier="${escapeMarkdownAttribute(markdown, meta.identifier)}">`,
       `<pre data-xmd-footnote-body>${markdown.utils.escapeHtml(meta.body)}</pre>`,

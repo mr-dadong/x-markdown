@@ -93,8 +93,11 @@ const selectLanguage = (language: string): void => {
   /*
    * 当前 TipTap 版本只会重新高亮选区所在的代码块。
    * 先把选区临时放入当前代码块，更新语言后再恢复，避免用户原来的光标位置发生变化。
+   * v3 起 getPos() 的返回类型允许 undefined（节点已不在文档中），此时没有可设置的选区。
    */
-  props.editor.commands.setTextSelection(codeBlockPosition + 1)
+  if (typeof codeBlockPosition === "number") {
+    props.editor.commands.setTextSelection(codeBlockPosition + 1)
+  }
 
   props.updateAttributes({ language })
 

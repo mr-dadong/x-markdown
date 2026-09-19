@@ -1,4 +1,4 @@
-import type MarkdownIt from "markdown-it";
+import type { Env, MarkdownIt } from "markdown-it";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { escapeTargetCharacter, isEscapedAt } from "../utils/backslashEscape";
@@ -428,7 +428,7 @@ export const ensureTableCellsHaveContent = (markdown: MarkdownIt): void => {
 
   const renderWithoutPadding = markdown.render.bind(markdown);
   // 只匹配真正的空单元格标签（含对齐样式等属性），单元格内有内容时不受影响
-  markdown.render = (source: string, env?: unknown): string =>
+  markdown.render = (source: string, env?: Env): string =>
     renderWithoutPadding(source, env).replace(
       /<(td|th)([^>]*)><\/\1>/gu,
       "<$1$2><p></p></$1>",

@@ -14,7 +14,9 @@ interface AttachmentMarkdownMetadata {
   fileType: string;
 }
 
-interface AttachmentOptions {
+// TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
+// 的导出类型因此需要能具名引用它，必须显式导出。
+export interface AttachmentOptions {
   getCurrentDocumentPath: () => string | null;
 }
 

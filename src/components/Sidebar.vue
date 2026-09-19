@@ -390,6 +390,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Tailwind 4 起，SFC 的 style 块要用 @apply 必须先 @reference 主样式表来取得主题与工具类上下文。 */
+@reference "../assets/main.css";
+
 /* 标题层级仅控制缩进，其他视觉样式全部由 Tailwind 工具类负责。 */
 .level-1 {
   @apply pl-2.5;

@@ -162,7 +162,8 @@ export function registerWorkspaceIpc({ getMainWindow }: WorkspaceIpcDependencies
     await fs.promises.rm(assertAuthorizedPath(entryPath), { recursive: true });
   });
   ipcMain.handle(IPC_CHANNELS.copyFileTreePath, async (_event, entryPath: string) => {
-    clipboard.writeText(assertAuthorizedPath(entryPath));
+    // Electron 44 起 clipboard.writeText 返回 Promise，等写入完成再让 invoke 返回。
+    await clipboard.writeText(assertAuthorizedPath(entryPath));
   });
   ipcMain.handle(IPC_CHANNELS.showFileTreeEntry, async (_event, entryPath: string) => {
     shell.showItemInFolder(assertAuthorizedPath(entryPath));

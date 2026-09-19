@@ -1,7 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type MarkdownIt from "markdown-it";
-import type StateBlock from "markdown-it/lib/rules_block/state_block";
+import type { MarkdownIt, StateBlock } from "markdown-it";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import CalloutView from "./CalloutView.vue";
@@ -131,7 +130,9 @@ export const Callout = Node.create({
             configuredParsers.add(markdown);
             markdown.block.ruler.before("xmd_raw_markdown", TOKEN_NAME, calloutRule);
             markdown.renderer.rules[TOKEN_NAME] = (tokens, index) => {
-              const meta = tokens[index].meta as CalloutTokenMeta;
+              // meta 由本文件的 calloutRule 写入，形状确定；markdown-it 15 把 token.meta
+              // 从 any 收紧为 Record<string, unknown>，因此需要显式断言。
+              const meta = tokens[index].meta as unknown as CalloutTokenMeta;
               return [
                 `<aside data-xmd-callout data-callout-type="${escapeMarkdownAttribute(markdown, meta.calloutType)}"`,
                 ` data-title="${escapeMarkdownAttribute(markdown, meta.title)}"`,

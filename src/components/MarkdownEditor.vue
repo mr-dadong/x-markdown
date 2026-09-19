@@ -179,7 +179,7 @@
 
     <!-- 斜杠命令面板：与 AI 状态条同源的 macOS 毛玻璃材质（半透明底 + 模糊 + 多层柔和阴影），
      行内保留命令专属色块；选中态只由半透明行背景承担，不叠加其他信号。 -->
-    <div v-if="slashMenuVisible" ref="slashMenu"
+    <div v-if="slashMenuVisible" :ref="bindSlashMenu"
       class="slash-menu-enter slash-menu-glass fixed z-50 flex flex-col overflow-hidden rounded-xl"
       :class="settings.showSlashCommandDescriptions ? 'w-[272px]' : 'w-[236px]'" :style="slashMenuStyle"
       @mousedown.stop>
@@ -237,7 +237,8 @@
 </template>
 
 <script setup lang="ts">
-import { BubbleMenu, EditorContent } from '@tiptap/vue-3'
+import { EditorContent } from '@tiptap/vue-3'
+import { BubbleMenu } from '@tiptap/vue-3/menus'
 import { NodeSelection } from '@tiptap/pm/state'
 import { blockMarqueeKey } from '../extensions/BlockMarquee'
 import type { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
@@ -389,6 +390,13 @@ const {
     })
   }
 )
+
+// useMarkdownEditor 内部的 slashMenu 需要拿到真实 DOM 元素，用来测量斜杠面板尺寸
+// 并判断点击是否落在面板内。这里用函数式 ref 显式写回，保持与字符串 ref 相同的绑定行为。
+const bindSlashMenu = (el: unknown): void => {
+  // 函数式 ref 的参数也可能是组件实例，斜杠面板只会绑定到 div，因此只接受 HTMLElement。
+  slashMenu.value = el instanceof HTMLElement ? el : null
+}
 
 // 内联 AI 处理
 const {
@@ -1192,6 +1200,8 @@ defineExpose<EditorHandle>({
   使用 <style> 非 scoped（通过选择器限定范围），保留原有样式设计。
 -->
 <style>
+/* Tailwind 4 起，SFC 的 style 块要用 @apply 必须先 @reference 主样式表来取得主题与工具类上下文。 */
+@reference "../assets/main.css";
 /* ===== 斜杠面板滚动条 =====
  * 面板不显示滚动条，但保留滚动能力：命令较多、面板高度受限时，
  * 仍可用滚轮或键盘方向键滚动，视觉上不与命令行争抢注意力。

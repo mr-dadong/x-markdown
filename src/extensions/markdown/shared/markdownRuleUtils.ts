@@ -1,5 +1,4 @@
-import type MarkdownIt from "markdown-it";
-import type StateBlock from "markdown-it/lib/rules_block/state_block";
+import type { MarkdownIt, StateBlock } from "markdown-it";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 /** 读取 Markdown 块规则中的原始行，扩展模块共用这一套边界处理。 */

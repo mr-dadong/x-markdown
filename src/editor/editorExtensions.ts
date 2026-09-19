@@ -1,11 +1,11 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
-import type MarkdownIt from "markdown-it";
+import type { MarkdownIt } from "markdown-it";
 import StarterKit from "@tiptap/starter-kit";
 import { markInputRule } from "@tiptap/core";
 import { Markdown } from "tiptap-markdown";
 import Image from "@tiptap/extension-image";
-import Table from "@tiptap/extension-table";
+import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
@@ -33,7 +33,7 @@ const PlainSuperscript = Superscript.extend({
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Color from "@tiptap/extension-color";
-import TextStyle from "@tiptap/extension-text-style";
+import { TextStyle } from "@tiptap/extension-text-style";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { DEFAULT_CODE_BLOCK_LANGUAGE } from "../modules/codeBlockLanguages";
@@ -170,7 +170,7 @@ const SerializableTable = Table.extend({
       ...this.parent?.(),
       codePipeStyles: {
         default: [],
-        parseHTML: (element) => {
+        parseHTML: (element: HTMLElement) => {
           const value = element.getAttribute("data-xmd-code-pipe-styles");
           return value === null ? [] : JSON.parse(decodeURIComponent(value));
         },
@@ -179,7 +179,7 @@ const SerializableTable = Table.extend({
       },
       delimiterWidths: {
         default: [],
-        parseHTML: (element) => {
+        parseHTML: (element: HTMLElement) => {
           const value = element.getAttribute("data-xmd-delimiter-widths");
           return value === null ? [] : JSON.parse(decodeURIComponent(value));
         },
@@ -425,6 +425,10 @@ export const createEditorExtensions = (options: {
       codeBlock: false, // 使用 CodeBlockLowlight 替代
       code: false, // 使用不会误删反引号前普通字符的行内代码扩展
       hardBreak: false, // 使用保留源码写法的硬换行扩展
+      link: false, // v3 起 StarterKit 内置 Link，改用额外支持 title 属性的 LinkWithTitle
+      underline: false, // v3 起 StarterKit 内置 Underline，改用下方显式注册的 Underline
+      listKeymap: false, // v3 新增的列表快捷键会改变 Tab/Enter 语义，保持升级前行为
+      trailingNode: false, // 末尾段落由 TrailingParagraph 统一负责，避免重复追加
     }),
     LiteralHardBreak,
     SafeInlineCode,

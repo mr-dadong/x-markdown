@@ -1,7 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type MarkdownIt from "markdown-it";
-import type StateBlock from "markdown-it/lib/rules_block/state_block";
+import type { MarkdownIt, StateBlock } from "markdown-it";
 import type { MarkdownSerializerState } from "prosemirror-markdown";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import TableOfContentsView from "./TableOfContentsView.vue";
