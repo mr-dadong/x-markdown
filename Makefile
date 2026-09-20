@@ -2,6 +2,10 @@
 
 .PHONY: help install dev typecheck build preview site deploy changelog-new changelog-sync manifest-upload dist-all dist-win dist-mac dist-mac-x64 dist-mac-arm64 dist-linux dist-linux-x64 dist-linux-arm64
 
+# 打包时 electron-builder 需要从 GitHub 下载 winCodeSign、nsis 等辅助工具，
+# 直连 GitHub 容易超时，这里改用国内 npmmirror 镜像；export 会传给打包子进程。
+export ELECTRON_BUILDER_BINARIES_MIRROR := https://npmmirror.com/mirrors/electron-builder-binaries/
+
 # 展示项目中常用的开发和打包命令。
 help:
 	@echo 可用命令：
