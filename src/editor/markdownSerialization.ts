@@ -2,14 +2,6 @@ import { escapeTargetCharacter, isEscapedAt } from "../utils/backslashEscape";
 
 export type TableAlignment = "left" | "center" | "right" | null;
 
-/** 把 HTML 表格单元格中的对齐样式转换为 Markdown 可保存的有限取值。 */
-export const parseTableAlignment = (value: string | null): TableAlignment => {
-  const alignment = value?.trim().toLowerCase();
-  return alignment === "left" || alignment === "center" || alignment === "right"
-    ? alignment
-    : null;
-};
-
 /**
  * 对齐方式与分隔行「冒号位置」的唯一映射：左对齐冒号在左、右对齐在右、
  * 居中两侧各一个、不指定对齐则都不加。
@@ -36,17 +28,27 @@ interface MarkdownRange {
   to: number;
 }
 
-/** 找出已经闭合的行内代码范围，未闭合反引号保持原文语义。 */
+/**
+ * 找出已经闭合的行内代码范围，未闭合反引号保持原文语义。
+ *
+ * 被反斜杠转义的反引号（`\``）是普通字面字符，不能当作代码定界符：
+ * 否则单元格里的 `` \`a|b\` `` 会被误判成行内代码，竖线随之漏转义，
+ * 存盘后这一格就被拆成两列。因此逐字符扫描，只把未转义的反引号计入。
+ */
 const findInlineCodeRanges = (value: string): MarkdownRange[] => {
   const ranges: MarkdownRange[] = [];
-  const backtickRuns = Array.from(value.matchAll(/`+/gu), (match) => {
-    const from = match.index ?? 0;
-    return {
-      from,
-      to: from + match[0].length,
-      length: match[0].length,
-    };
-  });
+  const backtickRuns: Array<MarkdownRange & { length: number }> = [];
+
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== "`" || isEscapedAt(value, index)) continue;
+
+    let end = index;
+    while (end < value.length && value[end] === "`" && !isEscapedAt(value, end)) {
+      end += 1;
+    }
+    backtickRuns.push({ from: index, to: end, length: end - index });
+    index = end - 1;
+  }
 
   for (let runIndex = 0; runIndex < backtickRuns.length; runIndex += 1) {
     const opening = backtickRuns[runIndex];

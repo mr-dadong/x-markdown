@@ -1,5 +1,5 @@
 import StarterKit from "@tiptap/starter-kit";
-import { markInputRule, type MarkdownToken } from "@tiptap/core";
+import { markInputRule, type JSONContent, type MarkdownParseHelpers, type MarkdownToken } from "@tiptap/core";
 import { Markdown } from "@tiptap/markdown";
 import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
@@ -83,32 +83,11 @@ import {
   escapeTablePipes,
   getTableCodePipeStyles,
   getTableDelimiterWidths,
-  parseTableAlignment,
   renderMarkdownTable,
   restoreTableBackticks,
   type MarkdownTableCell,
   type TableAlignment,
 } from "./markdownSerialization";
-
-const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
-  extension.extend({
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        alignment: {
-          default: null,
-          parseHTML: (element) => parseTableAlignment(element.style.textAlign),
-          renderHTML: (attributes) =>
-            attributes.alignment
-              ? { style: `text-align: ${attributes.alignment}` }
-              : {},
-        },
-      };
-    },
-  });
-
-const AlignedTableCell = createAlignedTableCell(TableCell);
-const AlignedTableHeader = createAlignedTableCell(TableHeader);
 
 /** 把单元格对齐取值收敛到 Markdown 能表达的三种，其余一律视为无对齐。 */
 const toTableAlignment = (value: unknown): TableAlignment => {
@@ -117,6 +96,19 @@ const toTableAlignment = (value: unknown): TableAlignment => {
     ? normalized
     : null;
 };
+
+/**
+ * 官方 Table 扩展自带的表格解析：把 marked 的 table token 转成
+ * tableRow / tableCell / tableHeader 结构，并按 token.align 写入单元格的 align 属性。
+ *
+ * 它是纯函数（源码里是箭头函数，不读 this），因此可以直接复用，不必在项目里
+ * 再抄一遍单元格构造逻辑。类型上该字段是可选的，这里显式断言：官方一旦移除它，
+ * 表格解析会立刻抛错，而不是静默换一套结构。
+ */
+const parseOfficialTableMarkdown = Table.config.parseMarkdown! as (
+  token: MarkdownToken,
+  helpers: MarkdownParseHelpers,
+) => JSONContent;
 
 // TipTap 官方 Link 扩展未定义 title 属性，带标题的链接在解析时会丢失标题。
 // 补上 title 后，官方 Link 扩展自带的 renderMarkdown 会输出
@@ -190,41 +182,21 @@ const SerializableTable = Table.extend({
   },
 
   parseMarkdown: (token, helpers) => {
-    // marked 的 table token：header / rows 是单元格数组，align 是列对齐数组。
-    const alignments: unknown[] = Array.isArray(token.align) ? token.align : [];
+    // 单元格结构与列对齐由官方 parseMarkdown 负责（它把 marked 的 table token 转成
+    // tableRow / tableCell，并按 token.align 写入官方的 align 属性）；
+    // 这里只在官方结果上补两个 Markdown 往返风格标记，避免把结构逻辑抄第二遍。
+    const node = parseOfficialTableMarkdown(token, helpers);
     // raw 是表格在原文中的切片，用它还原用户手写的竖线转义风格与分隔行宽度。
     const rawMarkdown = String(token.raw ?? "");
 
-    const buildRow = (
-      cells: Array<{ tokens?: MarkdownToken[]; align?: unknown }>,
-      cellType: string,
-    ) =>
-      helpers.createNode(
-        "tableRow",
-        {},
-        cells.map((cell, columnIndex) =>
-          helpers.createNode(
-            cellType,
-            { alignment: toTableAlignment(alignments[columnIndex] ?? cell.align) },
-            [{ type: "paragraph", content: helpers.parseInline(cell.tokens ?? []) }],
-          ),
-        ),
-      );
-
-    const rows = [];
-    if (Array.isArray(token.header)) rows.push(buildRow(token.header, "tableHeader"));
-    if (Array.isArray(token.rows)) {
-      for (const row of token.rows) rows.push(buildRow(row, "tableCell"));
-    }
-
-    return helpers.createNode(
-      "table",
-      {
+    return {
+      ...node,
+      attrs: {
+        ...node.attrs,
         codePipeStyles: getTableCodePipeStyles(rawMarkdown),
         delimiterWidths: getTableDelimiterWidths(rawMarkdown),
       },
-      rows,
-    );
+    };
   },
 
   renderMarkdown: (node, helpers) => {
@@ -242,7 +214,8 @@ const SerializableTable = Table.extend({
             restoreTableBackticks(rendered),
             codePipeStyles?.[rowIndex]?.[cellIndex] === true,
           ),
-          alignment: toTableAlignment(cell.attrs?.alignment),
+          // 对齐存放在官方的 align 属性上，取值收敛到 Markdown 能表达的三种。
+          alignment: toTableAlignment(cell.attrs?.align),
         };
       }),
     );
@@ -506,8 +479,8 @@ export const createEditorExtensions = (options: {
       resizable: true,
     }),
     TableRow,
-    AlignedTableCell,
-    AlignedTableHeader,
+    TableCell,
+    TableHeader,
     TableColumnAlignment,
     TrailingParagraph,
     ReadableGapCursor,

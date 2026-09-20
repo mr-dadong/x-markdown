@@ -7,7 +7,6 @@ import {
   hasEscapedCodePipes,
   getTableCodePipeStyles,
   getTableDelimiterWidths,
-  parseTableAlignment,
   renderMarkdownTable,
   restoreTableBackticks,
   serializeFencedCodeBlock,
@@ -15,10 +14,10 @@ import {
 
 describe("Markdown 表格序列化边界", () => {
   test("保留左中右对齐标记", () => {
-    assert.equal(createTableDelimiter(parseTableAlignment("left")), ":---");
-    assert.equal(createTableDelimiter(parseTableAlignment("center")), ":---:");
-    assert.equal(createTableDelimiter(parseTableAlignment("right")), "---:");
-    assert.equal(createTableDelimiter(parseTableAlignment(null)), "---");
+    assert.equal(createTableDelimiter("left"), ":---");
+    assert.equal(createTableDelimiter("center"), ":---:");
+    assert.equal(createTableDelimiter("right"), "---:");
+    assert.equal(createTableDelimiter(null), "---");
   });
 
   test("只转义普通文本中尚未转义的表格竖线", () => {

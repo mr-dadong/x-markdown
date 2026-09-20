@@ -21,10 +21,11 @@ declare module "@tiptap/core" {
 const setCellAlignment = (
   node: ProseMirrorNode,
   alignment: TableAlignment,
-): Record<string, unknown> => {
-  const { alignment: _ignored, ...rest } = node.attrs as Record<string, unknown>;
-  return { ...rest, alignment };
-};
+): Record<string, unknown> => ({
+  ...(node.attrs as Record<string, unknown>),
+  // 对齐写在官方 TableCell / TableHeader 自带的 align 属性上，HTML 与 Markdown 两侧都认它。
+  align: alignment,
+});
 
 /**
  * 借鉴 marktext 的列对齐行为：点击当前列的对齐按钮时，若该列已经是该对齐
@@ -47,7 +48,7 @@ export const TableColumnAlignment = Extension.create({
 
           const anchorGridIndex = rect.top * tableMap.width + rect.left;
           const anchorCell = table.node.nodeAt(tableMap.map[anchorGridIndex]);
-          const alreadyAligned = anchorCell?.attrs.alignment === alignment;
+          const alreadyAligned = anchorCell?.attrs.align === alignment;
           const nextAlignment: TableAlignment = alreadyAligned ? null : alignment;
 
           // 遍历整个表格网格，收集覆盖目标列的单元格。合并单元格会在多个
@@ -66,7 +67,7 @@ export const TableColumnAlignment = Extension.create({
           const transaction = state.tr;
           for (const position of cellsToAlign) {
             const cell = table.node.nodeAt(position);
-            if (!cell || cell.attrs.alignment === nextAlignment) continue;
+            if (!cell || cell.attrs.align === nextAlignment) continue;
             transaction.setNodeMarkup(
               table.start + position,
               undefined,
