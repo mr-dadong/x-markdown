@@ -10,7 +10,7 @@
 
     <!-- 只在光标位于表格内时出现，常用结构操作无需再记快捷键。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowTableMenu"
-      :tippy-options="{ placement: 'top', maxWidth: 720 }">
+      :options="{ placement: 'top' }">
       <div class="flex items-center gap-0.5 rounded-md bg-ink p-1 text-inverse" contenteditable="false">
         <template v-for="(action, index) in tableActions" :key="action.title">
           <!-- 使用 currentColor 继承工具栏前景色，避免 CSS 变量叠加透明度后颜色失效。 -->
@@ -29,7 +29,7 @@
 
     <!-- 选中文字时显示格式工具栏，表格结构选区由上方工具栏接管。 -->
     <bubble-menu v-if="editor && !modalOpen" :editor="editor" :should-show="shouldShowAiMenu"
-      :tippy-options="aiMenuTippyOptions">
+      :options="aiMenuOptions" :plugin-key="aiMenuPluginKey">
       <!-- 内联 AI 处理中或有结果时显示 InlineAiBar -->
       <InlineAiBar v-if="inlineAiStreaming || inlineAiResult || inlineAiError" :is-streaming="inlineAiStreaming"
         :result="inlineAiResult" :error="inlineAiError" :current-action="inlineAiAction" @accept="acceptInlineAiResult"
@@ -239,9 +239,9 @@
 <script setup lang="ts">
 import { EditorContent } from '@tiptap/vue-3'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
-import { NodeSelection } from '@tiptap/pm/state'
+import type { BubbleMenuPluginProps } from '@tiptap/extension-bubble-menu'
+import { NodeSelection, PluginKey } from '@tiptap/pm/state'
 import { blockMarqueeKey } from '../extensions/BlockMarquee'
-import type { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
 import { isTableSelection } from '../modules/tableInteraction'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
@@ -615,7 +615,9 @@ const addToSelection = (): void => {
   // 记录本次选区并立即隐藏动作条：添加成功后不再遮挡正文，选区变化后自动恢复弹出。
   const { from, to } = editor.value?.state.selection ?? { from: -1, to: -1 }
   aiMenuDismissedRange = { from, to }
-  aiMenuTippy?.hide()
+  // 通过专属 pluginKey 派发 hide 事务让动作条立即收起：
+  // 按钮用 @mousedown.prevent 不会产生编辑器事务，BubbleMenu 插件不会自动重新求值隐藏。
+  if (editor.value) editor.value.view.dispatch(editor.value.state.tr.setMeta(aiMenuPluginKey, 'hide'))
   emit('add-to-selection', text)
 }
 
@@ -654,64 +656,20 @@ const blockActionSeparators = [1, 3, 4]
 
 const editorShell = ref<HTMLElement | null>(null)
 
-// AI 动作条默认显示在选区上方；顶部空间不足时，以编辑区为边界翻转到下方，避免被文档标签栏裁掉。
-// aiMenuTippy 保存 tippy 实例：点击“添加到选取”后需要主动隐藏动作条，
-// 因为按钮用 @mousedown.prevent 不会产生编辑器事务，BubbleMenu 插件不会自动重新求值隐藏。
-let aiMenuTippy: TippyInstance | null = null
 // 记录点击“添加到选取”时的选区范围：同一段选区保持动作条隐藏，选区变化（含清空）后恢复弹出。
 let aiMenuDismissedRange: { from: number; to: number } | null = null
-const aiMenuTippyOptions: Partial<TippyProps> = {
+// AI 动作条定位选项：TipTap v3 的 BubbleMenu 基于 floating-ui 定位，不再使用 tippy.js。
+// 默认显示在选区上方，顶部空间不足时翻转到下方；shift 把最终位置约束在边界内，
+// 边界默认取 overflow 裁剪祖先（编辑滚动容器与编辑区外壳），
+// 保证选区很高（例如拖动选中大段文字或全选）时动作条不会被编辑区边界裁掉、
+// 看起来像被文档标签栏挡住。菜单与边界之间保留 8px 边距。
+const aiMenuOptions: NonNullable<BubbleMenuPluginProps['options']> = {
   placement: 'top',
-  maxWidth: 600,
-  onCreate: (instance) => {
-    aiMenuTippy = instance
-    // 编辑区边界：优先用模板 ref；极端情况下 ref 未就绪时，从锚点（编辑滚动容器）反查父级编辑区。
-    const boundary = editorShell.value ?? instance.reference?.parentElement ?? null
-    if (!boundary) return
-
-    instance.setProps({
-      popperOptions: {
-        modifiers: [
-          {
-            name: 'flip',
-            options: {
-              boundary,
-              fallbackPlacements: ['bottom'],
-              padding: 8,
-            },
-          },
-          // 最后一道定位约束：flip 只在“上方放得下/放不下”之间二选一，
-          // 当选区很高（例如拖动选中大段文字或全选）时上下都放不下，
-          // flip 会退回“溢出更少”的 top，菜单就会顶到编辑区上边界之外，
-          // 被编辑区的 overflow-hidden 裁掉，看起来就像被文件标签栏挡住。
-          // 这个修饰符排在 flip 之后运行，把最终位置强制约束在编辑区内，
-          // 保证菜单在任何选区形状下都完整可见、不会被标签栏遮住。
-          {
-            name: 'clampAiBarToEditor',
-            enabled: true,
-            phase: 'main',
-            fn: ({ state }) => {
-              const shell = editorShell.value ?? boundary
-              const offsets = state.modifiersData.popperOffsets
-              const offsetParent = state.elements.popper.offsetParent
-              if (!shell || !offsets || !offsetParent) return
-              const shellRect = shell.getBoundingClientRect()
-              const parentRect = offsetParent.getBoundingClientRect()
-              const popperRect = state.rects.popper
-              // 菜单与编辑区各留 8px 边距；菜单比编辑区还宽/高时取左/上边缘，保证数值不反向。
-              const minLeft = shellRect.left + 8
-              const maxLeft = Math.max(minLeft, shellRect.right - popperRect.width - 8)
-              const minTop = shellRect.top + 8
-              const maxTop = Math.max(minTop, shellRect.bottom - popperRect.height - 8)
-              offsets.x = Math.min(Math.max(parentRect.left + offsets.x, minLeft), maxLeft) - parentRect.left
-              offsets.y = Math.min(Math.max(parentRect.top + offsets.y, minTop), maxTop) - parentRect.top
-            },
-          },
-        ],
-      },
-    })
-  },
+  flip: { fallbackPlacements: ['bottom'], padding: 8 },
+  shift: { padding: 8 },
 }
+// 专属 pluginKey：配合 addToSelection 里的 hide 事务，实现动作条的立即隐藏。
+const aiMenuPluginKey = new PluginKey('aiBubbleMenu')
 const blockMenu = ref<HTMLElement | null>(null)
 
 // 编辑区滚动时同时刷新块控件、斜杠面板与 AI 输入框：
