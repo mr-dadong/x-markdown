@@ -173,6 +173,9 @@ const renderExportContent = async (
       getCurrentDocumentPath: () => documentPath,
     }),
     content: markdown,
+    // 导出用的隐藏编辑器同样接收 Markdown 源码，必须显式声明内容类型，
+    // 否则官方 @tiptap/markdown 会把源码当成 HTML 解析。
+    contentType: "markdown",
     editable: false,
     editorProps: {
       attributes: {

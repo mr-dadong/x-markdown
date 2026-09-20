@@ -1,26 +1,41 @@
-import type { Editor } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { JSONContent } from "@tiptap/core";
+import { MarkdownManager } from "@tiptap/markdown";
 
 /**
  * 正文文本节点的最小转义规则。
  *
- * tiptap-markdown 内置的 text 节点序列化会先做 HTML 实体转义（把 `<` `>` 换成
- * `&lt;` `&gt;`），再交给 prosemirror-markdown 的 `esc()`（把每个反斜杠都写成
- * `\\`）。两者都不区分「这个字符在 Markdown 里是否真的会被误解」，于是渲染视图
- * 里输入的字面文本会在源码视图和存盘文件里被改写：
+ * 官方 @tiptap/markdown 的文本转义是硬编码的：MarkdownManager.renderNodeToMarkdown
+ * 遇到 text 节点会先于任何扩展 handler 直接返回 encodeTextForMarkdown 的结果
+ * （见 node_modules/@tiptap/markdown/src/MarkdownManager.ts:1178-1180 与 :1283），
+ * 而该方法与 escapeMarkdownSyntax 都是 private，官方没有留出覆盖钩子。
+ * 其内置规则正是本项目刻意要摆脱的保守转义：先做 HTML 实体转义（把 `<` `>` 换成
+ * `&lt;` `&gt;`），再给 `\`、反引号、`*`、`_`、`[`、`]`、`~` 无差别补反斜杠。
+ *
+ * 于是渲染视图里输入的字面文本会在源码视图和存盘文件里被改写：
  *
  * - 输入 `\d`   → 存成 `\\d`
  * - 输入 `<a>`  → 存成 `&lt;a&gt;`
  *
- * 这里改成「只有 Markdown 真的会误解时才补转义」的规则，源码视图尽量保持
- * 用户输入的原样，同时保证存盘后重新打开语义完全不变。
+ * TypeScript 的 private 只在编译期生效，运行时方法仍挂在 MarkdownManager 的原型上，
+ * 因此这里覆盖原型方法，把转义换回「只有 Markdown 真的会误解时才补转义」的规则，
+ * 源码视图尽量保持用户输入的原样，同时保证存盘后重新打开语义完全不变。
  */
 
-/** prosemirror-markdown 内部使用、但未出现在类型声明里的序列化状态字段。 */
-type TextSerializerState = MarkdownSerializerState & {
-  /** 当前位置是否位于块首；块首字符有额外的 Markdown 语法含义。 */
-  atBlockStart: boolean;
+/**
+ * 官方 MarkdownManager 内部使用、但未出现在公开类型里的字段。
+ *
+ * 不能写成 `MarkdownManager & { ... }`：`codeTypes` 在 MarkdownManager 里是
+ * private，交叉后 TS 会把整个类型收缩成 never，反而取不到这些字段。
+ */
+type MarkdownManagerInternals = {
+  /** 声明了 `code: true` 的扩展名集合，代码上下文内不做任何转义。 */
+  codeTypes: Set<string>;
+  /** 官方原本的文本转义实现，签名固定但未公开导出。 */
+  encodeTextForMarkdown: (
+    text: string,
+    node: JSONContent,
+    parentNode?: JSONContent,
+  ) => string;
 };
 
 /** 需要补反斜杠的字面字符：它们在任何位置都能开启 Markdown 语法。 */
@@ -108,32 +123,54 @@ export const escapeMarkdownText = (value: string, startOfLine: boolean): string 
 };
 
 /**
- * 用最小转义规则接管正文文本节点的 Markdown 序列化。
+ * 判断这段文本是否位于一行的开头。
  *
- * tiptap-markdown 把内置的 text 序列化规则放在自己模块内部的扩展表里，
- * 序列化时按扩展名查找（`markdownExtensions.find(e => e.name === 'text')`），
- * 因此改不到那个对象。不过它取规则时会用编辑器 schema 里同名扩展的
- * `storage.markdown` 覆盖内置实现，所以把规则写到 schema 的 text 扩展上即可生效。
- *
- * TipTap v3 起 `Extension.storage` 变成只读 getter（每次读取都由 `config.addStorage()`
- * 现算一份），不能再直接给 `storage` 赋值。这里改为覆盖 `config.addStorage`，
- * 使每次算出的 `storage.markdown` 都是本函数接管的序列化规则。
+ * 行首字符有额外的 Markdown 语法含义（列表标记、标题、有序列表）。官方实现按
+ * 输出位置判断块首，这里改为按兄弟节点位置判断：父节点没有子节点列表（顶层文本）
+ * 或它本身就是父节点的第一个子节点时为行首；紧跟在硬换行之后的文本同样处于新行开头。
  */
-export const installMarkdownTextSerializer = (editor: Editor): void => {
-  const textExtension = editor.extensionManager.extensions.find(
-    (extension) => extension.name === "text",
-  );
-  if (!textExtension) {
-    throw new Error("未找到 text 节点扩展，无法接管正文文本的 Markdown 序列化");
-  }
+const isAtLineStart = (node: JSONContent, parentNode?: JSONContent): boolean => {
+  const siblings = parentNode?.content;
+  if (!Array.isArray(siblings)) return true;
+  const index = siblings.indexOf(node);
+  if (index <= 0) return true;
+  return siblings[index - 1]?.type === "hardBreak";
+};
 
-  textExtension.config.addStorage = () => ({
-    markdown: {
-      serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-        const textState = state as TextSerializerState;
-        // escape 传 false：转义已由 escapeMarkdownText 完成，不能再走 prosemirror-markdown 的 esc()。
-        state.text(escapeMarkdownText(node.text ?? "", textState.atBlockStart), false);
-      },
-    },
-  });
+/** 代码上下文内的文本必须原样输出，判定依据沿用官方自己维护的 codeTypes。 */
+const isInsideCodeContext = (
+  manager: MarkdownManagerInternals,
+  node: JSONContent,
+  parentNode?: JSONContent,
+): boolean => {
+  if (parentNode?.type != null && manager.codeTypes.has(parentNode.type)) return true;
+  return (node.marks ?? []).some((mark) =>
+    manager.codeTypes.has(typeof mark === "string" ? mark : mark.type),
+  );
+};
+
+/** 是否已经打过补丁，避免重复安装时把覆盖层层叠加。 */
+let minimalEscapingInstalled = false;
+
+/**
+ * 用最小转义规则接管官方 MarkdownManager 的正文文本转义。
+ *
+ * 覆盖的是原型方法，因此对已经创建的 manager 实例同样生效；函数幂等，
+ * 重复调用不会重复包装。
+ */
+export const installMinimalTextEscaping = (): void => {
+  if (minimalEscapingInstalled) return;
+  minimalEscapingInstalled = true;
+
+  const prototype = MarkdownManager.prototype as unknown as MarkdownManagerInternals;
+  prototype.encodeTextForMarkdown = function (
+    this: MarkdownManagerInternals,
+    text: string,
+    node: JSONContent,
+    parentNode?: JSONContent,
+  ): string {
+    // 代码上下文保持官方行为：原样输出，不补任何转义。
+    if (isInsideCodeContext(this, node, parentNode)) return text;
+    return escapeMarkdownText(text, isAtLineStart(node, parentNode));
+  };
 };

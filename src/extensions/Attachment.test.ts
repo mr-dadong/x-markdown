@@ -31,7 +31,7 @@ const withEditor = <T>(
     content: string,
     inspect: (editor: InstanceType<typeof EditorConstructor>) => T,
 ): T => {
-    const editor = new EditorConstructor({ extensions: createEditorExtensions(), content });
+    const editor = new EditorConstructor({ extensions: createEditorExtensions(), content, contentType: "markdown" });
     try {
         return inspect(editor);
     } finally {
@@ -122,7 +122,7 @@ describe("手写文件链接增强为附件卡片", () => {
     test("增强后保存为带元数据的标准链接，重新打开仍是卡片", () => {
         const saved = withEditor(
             "[redis8_migrate.tar.gz](图片和附件/redis8_migrate.tar.gz)",
-            (editor) => editor.storage.markdown.getMarkdown() as string,
+            (editor) => editor.getMarkdown() as string,
         );
         // 序列化补充了 XMD 附件元数据 title，其他编辑器仍是标准链接。
         assert.ok(saved.includes('[redis8_migrate.tar.gz](<%E5%9B%BE%E7%89%87%E5%92%8C%E9%99%84%E4%BB%B6/redis8_migrate.tar.gz> "xmd-attachment:'));

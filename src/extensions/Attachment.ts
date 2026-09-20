@@ -1,6 +1,7 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Extension, Node, mergeAttributes, type MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import AttachmentView from "../components/AttachmentView.vue";
+import { neverInterruptParagraph, takeBlockRaw } from "./markdown/shared/officialMarkdown";
 
 interface AttachmentAttributes {
   fileName: string;
@@ -97,17 +98,10 @@ const getExtensionFromUrl = (url: string): string => {
   return dotIndex === -1 ? "" : fileName.slice(dotIndex + 1).toLocaleLowerCase();
 };
 
-// 链接独占所在段落时，替换成块级卡片才不会拆散与文字混排的行内内容。
-const isSoleParagraphChild = (link: HTMLAnchorElement): boolean => {
-  const paragraph = link.parentElement;
-  return paragraph?.tagName === "P" && paragraph.childNodes.length === 1;
-};
-
 // 手写的裸文件链接才会增强为卡片：带 title 的链接可能携带视频标题或用户备注，
 // 锚点与带协议的地址（http、mailto、file 等）也不是本地附件相对路径。
-const isPlainAttachmentLink = (link: HTMLAnchorElement): boolean => {
-  const href = link.getAttribute("href") ?? "";
-  if (link.hasAttribute("title")) return false;
+const isPlainAttachmentLink = (href: string, title: string | null): boolean => {
+  if (title !== null) return false;
   if (href === "" || href.startsWith("#")) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false;
   return plainAttachmentExtensions.has(getExtensionFromUrl(href));
@@ -202,42 +196,89 @@ export const Attachment = Node.create<AttachmentOptions>({
     ];
   },
 
-  addStorage() {
+  // 磁盘中保存标准 Markdown 链接，其他编辑器可直接打开，XMD 再增强为附件卡片。
+  renderMarkdown: (node) => {
+    const fileName = String(node.attrs?.fileName ?? "未命名文件");
+    const url = String(node.attrs?.url ?? "");
+    const label = escapeMarkdownLabel(fileName);
+    const destination = escapeMarkdownDestination(url);
+    const title = encodeAttachmentMetadata({
+      fileName,
+      fileSize: Number(node.attrs?.fileSize ?? 0),
+      fileType: String(node.attrs?.fileType ?? ""),
+      url,
+    });
+    return `[${label}](<${destination}> "${title}")`;
+  },
+});
+
+/**
+ * 把「独占一个段落的手写文件链接」增强为附件卡片。
+ *
+ * 旧实现靠 markdown-it 的 updateDOM 钩子替换 DOM 里的 <a>；官方管线没有 DOM 钩子。
+ *
+ * 这里刻意**不用** paragraph token 名注册解析 handler：官方渲染路径
+ * （MarkdownManager.getHandlerForToken）会取解析注册表的第一个 handler 来渲染，
+ * 用 paragraph 注册会把官方 Paragraph 的 renderMarkdown 挤掉，整篇段落序列化成空串。
+ * 改为注册独立的块级 token（xmdAttachmentLink），由本模块自己解析与序列化。
+ */
+const ATTACHMENT_LINK_TOKEN = "xmdAttachmentLink";
+
+/** 独占一行的 Markdown 链接：[文字](地址) 或 [文字](<地址> "标题")。 */
+const SOLE_LINK_PATTERN = /^\[([^\]]*)\]\((?:<([^>]*)>|([^)\s]*))(?:\s+"([^"]*)")?\)\s*$/u;
+
+/** 解析「整行只有一个链接」的段落；不满足条件时交还 marked 的普通段落处理。 */
+const tokenizeAttachmentLink = (src: string): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  const match = lines[0]?.match(SOLE_LINK_PATTERN);
+  if (!match) return undefined;
+  // 下一行还有内容说明它们同属一个段落，此时不能替换成块级卡片。
+  if (lines.length > 1 && lines[1].trim() !== "") return undefined;
+
+  const href = (match[2] ?? match[3] ?? "").trim();
+  const title = match[4] ?? null;
+  const metadata = decodeAttachmentMetadata(title);
+  // 手写的裸文件链接才增强；带 title 的链接可能携带视频标题或用户备注。
+  if (!metadata && !isPlainAttachmentLink(href, title)) return undefined;
+
+  return {
+    type: ATTACHMENT_LINK_TOKEN,
+    raw: takeBlockRaw(lines, 1),
+    label: match[1],
+    href,
+  } as MarkdownToken;
+};
+
+export const AttachmentLinkParser = Extension.create({
+  name: "attachmentLinkParser",
+
+  markdownTokenName: ATTACHMENT_LINK_TOKEN,
+
+  parseMarkdown: (token) => {
+    const href = String(token.href ?? "");
+    const label = String(token.label ?? "");
+    // 元数据链接的标题里带着 XMD 附件信息，优先按元数据解析。
+    const metadata = decodeAttachmentMetadata(
+      SOLE_LINK_PATTERN.exec(String(token.raw ?? ""))?.[4] ?? null,
+    );
+
     return {
-      markdown: {
-        serialize(state: { write: (value: string) => void; closeBlock: (node: unknown) => void }, node: { attrs: AttachmentAttributes }) {
-          const { fileName, url } = node.attrs;
-          const label = escapeMarkdownLabel(fileName);
-          const destination = escapeMarkdownDestination(url);
-          const title = encodeAttachmentMetadata(node.attrs);
-
-          // 磁盘中保存标准 Markdown 链接，其他编辑器可直接打开，XMD 再增强为附件卡片。
-          state.write(`[${label}](<${destination}> "${title}")`);
-          state.closeBlock(node);
-        },
-        parse: {
-          updateDOM(element: HTMLElement) {
-            element.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((link) => {
-              const href = link.getAttribute("href") ?? "";
-              const metadata = decodeAttachmentMetadata(link.getAttribute("title"));
-              // 手写的裸文件链接（无 XMD 附件元数据）按后缀识别，也增强为文件卡片。
-              const isPlainFileLink =
-                !metadata && isSoleParagraphChild(link) && isPlainAttachmentLink(link);
-              if (!metadata && !isPlainFileLink) return;
-
-              const attachment = document.createElement("div");
-              attachment.dataset.xmdAttachment = "";
-              attachment.dataset.xmdCompatibleAttachment = "";
-              attachment.dataset.fileName = link.textContent || "未命名文件";
-              // 手写链接没有大小信息，记 0 让卡片显示「未知大小」；类型从地址后缀推导。
-              attachment.dataset.fileSize = String(metadata?.fileSize ?? 0);
-              attachment.dataset.fileType = metadata?.fileType ?? getExtensionFromUrl(href);
-              attachment.dataset.url = href;
-              link.replaceWith(attachment);
-            });
-          },
-        },
+      type: "attachment",
+      attrs: {
+        fileName: label || "未命名文件",
+        // 手写链接没有大小信息，记 0 让卡片显示「未知大小」；类型从地址后缀推导。
+        fileSize: metadata?.fileSize ?? 0,
+        fileType: metadata?.fileType ?? getExtensionFromUrl(href),
+        // 与旧 markdown-it 行为一致：中文等非 ASCII 路径按百分号编码后保存。
+        url: encodeURI(href),
       },
     };
+  },
+
+  markdownTokenizer: {
+    name: ATTACHMENT_LINK_TOKEN,
+    level: "block",
+    start: neverInterruptParagraph,
+    tokenize: (src: string) => tokenizeAttachmentLink(src),
   },
 });

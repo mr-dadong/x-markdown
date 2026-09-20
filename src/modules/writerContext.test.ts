@@ -41,6 +41,7 @@ const createEditor = (markdown: string) =>
   new EditorConstructor({
     extensions: createEditorExtensions(),
     content: markdown,
+    contentType: "markdown",
   });
 
 // 生成长段落文本，用于触发截断逻辑。

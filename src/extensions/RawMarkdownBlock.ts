@@ -1,65 +1,55 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { MarkdownIt, StateBlock, Token } from "markdown-it";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
+import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "./markdown/shared/officialMarkdown";
 
-const RAW_TOKEN_NAME = "xmd_raw_markdown";
-const configuredMarkdownParsers = new WeakSet<MarkdownIt>();
+/** 解析注册表用的 token 名，与节点名分开以免和 marked 内置 token 冲突。 */
+const RAW_TOKEN_NAME = "xmdRawMarkdown";
 
-const getLine = (state: StateBlock, line: number): string =>
-  state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]);
+/** 不认识的扩展块：Pandoc 风格 :::name 或 wiki 风格 [[链接]]。 */
+const EXTENSION_BLOCK_PATTERN = /^:::[\w-]+/u;
+const WIKI_LINK_PATTERN = /\[\[[^\]]+\]\]/u;
 
-const findClosingLine = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-  marker: string,
-): number => {
-  for (let line = startLine + 1; line < endLine; line += 1) {
-    if (getLine(state, line).trim() === marker) return line;
+/** 找出行内容与给定标记完全相同的行，用于配对 frontmatter 的 --- 围栏。 */
+const findClosingLine = (lines: readonly string[], marker: string): number => {
+  for (let index = 1; index < lines.length; index += 1) {
+    if (lines[index].trim() === marker) return index;
   }
   return -1;
 };
 
-const findParagraphEnd = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-): number => {
-  let line = startLine + 1;
-  while (line < endLine && getLine(state, line).trim() !== "") line += 1;
-  return line;
+/** 找到段落结束位置：第一处空行。 */
+const findParagraphEnd = (lines: readonly string[]): number => {
+  let index = 1;
+  while (index < lines.length && lines[index].trim() !== "") index += 1;
+  return index;
 };
 
-const rawMarkdownRule = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-  silent: boolean,
-): boolean => {
-  const lineText = getLine(state, startLine);
-  const trimmedLine = lineText.trim();
-  let nextLine = -1;
+/**
+ * 解析「不理解的扩展块」，原样保存源码以便在源码模式里继续编辑。
+ *
+ * frontmatter（文档开头的 --- ... ---）只在 `isDocumentStart` 为真时识别，
+ * 与旧实现要求的 startLine === 0 一致；否则 --- 应交给分隔线处理。
+ */
+const tokenizeRawMarkdown = (src: string, isDocumentStart: boolean): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  const firstLine = lines[0] ?? "";
+  const trimmedLine = firstLine.trim();
+  let consumed = -1;
 
-  if (startLine === 0 && trimmedLine === "---") {
-    const closingLine = findClosingLine(state, startLine, endLine, "---");
-    if (closingLine > startLine) nextLine = closingLine + 1;
-  } else if (
-    /^:::[\w-]+/.test(trimmedLine)
-    || /\[\[[^\]]+\]\]/.test(lineText)
-  ) {
-    nextLine = findParagraphEnd(state, startLine, endLine);
+  if (isDocumentStart && trimmedLine === "---") {
+    const closingLine = findClosingLine(lines, "---");
+    if (closingLine > 0) consumed = closingLine + 1;
+  } else if (EXTENSION_BLOCK_PATTERN.test(trimmedLine) || WIKI_LINK_PATTERN.test(firstLine)) {
+    consumed = findParagraphEnd(lines);
   }
 
-  if (nextLine < 0) return false;
-  if (silent) return true;
+  if (consumed < 0) return undefined;
 
-  const token = state.push(RAW_TOKEN_NAME, "pre", 0);
-  token.block = true;
-  token.map = [startLine, nextLine];
-  token.content = state.getLines(startLine, nextLine, state.blkIndent, false);
-  state.line = nextLine;
-  return true;
+  return {
+    type: RAW_TOKEN_NAME,
+    raw: takeBlockRaw(lines, consumed),
+    rawMarkdown: lines.slice(0, consumed).join("\n"),
+  } as MarkdownToken;
 };
 
 export const RawMarkdownBlock = Node.create({
@@ -98,27 +88,22 @@ export const RawMarkdownBlock = Node.create({
     ];
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(
-          state: MarkdownSerializerState,
-          node: ProseMirrorNode,
-        ) {
-          // 不理解的扩展块只允许在源码模式编辑，所见即所得模式始终原样写回。
-          state.write(String(node.attrs.raw));
-          state.closeBlock(node);
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            if (configuredMarkdownParsers.has(markdown)) return;
-            configuredMarkdownParsers.add(markdown);
-            markdown.block.ruler.before("fence", RAW_TOKEN_NAME, rawMarkdownRule);
-            markdown.renderer.rules[RAW_TOKEN_NAME] = (tokens: Token[], index: number) =>
-              `<pre data-xmd-raw-markdown>${markdown.utils.escapeHtml(tokens[index].content)}</pre>`;
-          },
-        },
-      },
-    };
+  markdownTokenName: RAW_TOKEN_NAME,
+
+  parseMarkdown: (token) => ({
+    type: "rawMarkdownBlock",
+    attrs: { raw: String(token.rawMarkdown ?? "") },
+  }),
+
+  // 不理解的扩展块只允许在源码模式编辑，所见即所得模式始终原样写回。
+  renderMarkdown: (node) => stripTrailingNewlines(String(node.attrs?.raw ?? "")),
+
+  markdownTokenizer: {
+    name: RAW_TOKEN_NAME,
+    level: "block",
+    start: neverInterruptParagraph,
+    // tokens 为空表示当前位于文档最开头，frontmatter 只在这种位置成立。
+    tokenize: (src: string, tokens: MarkdownToken[]) =>
+      tokenizeRawMarkdown(src, tokens.length === 0),
   },
 });

@@ -1,7 +1,7 @@
 <template>
   <div class="model-selector">
     <div class="model-selector-input-wrap" :class="{ 'model-selector-focus': focused }">
-      <Icon icon="lucide:cube" :size="15" class="model-selector-icon" />
+      <Icon icon="lucide:box" :size="15" class="model-selector-icon" />
       <input ref="inputRef" v-model="inputValue" type="text" class="model-selector-input" :placeholder="placeholder"
         @focus="onFocus" @blur="onBlur" @keydown="onKeyDown" @input="onInput" />
       <button v-if="inputValue" type="button" class="model-selector-clear" @mousedown.prevent="clear">

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Editor } from "@tiptap/core";
-import { DOMParser, type Slice } from "@tiptap/pm/model";
+import { Slice } from "@tiptap/pm/model";
 import type { Window } from "happy-dom";
 import { installDomEnvironment } from "../test/domEnvironment";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
@@ -29,8 +29,8 @@ after(async () => {
 
 /**
  * 复刻 useEditor.ts clipboardTextParser 的核心逻辑：
- * 先把文本归一化，再用与文档同源 markdown-it 解析成 HTML，
- * 最后转成 ProseMirror 节点切片。
+ * 先把文本归一化，再用与文档同源的 Markdown 解析器解析成 Tiptap JSON，
+ * 最后按 schema 还原成两端开放的 ProseMirror 切片。
  */
 const parsePastedMarkdown = (
   editor: Editor,
@@ -51,20 +51,13 @@ const parsePastedMarkdown = (
   const normalized = normalizeAiMarkdown(text);
   if (normalized.length === 0) return null as unknown as Slice;
   if (!hasMarkdownSyntax(normalized)) return null as unknown as Slice;
-  const storage = editor.storage.markdown as {
-    parser: { parse: (source: string, options?: { inline?: boolean }) => string };
-  };
-  const html = storage.parser.parse(normalized, { inline: true });
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  return DOMParser.fromSchema(view.state.schema).parseSlice(container, {
-    preserveWhitespace: true,
-    context,
-  });
+  const parsed = editor.markdown?.parse(normalized);
+  if (!parsed) return null as unknown as Slice;
+  return Slice.maxOpen(view.state.schema.nodeFromJSON(parsed).content);
 };
 
 const createEditor = (): Editor =>
-  new EditorConstructor({ extensions: createEditorExtensions(), content: "" });
+  new EditorConstructor({ extensions: createEditorExtensions(), content: "", contentType: "markdown" });
 
 const sliceJson = (slice: Slice): string => JSON.stringify(slice.content.toJSON());
 
@@ -133,7 +126,7 @@ test("plainText=true（Shift/强制纯文本）时交还默认纯文本插入", 
 test("光标在标题内时不接管，交还标题保护逻辑", () => {
   const editor = createEditor();
   try {
-    editor.commands.setContent("# 已有标题");
+    editor.commands.setContent("# 已有标题", { contentType: "markdown" });
     const view = editor.view;
     const resolved = view.state.doc.resolve(1);
     const slice = parsePastedMarkdown(editor, "- 新列表", resolved, false, view);

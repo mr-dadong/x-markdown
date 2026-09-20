@@ -49,6 +49,7 @@ describe("表格 Ctrl+A 交互", () => {
     const editor = new EditorConstructor({
       extensions: createEditorExtensions(),
       content: "表格前的段落\n\n| 表头A | 表头B |\n| --- | --- |\n| a1 a2 | b1 |\n\n表格后的段落",
+      contentType: "markdown",
     });
     try {
       const cellStart = findCell(editor.state.doc, "a1 a2");
@@ -78,6 +79,7 @@ describe("表格 Ctrl+A 交互", () => {
     const editor = new EditorConstructor({
       extensions: createEditorExtensions(),
       content: "普通段落",
+      contentType: "markdown",
     });
     try {
       editor.view.dispatch(
@@ -95,6 +97,7 @@ describe("表格单元格内粘贴追加", () => {
     const editor = new EditorConstructor({
       extensions: createEditorExtensions(),
       content: "| 表头A | 表头B |\n| --- | --- |\n| a1 | b1 |",
+      contentType: "markdown",
     });
     try {
       const cellStart = findCell(editor.state.doc, "a1");
@@ -110,7 +113,7 @@ describe("表格单元格内粘贴追加", () => {
       assert.notEqual(endPosition, null);
       editor.chain().focus().insertContentAt(endPosition!, "追加").run();
 
-      const markdown = editor.storage.markdown.getMarkdown();
+      const markdown = editor.getMarkdown();
       // 原内容仍然保留，新内容追加在其后。
       assert.match(markdown, /\| a1追加\s+\| b1\s+\|/u);
     } finally {
@@ -122,6 +125,7 @@ describe("表格单元格内粘贴追加", () => {
     const editor = new EditorConstructor({
       extensions: createEditorExtensions(),
       content: "普通段落\n\n| 表头 |\n| --- |\n| 值 |",
+      contentType: "markdown",
     });
     try {
       editor.view.dispatch(

@@ -4,12 +4,18 @@ import type { Editor } from "@tiptap/core";
 import type { Window } from "happy-dom";
 import { installDomEnvironment } from "../test/domEnvironment";
 
-// Phase 0 不变量验证：确认“带全部扩展规则的 markdown-it 顶层块 token 数”
-// 与“editor.state.doc 顶层子节点数”之间的对应关系，以及每个顶层块 token 是否带 map。
-// 这是块级源码映射增量保存方案能否成立的前提。
+// Phase 0 不变量验证：确认「带全部扩展规则的顶层块词法区间数」与
+// 「editor.state.doc 顶层子节点数」之间的对应关系，以及每个顶层块是否都能
+// 切出有效的源码行区间。这是块级源码映射增量保存方案能否成立的前提。
+//
+// 迁移说明：本测试原先统计 markdown-it 的 token（nesting / map），
+// 迁移到官方 @tiptap/markdown 后解析器换成 marked，token 没有 nesting / map，
+// 因此改为统计 sourcePreservingSerializer 提供的顶层块行区间。
+// 不变量本身不变：区间与顶层节点一一对应，多出的只能是末尾空段落。
 
 let browserWindow: Window;
 let createEditorExtensions: typeof import("./editorExtensions").createEditorExtensions;
+let topLevelBlockRanges: typeof import("./sourcePreservingSerializer").topLevelBlockRanges;
 let EditorConstructor: typeof import("@tiptap/core").Editor;
 
 before(async () => {
@@ -23,58 +29,37 @@ before(async () => {
     };
     ({ Editor: EditorConstructor } = await import("@tiptap/core"));
     ({ createEditorExtensions } = await import("./editorExtensions"));
+    ({ topLevelBlockRanges } = await import("./sourcePreservingSerializer"));
 });
 
 after(async () => {
     await browserWindow.happyDOM.abort();
 });
 
-interface TokenLike {
-    type: string;
-    nesting: number;
-    map: [number, number] | null;
-    level: number;
+interface InspectResult {
+    tokens: number;
+    docChildren: number;
+    invalidRanges: string[];
+    childTypes: string[];
 }
 
-// 复刻 viewSync 的顶层块抽取逻辑，用于统计配置化 markdown-it 的顶层块。
-const countTopLevelRanges = (tokens: TokenLike[]): { count: number; missingMap: string[] } => {
-    let depth = 0;
-    let count = 0;
-    const missingMap: string[] = [];
-    for (const token of tokens) {
-        if (token.nesting < 0) {
-            depth = Math.max(0, depth - 1);
-            continue;
-        }
-        if (token.nesting > 0) {
-            if (depth === 0) {
-                count += 1;
-                if (!token.map) missingMap.push(token.type);
-            }
-            depth += 1;
-            continue;
-        }
-        if (depth === 0) {
-            count += 1;
-            if (!token.map) missingMap.push(token.type);
-        }
-    }
-    return { count, missingMap };
-};
-
-const inspect = (markdown: string): { tokens: number; docChildren: number; missingMap: string[]; childTypes: string[] } => {
+const inspect = (markdown: string): InspectResult => {
     const editor: Editor = new EditorConstructor({
         extensions: createEditorExtensions(),
         content: markdown,
+        contentType: "markdown",
     });
     try {
-        const parser = (editor.storage.markdown as { parser: { md: { parse: (src: string, env: object) => TokenLike[] } } }).parser;
-        const tokens = parser.md.parse(markdown, {});
-        const { count, missingMap } = countTopLevelRanges(tokens);
+        const ranges = topLevelBlockRanges(editor, markdown);
+        // 区间必须能切出非空源码：行号非负且结束行在起始行之后。
+        const invalidRanges = ranges
+            .filter((range) => range.startLine < 0 || range.endLine <= range.startLine)
+            .map((range) => `${range.startLine}-${range.endLine}`);
+
         const doc = editor.state.doc;
         const childTypes: string[] = [];
         doc.forEach((node) => childTypes.push(node.type.name));
-        return { tokens: count, docChildren: doc.childCount, missingMap, childTypes };
+        return { tokens: ranges.length, docChildren: doc.childCount, invalidRanges, childTypes };
     } finally {
         editor.destroy();
     }
@@ -110,9 +95,9 @@ const fixtures: Array<{ name: string; markdown: string }> = [
 
 describe("Phase 0：顶层块 token 与 PM 节点对齐不变量", () => {
     for (const fixture of fixtures) {
-        test(`${fixture.name}：token 带 map 且 doc 子节点数 >= token 数`, () => {
+        test(`${fixture.name}：区间有效且 doc 子节点数 >= 顶层块数`, () => {
             const result = inspect(fixture.markdown);
-            assert.deepEqual(result.missingMap, [], `${fixture.name} 存在缺 map 的顶层块 token`);
+            assert.deepEqual(result.invalidRanges, [], `${fixture.name} 存在无法切出源码的顶层块区间`);
             assert.ok(
                 result.docChildren >= result.tokens,
                 `${fixture.name} doc 子节点(${result.docChildren}) < token(${result.tokens})`,

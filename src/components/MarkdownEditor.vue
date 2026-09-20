@@ -67,7 +67,7 @@
 
     <!-- 标题层级悬浮标签：鼠标悬停标题时显示在标题右上角，快速识别 H1/H2 等层级。 -->
     <div v-if="headingBadge" contenteditable="false"
-      class="pointer-events-none fixed z-30 flex h-5 items-center rounded-md bg-accent/20 px-1.5 font-mono text-[11px] font-medium text-accent"
+      class="pointer-events-none fixed z-30 flex h-5 items-center rounded-md px-1.5 font-mono text-[11px] font-medium text-accent"
       :style="{ left: `${headingBadge.left}px`, top: `${headingBadge.top}px` }">
       H{{ headingBadge.level }}
     </div>
@@ -419,9 +419,11 @@ const {
   applyResult: (text: string) => {
     if (!editor.value) return
     const { from, to } = editor.value.state.selection
-    // 先还原模型过度转义的 \*\* 等标记；insertContentAt 会被 tiptap-markdown
-    // 接管并按 Markdown 解析，所以还原后能正确渲染加粗等语法
-    editor.value.chain().focus().deleteRange({ from, to }).insertContentAt(from, normalizeAiMarkdown(text)).run()
+    // 先还原模型过度转义的 \*\* 等标记；官方 @tiptap/markdown 不再隐式解析字符串，
+    // 必须显式声明 contentType，还原后才能正确渲染加粗等语法
+    editor.value.chain().focus().deleteRange({ from, to }).insertContentAt(from, normalizeAiMarkdown(text), {
+      contentType: 'markdown',
+    }).run()
   },
 })
 
@@ -1161,23 +1163,21 @@ const insertAtCursor = (text: string): void => {
 
 /**
  * 光标在 Markdown 源码中的字符偏移（近似值）。
- * 原理：把光标前的文档片段用 tiptap-markdown 序列化器转回 Markdown 源码，
- * 其长度即光标在源码中的位置——与切块/检索所用的 documentText 坐标系一致。
+ * 原理：把光标前的文档片段用 Markdown 序列化器转回源码，其长度即光标在源码中的
+ * 位置——与切块/检索所用的 documentText 坐标系一致。
  * 光标选中了一段文本时取选区起点（from）。
  */
 const getCursorOffset = (): number | null => {
   const tipTapEditor = editor.value
   if (!tipTapEditor) return null
   const { from } = tipTapEditor.state.selection
-  // storage.markdown 在 tiptap-markdown 扩展初始化时挂载了 serializer，
-  // 类型定义未暴露该字段，这里做一次窄化断言后使用。
-  const serializer = (tipTapEditor.storage.markdown as unknown as {
-    serializer?: { serialize: (content: unknown) => string }
-  }).serializer
-  if (!serializer) return null
+  // 官方 @tiptap/markdown 把序列化收敛到 editor.markdown.serialize(JSON 文档)，
+  // 不再挂在 storage.markdown.serializer 上。
+  const manager = tipTapEditor.markdown
+  if (!manager) return null
   // 序列化光标前的文档前缀，长度即光标在 Markdown 源码中的偏移
   const prefix = tipTapEditor.state.doc.cut(0, from)
-  return serializer.serialize(prefix).length
+  return manager.serialize(prefix.toJSON()).length
 }
 
 // 暴露方法给父组件

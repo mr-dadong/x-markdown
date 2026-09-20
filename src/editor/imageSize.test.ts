@@ -34,7 +34,7 @@ after(async () => {
 });
 
 const withEditor = <T>(content: string, inspect: (editor: InstanceType<typeof EditorConstructor>) => T): T => {
-  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content });
+  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content, contentType: "markdown" });
   try {
     return inspect(editor);
   } finally {
@@ -100,7 +100,7 @@ describe("图片尺寸属性", () => {
   test("存盘时尺寸原样写回 HTML，不丢失", () => {
     const markdown = withEditor(
       inlineImage('width="16" height="16"'),
-      (editor) => editor.storage.markdown.getMarkdown(),
+      (editor) => editor.getMarkdown(),
     );
     assert.match(markdown, /width="16"/u);
     assert.match(markdown, /height="16"/u);
@@ -109,7 +109,7 @@ describe("图片尺寸属性", () => {
   test("存盘再打开，尺寸仍然保留（往返一致）", () => {
     const saved = withEditor(
       inlineImage('width="16" height="16"'),
-      (editor) => editor.storage.markdown.getMarkdown(),
+      (editor) => editor.getMarkdown(),
     );
     const image = withEditor(saved, findImageNode);
     assert.equal(image?.attrs.width, 16);
@@ -119,7 +119,7 @@ describe("图片尺寸属性", () => {
   test("只写 width 时也能往返（height 交给浏览器按比例计算）", () => {
     const saved = withEditor(
       inlineImage('width="320"'),
-      (editor) => editor.storage.markdown.getMarkdown(),
+      (editor) => editor.getMarkdown(),
     );
     assert.match(saved, /width="320"/u);
     const image = withEditor(saved, findImageNode);
@@ -130,7 +130,7 @@ describe("图片尺寸属性", () => {
   test("无尺寸图片继续使用 Markdown 语法，不退化写成 HTML", () => {
     const markdown = withEditor(
       "![普通图](https://example.com/b.png)",
-      (editor) => editor.storage.markdown.getMarkdown(),
+      (editor) => editor.getMarkdown(),
     );
     assert.equal(markdown, "![普通图](https://example.com/b.png)");
   });
@@ -140,7 +140,7 @@ describe("图片尺寸属性", () => {
     const result = withEditor(raw, (editor) => ({
       image: findImageNode(editor),
       htmlBlockCount: editor.state.doc.content.content.filter(node => node.type.name === "htmlBlock").length,
-      markdown: editor.storage.markdown.getMarkdown(),
+      markdown: editor.getMarkdown(),
     }));
     assert.equal(result.image?.attrs.width, 16);
     assert.equal(result.image?.attrs.height, 16);
@@ -167,7 +167,7 @@ describe("图片尺寸属性", () => {
             height: null,
           }),
         );
-        return editor.storage.markdown.getMarkdown();
+        return editor.getMarkdown();
       },
     );
     assert.match(saved, /width="240"/u);

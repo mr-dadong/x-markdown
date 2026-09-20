@@ -1,106 +1,84 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownIt, StateBlock, StateInline } from "markdown-it";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import MathView from "./MathView.vue";
-import {
-  escapeMarkdownAttribute,
-  getMarkdownLine,
-  writeMarkdownBlock,
-} from "../shared/markdownRuleUtils";
+import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "../shared/officialMarkdown";
 
-const BLOCK_TOKEN = "xmd_math_block";
-const INLINE_TOKEN = "xmd_math_inline";
-const configuredBlockParsers = new WeakSet<MarkdownIt>();
-const configuredInlineParsers = new WeakSet<MarkdownIt>();
+/** 解析注册表用的 token 名，与节点名分开以免和 marked 内置 token 冲突。 */
+const BLOCK_TOKEN = "xmdMathBlock";
+const INLINE_TOKEN = "xmdMathInline";
 
-const mathBlockRule = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-  silent: boolean,
-): boolean => {
-  const openingLine = getMarkdownLine(state, startLine).trim();
-  if (!openingLine.startsWith("$$")) return false;
+/** 单行块级公式：$$表达式$$ */
+const SINGLE_LINE_BLOCK_PATTERN = /^\$\$\s*(.+?)\s*\$\$$/u;
 
-  let expression = "";
-  let nextLine = startLine + 1;
-  const singleLine = openingLine.match(/^\$\$\s*(.+?)\s*\$\$$/u);
+/**
+ * 解析块级公式，支持两种写法：
+ * - 单行 `$$E = mc^2$$`
+ * - 多行 `$$` 起始、`$$` 结束，中间为表达式
+ */
+const tokenizeMathBlock = (src: string): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  const openingLine = (lines[0] ?? "").trim();
+  if (!openingLine.startsWith("$$")) return undefined;
+
+  const singleLine = openingLine.match(SINGLE_LINE_BLOCK_PATTERN);
+  let expression: string;
+  let consumed: number;
 
   if (singleLine) {
     expression = singleLine[1];
+    consumed = 1;
   } else {
-    if (openingLine !== "$$") return false;
+    // 多行写法要求起始行只有 $$，否则视为不认识的语法。
+    if (openingLine !== "$$") return undefined;
 
     const expressionLines: string[] = [];
-    let closingLine = -1;
-    for (let line = startLine + 1; line < endLine; line += 1) {
-      const currentLine = getMarkdownLine(state, line);
-      if (currentLine.trim() === "$$") {
-        closingLine = line;
+    let closingIndex = -1;
+    for (let index = 1; index < lines.length; index += 1) {
+      if (lines[index].trim() === "$$") {
+        closingIndex = index;
         break;
       }
-      expressionLines.push(currentLine);
+      expressionLines.push(lines[index]);
     }
-    if (closingLine < 0) return false;
+    if (closingIndex < 0) return undefined;
     expression = expressionLines.join("\n").trim();
-    nextLine = closingLine + 1;
+    consumed = closingIndex + 1;
   }
 
-  if (!expression) return false;
-  if (silent) return true;
-
-  const token = state.push(BLOCK_TOKEN, "math", 0);
-  token.block = true;
-  token.map = [startLine, nextLine];
-  token.content = expression;
-  state.line = nextLine;
-  return true;
+  if (!expression) return undefined;
+  return {
+    type: BLOCK_TOKEN,
+    raw: takeBlockRaw(lines, consumed),
+    expression,
+  } as MarkdownToken;
 };
 
-const mathInlineRule = (state: StateInline, silent: boolean): boolean => {
-  const start = state.pos;
-  if (state.src[start] !== "$" || state.src[start + 1] === "$" || /\s/u.test(state.src[start + 1] ?? "")) {
-    return false;
-  }
+/**
+ * 解析行内公式 $表达式$。
+ * 起始 `$` 后不能紧跟 `$` 或空白，结束 `$` 前不能是反斜杠或空白，
+ * 与旧 markdown-it 规则保持一致，避免把价格写法误判成公式。
+ */
+const tokenizeMathInline = (src: string): MarkdownToken | undefined => {
+  if (src[0] !== "$" || src[1] === "$" || /\s/u.test(src[1] ?? "")) return undefined;
 
   let closingPosition = -1;
-  for (let position = start + 1; position < state.posMax; position += 1) {
-    if (state.src[position] !== "$" || state.src[position - 1] === "\\") continue;
-    if (/\s/u.test(state.src[position - 1] ?? "")) continue;
+  for (let position = 1; position < src.length; position += 1) {
+    if (src[position] !== "$" || src[position - 1] === "\\") continue;
+    if (/\s/u.test(src[position - 1] ?? "")) continue;
     closingPosition = position;
     break;
   }
 
-  if (closingPosition < 0) return false;
-  const expression = state.src.slice(start + 1, closingPosition);
-  if (!expression) return false;
+  if (closingPosition < 0) return undefined;
+  const expression = src.slice(1, closingPosition);
+  if (!expression) return undefined;
 
-  if (!silent) {
-    const token = state.push(INLINE_TOKEN, "math", 0);
-    token.content = expression;
-  }
-  state.pos = closingPosition + 1;
-  return true;
-};
-
-const configureMathBlockParser = (markdown: MarkdownIt): void => {
-  if (configuredBlockParsers.has(markdown)) return;
-  configuredBlockParsers.add(markdown);
-
-  markdown.block.ruler.before("xmd_raw_markdown", BLOCK_TOKEN, mathBlockRule);
-  markdown.renderer.rules[BLOCK_TOKEN] = (tokens, index) =>
-    `<div data-xmd-math-block data-expression="${escapeMarkdownAttribute(markdown, tokens[index].content)}"></div>`;
-};
-
-const configureMathInlineParser = (markdown: MarkdownIt): void => {
-  if (configuredInlineParsers.has(markdown)) return;
-  configuredInlineParsers.add(markdown);
-
-  markdown.inline.ruler.before("escape", INLINE_TOKEN, mathInlineRule);
-  markdown.renderer.rules[INLINE_TOKEN] = (tokens, index) =>
-    `<span data-xmd-math-inline data-expression="${escapeMarkdownAttribute(markdown, tokens[index].content)}"></span>`;
+  return {
+    type: INLINE_TOKEN,
+    raw: src.slice(0, closingPosition + 1),
+    expression,
+  } as MarkdownToken;
 };
 
 export const MathBlock = Node.create({
@@ -139,15 +117,22 @@ export const MathBlock = Node.create({
     return VueNodeViewRenderer(MathView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          writeMarkdownBlock(state, node, `$$\n${String(node.attrs.expression).trim()}\n$$`);
-        },
-        parse: { setup: configureMathBlockParser },
-      },
-    };
+  markdownTokenName: BLOCK_TOKEN,
+
+  parseMarkdown: (token) => ({
+    type: "mathBlock",
+    attrs: { expression: String(token.expression ?? "") },
+  }),
+
+  // 统一按多行写法落盘，表达式内部的 \* \_ 属于 LaTeX 语法，不做转义。
+  renderMarkdown: (node) =>
+    stripTrailingNewlines(`$$\n${String(node.attrs?.expression ?? "").trim()}\n$$`),
+
+  markdownTokenizer: {
+    name: BLOCK_TOKEN,
+    level: "block",
+    start: neverInterruptParagraph,
+    tokenize: (src: string) => tokenizeMathBlock(src),
   },
 });
 
@@ -188,14 +173,19 @@ export const MathInline = Node.create({
     return VueNodeViewRenderer(MathView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          state.write(`$${String(node.attrs.expression)}$`);
-        },
-        parse: { setup: configureMathInlineParser },
-      },
-    };
+  markdownTokenName: INLINE_TOKEN,
+
+  parseMarkdown: (token) => ({
+    type: "mathInline",
+    attrs: { expression: String(token.expression ?? "") },
+  }),
+
+  renderMarkdown: (node) => `$${String(node.attrs?.expression ?? "")}$`,
+
+  markdownTokenizer: {
+    name: INLINE_TOKEN,
+    level: "inline",
+    start: (src: string) => src.indexOf("$"),
+    tokenize: (src: string) => tokenizeMathInline(src),
   },
 });

@@ -30,7 +30,7 @@ const waitForCreate = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 20));
 
 const createEditor = (content: string): Editor =>
-  new EditorConstructor({ extensions: createEditorExtensions(), content });
+  new EditorConstructor({ extensions: createEditorExtensions(), content, contentType: "markdown" });
 
 /** 逐字符模拟真实键入：先走 input rules，未命中再插入纯文本。 */
 const typeText = (editor: Editor, text: string): void => {
@@ -83,7 +83,7 @@ describe("渲染视图输入的字面文本写入源码视图", () => {
       await waitForCreate();
       typeText(editor, text);
       assert.equal(editor.state.doc.textContent, text, "渲染视图里显示的内容应与键入一致");
-      return editor.storage.markdown.getMarkdown();
+      return editor.getMarkdown();
     } finally {
       editor.destroy();
     }
@@ -96,7 +96,7 @@ describe("渲染视图输入的字面文本写入源码视图", () => {
       await waitForCreate();
       return {
         text: editor.state.doc.textContent,
-        saved: editor.storage.markdown.getMarkdown(),
+        saved: editor.getMarkdown(),
       };
     } finally {
       editor.destroy();

@@ -1,7 +1,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { type Editor } from "@tiptap/core";
-import { DOMSerializer, DOMParser, type Slice } from "@tiptap/pm/model";
+import { DOMSerializer, Slice } from "@tiptap/pm/model";
 import {
   AllSelection,
   EditorState,
@@ -1114,6 +1114,9 @@ export const useMarkdownEditor = (
   const initialContent = getContent();
   const editor = useTiptapEditor({
     content: initialContent,
+    // 文档内容是 Markdown 源码。官方 @tiptap/markdown 不再隐式按 Markdown 解析字符串，
+    // 不声明时会被当成 HTML 解析，整个文档会被压成一行纯文本。
+    contentType: "markdown",
     // 扩展配置与导出渲染共用同一份定义，避免导出结果和编辑视图行为不一致。
     extensions: createEditorExtensions({ getCurrentDocumentPath }),
     editorProps: {
@@ -1153,18 +1156,13 @@ export const useMarkdownEditor = (
         // 默认纯文本插入，避免把终端/配置文件里的 `[Unit]`、`a*b*c` 误解析成格式。
         // 注意：检测必须在归一化之后，over-escaped 语法才能被正确识别。
         if (!hasMarkdownSyntax(normalized)) return null as unknown as Slice;
-        // 用与编辑器同一套 markdown-it 解析器把源码转成 HTML。
-        const storage = editor.value.storage.markdown as {
-          parser: { parse: (source: string, options?: { inline?: boolean }) => string };
-        };
-        const html = storage.parser.parse(normalized, { inline: true });
-        // HTML 字符串 → DOM 元素 → ProseMirror 节点切片，交给编辑器插入。
-        const container = document.createElement("div");
-        container.innerHTML = html;
-        return DOMParser.fromSchema(view.state.schema).parseSlice(container, {
-          preserveWhitespace: true,
-          context,
-        });
+        // 官方扩展把 Markdown 直接解析成 Tiptap JSON，不再经过 HTML 中转。
+        // 用 schema 还原成节点后取 maxOpen 切片，两端开放，交给 ProseMirror
+        // 按粘贴位置自动适配（行内上下文会拆成对应结构）。
+        const parsed = editor.value.markdown?.parse(normalized);
+        if (!parsed) return null as unknown as Slice;
+        const parsedDoc = view.state.schema.nodeFromJSON(parsed);
+        return Slice.maxOpen(parsedDoc.content);
       },
       handlePaste: (view, event) => {
         const files = Array.from(event.clipboardData?.files ?? []);
@@ -1361,7 +1359,7 @@ export const useMarkdownEditor = (
       // 只重新序列化改动过的顶层块，未改动块保持磁盘原文字节。
       const markdown = baseline
         ? serializePreservingSource(editor, baseline)
-        : editor.storage.markdown.getMarkdown();
+        : editor.getMarkdown();
       lastEmittedMarkdown = markdown;
       if (emit) {
         emit("update:content", markdown);
@@ -1439,11 +1437,14 @@ export const useMarkdownEditor = (
       }
       if (
         !documentPathChanged &&
-        newContent === editor.value.storage.markdown.getMarkdown()
+        newContent === editor.value.getMarkdown()
       ) return;
 
       // 外部载入文档或切换文件目录时不触发编辑事件，避免文档被误标记为已修改。
-      editor.value.commands.setContent(newContent, { emitUpdate: false });
+      editor.value.commands.setContent(newContent, {
+        emitUpdate: false,
+        contentType: "markdown",
+      });
       // setContent 之后文档与 newContent 一致，重建原文基准。
       baseline = captureBaseline(editor.value, newContent);
       // Agent 写入的同步保留撤销历史：Ctrl+Z 能原生撤销这次 AI 写入；

@@ -90,6 +90,17 @@ import alignRightIcon from '@iconify-icons/lucide/align-right'
 import textSelectIcon from '@iconify-icons/lucide/text-select'
 import messageSquarePlusIcon from '@iconify-icons/lucide/message-square-plus'
 import wrapTextIcon from '@iconify-icons/lucide/wrap-text'
+import brainIcon from '@iconify-icons/lucide/brain'
+import boxIcon from '@iconify-icons/lucide/box'
+import checkCircle2Icon from '@iconify-icons/lucide/check-circle-2'
+import chevronUpIcon from '@iconify-icons/lucide/chevron-up'
+import cpuIcon from '@iconify-icons/lucide/cpu'
+import loaderCircleIcon from '@iconify-icons/lucide/loader-circle'
+import pencilIcon from '@iconify-icons/lucide/pencil'
+import plugZapIcon from '@iconify-icons/lucide/plug-zap'
+import plusCircleIcon from '@iconify-icons/lucide/plus-circle'
+import settings2Icon from '@iconify-icons/lucide/settings-2'
+import xCircleIcon from '@iconify-icons/lucide/x-circle'
 import tableRowPlusBeforeIcon from '@iconify-icons/mdi/table-row-plus-before'
 import tableRowPlusAfterIcon from '@iconify-icons/mdi/table-row-plus-after'
 import tableRowRemoveIcon from '@iconify-icons/mdi/table-row-remove'
@@ -190,6 +201,20 @@ addIcon('lucide:align-right', alignRightIcon)
 addIcon('lucide:text-select', textSelectIcon)
 addIcon('lucide:message-square-plus', messageSquarePlusIcon)
 addIcon('lucide:wrap-text', wrapTextIcon)
+// AI 对话面板与设置页用到的图标：离线图标未注册时，@iconify/vue 会渲染空节点，
+// 并把 size、class 等属性暴露给 Vue，控制台随之报「无法继承属性」的警告。
+addIcon('lucide:brain', brainIcon)
+// 上游 lucide 已把 cube 更名为 box，图标包里只保留 box，模型选择框沿用同一个方盒图形。
+addIcon('lucide:box', boxIcon)
+addIcon('lucide:check-circle-2', checkCircle2Icon)
+addIcon('lucide:chevron-up', chevronUpIcon)
+addIcon('lucide:cpu', cpuIcon)
+addIcon('lucide:loader-circle', loaderCircleIcon)
+addIcon('lucide:pencil', pencilIcon)
+addIcon('lucide:plug-zap', plugZapIcon)
+addIcon('lucide:plus-circle', plusCircleIcon)
+addIcon('lucide:settings-2', settings2Icon)
+addIcon('lucide:x-circle', xCircleIcon)
 addIcon('mdi:table-row-plus-before', tableRowPlusBeforeIcon)
 addIcon('mdi:table-row-plus-after', tableRowPlusAfterIcon)
 addIcon('mdi:table-row-remove', tableRowRemoveIcon)

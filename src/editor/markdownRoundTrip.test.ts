@@ -29,9 +29,10 @@ const roundTrip = (markdown: string): string => {
   const editor: Editor = new EditorConstructor({
     extensions: createEditorExtensions(),
     content: markdown,
+    contentType: "markdown",
   });
   try {
-    return editor.storage.markdown.getMarkdown();
+    return editor.getMarkdown();
   } finally {
     editor.destroy();
   }

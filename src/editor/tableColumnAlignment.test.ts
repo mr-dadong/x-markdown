@@ -23,10 +23,11 @@ describe("表格列对齐", () => {
     new EditorConstructor({
       extensions: createEditorExtensions(),
       content: "",
+      contentType: "markdown",
     });
 
   const delimiterLine = (editor: Editor): string =>
-    editor.storage.markdown.getMarkdown().split("\n")[1] ?? "";
+    editor.getMarkdown().split("\n")[1] ?? "";
 
   test("对齐整列并生成对应分隔行", () => {
     const editor = createTableEditor();

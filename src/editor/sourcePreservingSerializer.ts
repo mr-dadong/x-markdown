@@ -1,6 +1,6 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, MarkdownToken } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { topLevelRangesFromTokens, type BlockTokenLike } from "../modules/viewSync";
+import type { MarkdownManager } from "@tiptap/markdown";
 import { lcsMatches } from "../utils/longestCommonSubsequence";
 
 /**
@@ -33,14 +33,75 @@ export interface Baseline {
     trailing: string;
 }
 
-/** tiptap-markdown 挂在 storage 上、可复用的解析器与序列化器。 */
-interface MarkdownStorage {
-    parser: { md: { parse: (src: string, env: unknown) => BlockTokenLike[] } };
-    serializer: { serialize: (content: ProseMirrorNode) => string };
+/** 官方 @tiptap/markdown 挂在 storage 上的解析/序列化管理器。 */
+const markdownManager = (editor: Editor): MarkdownManager =>
+    editor.storage.markdown.manager;
+
+/** marked 实例的最小可用形态：只需要能对源码做词法分析。 */
+interface MarkedLexerHost {
+    lexer: (src: string) => MarkdownToken[];
 }
 
-const markdownStorage = (editor: Editor): MarkdownStorage =>
-    editor.storage.markdown as MarkdownStorage;
+/** 顶层块的源码行区间，endLine 为下一行（与 markdown-it 的 token.map 语义一致）。 */
+export interface BlockRange {
+    startLine: number;
+    endLine: number;
+}
+
+/**
+ * 抽取顶层块的源码行区间。
+ *
+ * 必须用挂了全部自定义 tokenizer 的 marked 实例来分词，否则自定义语法会被
+ * 拆成普通段落，区间数量与文档顶层节点对不上。例如 YAML 前置：
+ * 纯 markdown-it 会把它拆成「分割线 + 段落 + 列表 + 分割线 + 段落」5 个块，
+ * 而文档里只有一个 rawMarkdownBlock，对齐会整体错位。
+ *
+ * 行号由**字符偏移**换算，而不是累加每个 token 的换行数：
+ * marked 的 raw 不保证以换行结尾（例如文档末尾的代码块、表格），
+ * 累加换行数会让游标停在行中间，后续块的行号整体错位一行。
+ */
+export const topLevelBlockRanges = (editor: Editor, markdown: string): BlockRange[] => {
+    const instance = markdownManager(editor).instance as unknown as MarkedLexerHost;
+    const tokens = instance.lexer(markdown);
+
+    // 每一行的起始字符偏移；lineStarts[行数] 落到 EOF。
+    const lineStarts: number[] = [0];
+    for (let index = 0; index < markdown.length; index += 1) {
+        if (markdown.charCodeAt(index) === 10) lineStarts.push(index + 1);
+    }
+    const lineOf = (offset: number): number => {
+        let low = 0;
+        let high = lineStarts.length - 1;
+        let found = 0;
+        while (low <= high) {
+            const middle = (low + high) >> 1;
+            if (lineStarts[middle] <= offset) {
+                found = middle;
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return found;
+    };
+
+    const ranges: BlockRange[] = [];
+    let offset = 0;
+    for (const token of tokens) {
+        const raw = String(token.raw ?? "");
+        const startOffset = offset;
+        offset += raw.length;
+        // 空行不是块，但同样占用源码位置，必须跳过而不是忽略。
+        if (token.type === "space" || raw.length === 0) continue;
+        ranges.push({
+            startLine: lineOf(startOffset),
+            // endLine 取块末字符所在行的下一行，与 markdown-it 的 token.map 语义一致。
+            endLine: lineOf(offset - 1) + 1,
+        });
+    }
+
+    return ranges;
+};
 
 /**
  * 节点指纹缓存。ProseMirror 结构共享，未改动块的节点引用在事务间保持不变，
@@ -64,10 +125,14 @@ const fingerprint = (node: ProseMirrorNode): string => {
 export const serializeSingleBlock = (
     editor: Editor,
     node: ProseMirrorNode,
-): string => {
-    const tempDoc = editor.schema.nodes.doc.create(null, node);
-    return markdownStorage(editor).serializer.serialize(tempDoc);
-};
+): string =>
+    // 官方序列化器接收 JSON 文档：把单块包进临时 doc，父上下文仍是 doc，
+    // 与整篇序列化时该块的渲染完全一致，自动继承表格/公式/mermaid/callout/
+    // footnote/raw 等自定义块逻辑与转义放宽包装。
+    markdownManager(editor).serialize({
+        type: "doc",
+        content: [node.toJSON()],
+    });
 
 /**
  * 以 `text` 为原文、`editor.state.doc` 为对应文档，捕获一份 baseline。
@@ -75,8 +140,7 @@ export const serializeSingleBlock = (
  * 否则指纹与源码切片会错位。
  */
 export const captureBaseline = (editor: Editor, text: string): Baseline => {
-    const tokens = markdownStorage(editor).parser.md.parse(text, {});
-    const ranges = topLevelRangesFromTokens(tokens);
+    const ranges = topLevelBlockRanges(editor, text);
 
     // 每行起始字符偏移；lineStarts[行数] 落到 EOF，供末块 endLine 越界时取用。
     const lineStarts: number[] = [0];

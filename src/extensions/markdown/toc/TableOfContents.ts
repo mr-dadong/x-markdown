@@ -1,28 +1,23 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownIt, StateBlock } from "markdown-it";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import TableOfContentsView from "./TableOfContentsView.vue";
-import { getMarkdownLine, writeMarkdownBlock } from "../shared/markdownRuleUtils";
+import { neverInterruptParagraph, takeBlockRaw } from "../shared/officialMarkdown";
 
-const TOKEN_NAME = "xmd_table_of_contents";
-const configuredParsers = new WeakSet<MarkdownIt>();
+/** 解析注册表用的 token 名，与节点名分开以免和 marked 内置 token 冲突。 */
+const TOKEN_NAME = "xmdTableOfContents";
 
-const tableOfContentsRule = (
-  state: StateBlock,
-  startLine: number,
-  _endLine: number,
-  silent: boolean,
-): boolean => {
-  if (!/^\[toc\]$/iu.test(getMarkdownLine(state, startLine).trim())) return false;
-  if (silent) return true;
+/** 目录占位语法：独占一行的 [TOC]，大小写不敏感。 */
+const TOC_PATTERN = /^\[toc\]$/iu;
 
-  const token = state.push(TOKEN_NAME, "nav", 0);
-  token.block = true;
-  token.map = [startLine, startLine + 1];
-  state.line = startLine + 1;
-  return true;
+/** 解析独占一行的 [TOC] 占位块。 */
+const tokenizeTableOfContents = (src: string): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  if (!TOC_PATTERN.test((lines[0] ?? "").trim())) return undefined;
+  return {
+    type: TOKEN_NAME,
+    raw: takeBlockRaw(lines, 1),
+  } as MarkdownToken;
 };
 
 export const TableOfContents = Node.create({
@@ -50,21 +45,16 @@ export const TableOfContents = Node.create({
     return VueNodeViewRenderer(TableOfContentsView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          writeMarkdownBlock(state, node, "[TOC]");
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            if (configuredParsers.has(markdown)) return;
-            configuredParsers.add(markdown);
-            markdown.block.ruler.before("paragraph", TOKEN_NAME, tableOfContentsRule);
-            markdown.renderer.rules[TOKEN_NAME] = () => "<nav data-xmd-table-of-contents></nav>";
-          },
-        },
-      },
-    };
+  markdownTokenName: TOKEN_NAME,
+
+  parseMarkdown: () => ({ type: "tableOfContents" }),
+
+  renderMarkdown: () => "[TOC]",
+
+  markdownTokenizer: {
+    name: TOKEN_NAME,
+    level: "block",
+    start: neverInterruptParagraph,
+    tokenize: (src: string) => tokenizeTableOfContents(src),
   },
 });

@@ -16,7 +16,7 @@ before(async () => {
 after(async () => { await browserWindow.happyDOM.abort() })
 // 使用项目真实扩展，验证菜单操作与编辑器文档结构兼容。
 function createEditor(): Editor {
-  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content: '测试文字\n\n保留段落' })
+  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content: '测试文字\n\n保留段落', contentType: 'markdown' })
   editor.commands.setTextSelection({ from: 1, to: 5 })
   return editor
 }
@@ -46,8 +46,8 @@ test('格式可叠加、取消，链接和高亮可序列化并撤销', () => {
       assert.equal(editor.isActive(mark), true)
     }
     assert.equal(editor.commands.setLink({ href: 'https://example.com' }), true)
-    assert.match(editor.storage.markdown.getMarkdown(), /https:\/\/example.com/)
-    assert.match(editor.storage.markdown.getMarkdown(), /==/)
+    assert.match(editor.getMarkdown(), /https:\/\/example.com/)
+    assert.match(editor.getMarkdown(), /==/)
     editor.commands.unsetLink()
     assert.equal(editor.isActive('link'), false)
     for (const mark of ['bold', 'strike', 'italic', 'underline', 'highlight']) {

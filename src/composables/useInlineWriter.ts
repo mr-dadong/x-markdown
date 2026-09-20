@@ -3,7 +3,7 @@ import { aiService } from "../services/aiService";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
 import type { AiEditAction, AiFinishReason } from "../types/ai";
 import type { Editor } from "@tiptap/vue-3";
-import type { Slice } from "@tiptap/pm/model";
+import { Slice } from "@tiptap/pm/model";
 
 export type InlineWriterStatus = "idle" | "streaming" | "done" | "error";
 
@@ -81,7 +81,7 @@ export const useInlineWriter = (options: InlineWriterOptions) => {
 
   /**
    * 把累积的AI输出整体替换进 startPos..endPos 范围。
-   * tiptap-markdown 接管了 insertContentAt：传入字符串会先按 Markdown 解析，
+   * 写入前先把 Markdown 解析成 JSON 再按上下文插入，
    * 因此表格、标题、代码块等语法一旦凑齐就会实时渲染，而不是显示为纯文本。
    * withCaret 为 true 时在内容末尾显示书写位置指示条（仅流式中使用）。
    */
@@ -99,19 +99,32 @@ const renderStreamedMarkdown = (withCaret = false): void => {
 
   editor
     .chain()
-    // 先还原模型过度转义的 \*\* 等标记，再交给 insertContentAt 按 Markdown 解析
-    .insertContentAt({ from, to }, normalizeAiMarkdown(ghostText.value))
-      .command(({ tr }) => {
-        // 流式写入每100ms发生一次，排除出撤销历史，
-        // 否则按 Ctrl+Z 会逐条回退几十次渲染记录
-        tr.setMeta("addToHistory", false);
-        // 借助事务映射获取替换后AI内容的真实范围：
-        // 在空段落中插入块级内容时，编辑器会吞并段落边界，起始位置会前移
-        mappedFrom = tr.mapping.map(from, -1);
-        mappedTo = tr.mapping.map(to, 1);
-        return true;
-      })
-      .run();
+    /*
+     * 先还原模型过度转义的 \*\* 等标记，再按 Markdown 解析后插入。
+     *
+     * 这里刻意不用官方的 `insertContentAt(..., { contentType: "markdown" })`：
+     * 官方实现把 Markdown 解析成整个 doc 再按块替换，纯文本也会另起一个段落，
+     * 光标处的续写会从「追加到当前段落」变成「新建段落」，位置映射随之塌成零宽。
+     * 改为自行解析成 JSON，再用 maxOpen 切片插入：两端开放，ProseMirror 会按
+     * 插入位置自动适配——普通文本内联展开，表格/标题等块级语法撑开所在段落。
+     */
+    .command(({ tr, dispatch }) => {
+      if (!dispatch) return true;
+
+      const parsed = editor.markdown?.parse(normalizeAiMarkdown(ghostText.value));
+      if (!parsed) return false;
+
+      tr.replaceRange(from, to, Slice.maxOpen(editor.schema.nodeFromJSON(parsed).content));
+      // 流式写入每100ms发生一次，排除出撤销历史，
+      // 否则按 Ctrl+Z 会逐条回退几十次渲染记录
+      tr.setMeta("addToHistory", false);
+      // 借助事务映射获取替换后AI内容的真实范围：
+      // 在空段落中插入块级内容时，编辑器会吞并段落边界，起始位置会前移
+      mappedFrom = tr.mapping.map(from, -1);
+      mappedTo = tr.mapping.map(to, 1);
+      return true;
+    })
+    .run();
 
     startPos.value = mappedFrom;
     endPos.value = mappedTo;

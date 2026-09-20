@@ -1,85 +1,39 @@
-import type { MarkdownIt, StateInline } from "markdown-it";
-import type { Fragment, Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
 import HardBreak from "@tiptap/extension-hard-break";
 
-/** 行尾两空格硬换行的标记（仅存在于解析内存的 HTML，不进入编辑器 DOM）。 */
+/** 行尾两空格硬换行的标记（仅存在于解析内存，不进入编辑器 DOM）。 */
 const SPACE_BREAK_ATTRIBUTE = "data-xmd-space-break";
 /** 普通软换行的标记（breaks 模式下渲染为 <br>，保存时还原为普通换行）。 */
 const SOFT_BREAK_ATTRIBUTE = "data-xmd-soft-break";
 
-type BreakSerializerState = MarkdownSerializerState & {
-  inTable: boolean;
-};
-
-// markdown-it 15 用泛型 Ruler 取代了 ParserInline.RuleInline 命名空间，
-// 行内规则签名即 ParserInline['ruler'] 的规则类型。
-type InlineRule = (state: StateInline, silent: boolean) => boolean;
-
-interface InlineRuleEntry {
-  name: string;
-  fn: InlineRule;
-}
-
-const configuredHardBreakParsers = new WeakSet<MarkdownIt>();
+/** 行尾两个及以上空格 + 换行：CommonMark 的两空格硬换行写法。 */
+const SPACE_BREAK_PATTERN = /^ {2,}\n$/u;
+/** 反斜杠 + 换行：CommonMark 的反斜杠硬换行写法。 */
+const BACKSLASH_BREAK_PATTERN = /^\\\n$/u;
 
 /**
- * 区分硬换行的源码写法：CommonMark 中行尾两空格与反斜杠都是 hardbreak，
- * markdown-it 渲染成同样的 <br> 后保存时无从分辨，默认统一存成反斜杠。
- * 这里在解析时给两空格写法（以及 breaks 模式下的软换行）打上标记，
- * 供序列化器按原文写法还原，避免保存时改写用户文件。
+ * 从 marked 的 br token 反推源码写法。
+ *
+ * marked 把「行尾两空格」「反斜杠」「breaks 模式下的软换行」都产出同一个 br token，
+ * 只有 token.raw 保留着原始写法，因此按 raw 区分：
+ * - `  \n`  → space（两空格硬换行）
+ * - `\\\n`  → null（反斜杠硬换行，与用户手动插入的换行同形）
+ * - `\n`    → soft（breaks 模式下的普通换行）
+ *
+ * 刻意**不注册**自定义 br 行内 tokenizer：marked 会先试行内扩展再试内置 link，
+ * 自定义 tokenizer 的 start 会参与行内文本切分，导致 `![图片](地址)` 在段落开头
+ * 被拆成 `!` + 换行 + 链接。只消费既有 token 就不会干扰分词。
  */
-export const configureHardBreakLiteralParsing = (markdown: MarkdownIt): void => {
-  if (configuredHardBreakParsers.has(markdown)) return;
-  configuredHardBreakParsers.add(markdown);
-
-  const originalHardBreak = markdown.renderer.rules.hardbreak;
-  markdown.renderer.rules.hardbreak = (tokens, idx, options, env, self) => {
-    const token = tokens[idx];
-    if (token && token.attrGet(SPACE_BREAK_ATTRIBUTE) !== null) {
-      return `<br ${SPACE_BREAK_ATTRIBUTE}>`;
-    }
-    return originalHardBreak
-      ? originalHardBreak(tokens, idx, options, env, self)
-      : "<br>";
-  };
-
-  const originalSoftBreak = markdown.renderer.rules.softbreak;
-  markdown.renderer.rules.softbreak = (tokens, idx, options, env, self) => {
-    // breaks 模式下软换行本就渲染为 <br>，补上标记让保存时还原为普通换行。
-    if (options.breaks) {
-      return `<br ${SOFT_BREAK_ATTRIBUTE}>`;
-    }
-    return originalSoftBreak
-      ? originalSoftBreak(tokens, idx, options, env, self)
-      : "\n";
-  };
-
-  // newline 规则负责“行尾两空格 -> hardbreak”，包装它以读取 pending 尾部空格。
-  // __rules__ 是 markdown-it Ruler 的私有结构，读取失败时保守降级为不区分写法。
-  const inlineRules = (
-    markdown.inline.ruler as unknown as { __rules__?: InlineRuleEntry[] }
-  ).__rules__;
-  const newlineEntry = inlineRules?.find((rule) => rule.name === "newline");
-  if (!newlineEntry) return;
-  const originalNewline = newlineEntry.fn;
-
-  markdown.inline.ruler.at("newline", (state, silent) => {
-    const isSpaceHardBreak = !silent && state.pending.endsWith("  ");
-    const handled = originalNewline(state, silent);
-    if (handled && isSpaceHardBreak) {
-      const token = state.tokens[state.tokens.length - 1];
-      if (token && token.type === "hardbreak") {
-        token.attrSet(SPACE_BREAK_ATTRIBUTE, "");
-      }
-    }
-    return handled;
-  });
+const resolveBreakLiteral = (token: MarkdownToken): string | null => {
+  const raw = String(token.raw ?? "");
+  if (BACKSLASH_BREAK_PATTERN.test(raw)) return null;
+  if (SPACE_BREAK_PATTERN.test(raw)) return "space";
+  return "soft";
 };
 
 /**
  * 保留硬换行源码写法的 HardBreak 扩展：
- * 解析时记录“两空格 / 反斜杠 / 软换行”写法，序列化时按原文还原。
+ * 解析时记录「两空格 / 反斜杠 / 软换行」写法，序列化时按原文还原。
  * 用户手动插入（Shift-Enter）的换行按 CommonMark 反斜杠写法保存。
  */
 export const LiteralHardBreak = HardBreak.extend({
@@ -100,39 +54,25 @@ export const LiteralHardBreak = HardBreak.extend({
     };
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(
-          state: MarkdownSerializerState,
-          node: ProseMirrorNode,
-          parent: ProseMirrorNode | Fragment,
-          index: number,
-        ) {
-          // 与 tiptap-markdown 默认行为一致：段落末尾的硬换行无法用
-          // Markdown 表达，直接丢弃，只有后面还有内容时才输出。
-          for (let i = index + 1; i < parent.childCount; i += 1) {
-            if (parent.child(i).type === node.type) continue;
+  markdownTokenName: "br",
 
-            const breakState = state as BreakSerializerState;
-            if (breakState.inTable) {
-              state.write("<br>");
-            } else if (node.attrs.literal === "space") {
-              state.write("  \n");
-            } else if (node.attrs.literal === "soft") {
-              state.write("\n");
-            } else {
-              state.write("\\\n");
-            }
-            return;
-          }
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            configureHardBreakLiteralParsing(markdown);
-          },
-        },
-      },
-    };
+  parseMarkdown: (token) => ({
+    type: "hardBreak",
+    attrs: { literal: resolveBreakLiteral(token) },
+  }),
+
+  renderMarkdown: (node, helpers, ctx) => {
+    const literal = node.attrs?.literal;
+    /*
+     * 列表项内的换行必须补上缩进，否则续行会被重新解析成新的块
+     * （`- 第一行\n  第二行` 会退化成 `- 第一行\n第二行`）。
+     *
+     * 官方 renderNestedMarkdownContent 只缩进「后续子节点」，首个子节点内部的
+     * 换行不缩进，因此这里自己补一级 indentString；更外层列表会对整段内容
+     * 再统一缩进，所以补一级就够，不会重复。
+     */
+    const indent = (ctx?.level ?? 0) > 0 ? helpers.indent("") : "";
+    const marker = literal === "space" ? "  " : literal === "soft" ? "" : "\\";
+    return `${marker}\n${indent}`;
   },
 });

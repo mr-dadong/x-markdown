@@ -1,16 +1,12 @@
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
-import type { MarkdownIt } from "markdown-it";
 import StarterKit from "@tiptap/starter-kit";
-import { markInputRule } from "@tiptap/core";
-import { Markdown } from "tiptap-markdown";
+import { markInputRule, type MarkdownToken } from "@tiptap/core";
+import { Markdown } from "@tiptap/markdown";
 import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import Highlight from "@tiptap/extension-highlight";
-import markdownItMark from "markdown-it-mark";
 import Typography from "@tiptap/extension-typography";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
@@ -19,16 +15,26 @@ import Superscript from "@tiptap/extension-superscript";
 
 // 脚注引用渲染为 <sup data-xmd-footnote-reference>，若不排除，
 // Subscript/Superscript 会抢占该元素的解析，导致脚注引用丢失。
+// Markdown 没有上下标语法，落盘统一用 HTML 标签，与行内 HTML 的解析路径对称；
+// 官方 MarkdownManager 会用 htmlReopen 在标记重叠的边界按 HTML 重新开合。
 const PlainSubscript = Subscript.extend({
   parseHTML() {
     return [{ tag: "sub:not([data-xmd-footnote-reference])" }];
   },
+
+  renderMarkdown: (node, helpers) => `<sub>${helpers.renderChildren(node)}</sub>`,
+
+  markdownOptions: { htmlReopen: { open: "<sub>", close: "</sub>" } },
 });
 
 const PlainSuperscript = Superscript.extend({
   parseHTML() {
     return [{ tag: "sup:not([data-xmd-footnote-reference])" }];
   },
+
+  renderMarkdown: (node, helpers) => `<sup>${helpers.renderChildren(node)}</sup>`,
+
+  markdownOptions: { htmlReopen: { open: "<sup>", close: "</sup>" } },
 });
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
@@ -39,10 +45,9 @@ import TaskItem from "@tiptap/extension-task-item";
 import { DEFAULT_CODE_BLOCK_LANGUAGE } from "../modules/codeBlockLanguages";
 import { SectionCollapse } from "../extensions/SectionCollapse";
 import { BlockMarquee } from "../extensions/BlockMarquee";
-import { Video } from "../extensions/Video";
-import { Attachment } from "../extensions/Attachment";
+import { Video, VideoLinkParser } from "../extensions/Video";
+import { Attachment, AttachmentLinkParser } from "../extensions/Attachment";
 import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
-import { LegacyMediaFilter } from "../extensions/LegacyMediaFilter";
 import { RawMarkdownBlock } from "../extensions/RawMarkdownBlock";
 import { AiGhostMark } from "../extensions/AiGhostMark";
 import { CodeOccurrenceHighlight } from "../extensions/CodeOccurrenceHighlight";
@@ -75,10 +80,14 @@ import { LiteralHardBreak } from "./hardBreakSerialization";
 import { mediaService } from "../services/mediaService";
 import { openImagePreview } from "../modules/imagePreviewOverlay";
 import {
-  configureTyporaTableParsing,
-  ensureTableCellsHaveContent,
+  escapeTablePipes,
+  getTableCodePipeStyles,
+  getTableDelimiterWidths,
   parseTableAlignment,
-  serializeMarkdownTableNode,
+  renderMarkdownTable,
+  restoreTableBackticks,
+  type MarkdownTableCell,
+  type TableAlignment,
 } from "./markdownSerialization";
 
 const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
@@ -101,9 +110,17 @@ const createAlignedTableCell = <T extends typeof TableCell>(extension: T) =>
 const AlignedTableCell = createAlignedTableCell(TableCell);
 const AlignedTableHeader = createAlignedTableCell(TableHeader);
 
+/** 把单元格对齐取值收敛到 Markdown 能表达的三种，其余一律视为无对齐。 */
+const toTableAlignment = (value: unknown): TableAlignment => {
+  const normalized = String(value ?? "").toLowerCase();
+  return normalized === "left" || normalized === "center" || normalized === "right"
+    ? normalized
+    : null;
+};
+
 // TipTap 官方 Link 扩展未定义 title 属性，带标题的链接在解析时会丢失标题。
-// 补上 title 后，序列化仍走 tiptap-markdown 复用的 prosemirror-markdown
-// 默认 link 输出，其本身已支持 `[文字](地址 "标题")` 格式。
+// 补上 title 后，官方 Link 扩展自带的 renderMarkdown 会输出
+// `[文字](地址 "标题")` 格式，无需额外接管序列化。
 const LinkWithTitle = Link.extend({
   addAttributes() {
     return {
@@ -118,11 +135,8 @@ const LinkWithTitle = Link.extend({
   },
 });
 
-// ==文字== 不是 CommonMark 语法，markdown-it 默认不识别；借助 markdown-it-mark
-// 提供解析。序列化时无颜色的高亮输出 ==，带颜色的高亮无法用 == 表达，
-// 回退为 <mark style> HTML 标签。配置用 WeakSet 防止重复挂载。
-const configuredMarkParsers = new WeakSet<MarkdownIt>();
-
+// 官方 Highlight 扩展已自带 ==文字== 的解析与序列化，这里只补「带颜色」的分支：
+// == 无法表达颜色，回退为 <mark style> HTML 标签。
 const SerializableHighlight = Highlight.extend({
   addInputRules() {
     return [
@@ -134,26 +148,12 @@ const SerializableHighlight = Highlight.extend({
     ];
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize: {
-          open: (_state: unknown, mark: { attrs: { color?: string | null } }) =>
-            mark.attrs.color
-              ? `<mark style="background-color: ${mark.attrs.color}">`
-              : "==",
-          close: (_state: unknown, mark: { attrs: { color?: string | null } }) =>
-            (mark.attrs.color ? "</mark>" : "=="),
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            if (configuredMarkParsers.has(markdown)) return;
-            configuredMarkParsers.add(markdown);
-            markdown.use(markdownItMark);
-          },
-        },
-      },
-    };
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node);
+    const color = node.attrs?.color;
+    return color
+      ? `<mark style="background-color: ${color}">${content}</mark>`
+      : `==${content}==`;
   },
 });
 
@@ -189,20 +189,65 @@ const SerializableTable = Table.extend({
     };
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          serializeMarkdownTableNode(state, node);
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            configureTyporaTableParsing(markdown);
-            ensureTableCellsHaveContent(markdown);
-          },
-        },
+  parseMarkdown: (token, helpers) => {
+    // marked 的 table token：header / rows 是单元格数组，align 是列对齐数组。
+    const alignments: unknown[] = Array.isArray(token.align) ? token.align : [];
+    // raw 是表格在原文中的切片，用它还原用户手写的竖线转义风格与分隔行宽度。
+    const rawMarkdown = String(token.raw ?? "");
+
+    const buildRow = (
+      cells: Array<{ tokens?: MarkdownToken[]; align?: unknown }>,
+      cellType: string,
+    ) =>
+      helpers.createNode(
+        "tableRow",
+        {},
+        cells.map((cell, columnIndex) =>
+          helpers.createNode(
+            cellType,
+            { alignment: toTableAlignment(alignments[columnIndex] ?? cell.align) },
+            [{ type: "paragraph", content: helpers.parseInline(cell.tokens ?? []) }],
+          ),
+        ),
+      );
+
+    const rows = [];
+    if (Array.isArray(token.header)) rows.push(buildRow(token.header, "tableHeader"));
+    if (Array.isArray(token.rows)) {
+      for (const row of token.rows) rows.push(buildRow(row, "tableCell"));
+    }
+
+    return helpers.createNode(
+      "table",
+      {
+        codePipeStyles: getTableCodePipeStyles(rawMarkdown),
+        delimiterWidths: getTableDelimiterWidths(rawMarkdown),
       },
-    };
+      rows,
+    );
+  },
+
+  renderMarkdown: (node, helpers) => {
+    const codePipeStyles = node.attrs?.codePipeStyles as boolean[][] | undefined;
+    const delimiterWidths = node.attrs?.delimiterWidths as number[] | undefined;
+
+    const rows: MarkdownTableCell[][] = (node.content ?? []).map((row, rowIndex) =>
+      (row.content ?? []).map((cell, cellIndex) => {
+        // 单元格内容是段落，取段落的行内子节点交给官方渲染器，
+        // 保证单元格内的加粗、链接等标记与正文共用同一套规则。
+        const paragraph = cell.content?.[0];
+        const rendered = helpers.renderChildren(paragraph?.content ?? []);
+        return {
+          content: escapeTablePipes(
+            restoreTableBackticks(rendered),
+            codePipeStyles?.[rowIndex]?.[cellIndex] === true,
+          ),
+          alignment: toTableAlignment(cell.attrs?.alignment),
+        };
+      }),
+    );
+
+    return renderMarkdownTable(rows, delimiterWidths);
   },
 });
 
@@ -389,28 +434,21 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         };
       };
     },
-    addStorage() {
-      return {
-        markdown: {
-          serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-            const source = String(node.attrs.src).replaceAll('"', "&quot;");
-            const alt = String(node.attrs.alt ?? "").replaceAll('"', "&quot;");
-            const title = node.attrs.title
-              ? ` title="${String(node.attrs.title).replaceAll('"', "&quot;")}"`
-              : "";
-            const width = node.attrs.width ? ` width="${node.attrs.width}"` : "";
-            const height = node.attrs.height ? ` height="${node.attrs.height}"` : "";
+    // 带尺寸的图片使用 Markdown 兼容的 HTML 写法，重新打开后仍可继续调整。
+    // width 与 height 必须一起写回，否则用户标注的行内图标尺寸会在存盘后丢失。
+    renderMarkdown: (node) => {
+      const source = String(node.attrs?.src ?? "").replaceAll('"', "&quot;");
+      const alt = String(node.attrs?.alt ?? "").replaceAll('"', "&quot;");
+      const title = node.attrs?.title
+        ? ` title="${String(node.attrs.title).replaceAll('"', "&quot;")}"`
+        : "";
+      const width = node.attrs?.width ? ` width="${node.attrs.width}"` : "";
+      const height = node.attrs?.height ? ` height="${node.attrs.height}"` : "";
 
-            // 带尺寸的图片使用 Markdown 兼容的 HTML 写法，重新打开后仍可继续调整。
-            // width 与 height 必须一起写回，否则用户标注的行内图标尺寸会在存盘后丢失。
-            if (width || height) {
-              state.write(`<img src="${source}" alt="${alt}"${title}${width}${height}>`);
-            } else {
-              state.write(`![${alt}](${source}${node.attrs.title ? ` "${node.attrs.title}"` : ""})`);
-            }
-          },
-        },
-      };
+      if (width || height) {
+        return `<img src="${source}" alt="${alt}"${title}${width}${height}>`;
+      }
+      return `![${alt}](${source}${node.attrs?.title ? ` "${node.attrs.title}"` : ""})`;
     },
   });
 
@@ -433,18 +471,18 @@ export const createEditorExtensions = (options: {
     LiteralHardBreak,
     SafeInlineCode,
     InlineCodeOpeningBacktick,
+    // 官方 Markdown 扩展通过 markedOptions 透传给 marked。
+    // breaks 让普通文本中的单个换行也显示为换行，符合所见即所得的使用习惯。
+    // 官方扩展不接管粘贴/复制（源码中无 paste/clipboard 处理），旧包的
+    // transformPastedText / transformCopiedText 选项在官方 API 中不存在。
     Markdown.configure({
-      html: true,
-      // 普通文本中的单个换行也应在编辑器中显示为换行，符合所见即所得的使用习惯。
-      breaks: true,
-      // 禁用粘贴文本的 Markdown 转换：编辑器之间的复制粘贴使用 HTML 数据（ProseMirror 优先解析），
-      // 而从外部应用（如终端、配置文件）粘贴纯文本时不应被错误地转义（如 [Unit] → \[Unit\]）。
-      transformPastedText: false,
-      transformCopiedText: true,
+      markedOptions: {
+        breaks: true,
+        gfm: true,
+      },
     }),
     // 序列化输出前放宽惰性转义（Typora 风格：两侧皆空白的 \* 不再转义）
     MarkdownEscapeRelaxer,
-    LegacyMediaFilter,
     RawMarkdownBlock,
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
     HtmlBlock.configure({ getCurrentDocumentPath: getCurrentDocumentPath ?? (() => null) }),
@@ -505,9 +543,11 @@ export const createEditorExtensions = (options: {
     Video.configure({
       getCurrentDocumentPath: () => getCurrentDocumentPath?.() ?? null,
     }),
+    VideoLinkParser,
     Attachment.configure({
       getCurrentDocumentPath: () => getCurrentDocumentPath?.() ?? null,
     }),
+    AttachmentLinkParser,
     AttachmentTransfer,
     SectionCollapse,
     CodeOccurrenceHighlight,

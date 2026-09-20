@@ -1,98 +1,56 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownIt, StateBlock, StateInline } from "markdown-it";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import FootnoteDefinitionView from "./FootnoteDefinitionView.vue";
 import FootnoteReferenceView from "./FootnoteReferenceView.vue";
-import {
-  escapeMarkdownAttribute,
-  getMarkdownLine,
-  writeMarkdownBlock,
-} from "../shared/markdownRuleUtils";
+import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "../shared/officialMarkdown";
 
-const REFERENCE_TOKEN = "xmd_footnote_reference";
-const DEFINITION_TOKEN = "xmd_footnote_definition";
-const configuredReferenceParsers = new WeakSet<MarkdownIt>();
-const configuredDefinitionParsers = new WeakSet<MarkdownIt>();
+/** 解析注册表用的 token 名，与节点名分开以免和 marked 内置 token 冲突。 */
+const REFERENCE_TOKEN = "xmdFootnoteReference";
+const DEFINITION_TOKEN = "xmdFootnoteDefinition";
 
-interface FootnoteDefinitionMeta {
-  identifier: string;
-  body: string;
-}
+/** 脚注定义首行：[^标识]: 正文 */
+const DEFINITION_PATTERN = /^\[\^([^\]]+)\]:\s*(.*)$/u;
+/** 脚注定义正文的续行缩进（2~4 个空格或一个制表符）。 */
+const DEFINITION_CONTINUATION_PATTERN = /^(?: {2,4}|\t)(.*)$/u;
 
-const footnoteReferenceRule = (state: StateInline, silent: boolean): boolean => {
-  if (!state.src.startsWith("[^", state.pos)) return false;
-  const end = state.src.indexOf("]", state.pos + 2);
-  if (end < 0) return false;
+/** 解析行内脚注引用 [^标识]，不匹配时交给其它 tokenizer。 */
+const tokenizeFootnoteReference = (src: string): MarkdownToken | undefined => {
+  if (!src.startsWith("[^")) return undefined;
+  const end = src.indexOf("]", 2);
+  if (end < 0) return undefined;
 
-  const identifier = state.src.slice(state.pos + 2, end).trim();
-  if (!identifier || identifier.includes("[")) return false;
+  const identifier = src.slice(2, end).trim();
+  if (!identifier || identifier.includes("[")) return undefined;
 
-  if (!silent) {
-    const token = state.push(REFERENCE_TOKEN, "sup", 0);
-    token.content = identifier;
-  }
-  state.pos = end + 1;
-  return true;
+  return {
+    type: REFERENCE_TOKEN,
+    raw: src.slice(0, end + 1),
+    identifier,
+  } as MarkdownToken;
 };
 
-const footnoteDefinitionRule = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-  silent: boolean,
-): boolean => {
-  const firstLine = getMarkdownLine(state, startLine);
-  const match = firstLine.match(/^\[\^([^\]]+)\]:\s*(.*)$/u);
-  if (!match) return false;
+/** 解析块级脚注定义，含缩进续行。 */
+const tokenizeFootnoteDefinition = (src: string): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  const match = lines[0]?.match(DEFINITION_PATTERN);
+  if (!match) return undefined;
 
   const bodyLines = [match[2]];
-  let nextLine = startLine + 1;
-  while (nextLine < endLine) {
-    const rawLine = state.src.slice(state.bMarks[nextLine], state.eMarks[nextLine]);
-    const continuation = rawLine.match(/^(?: {2,4}|\t)(.*)$/u);
+  let consumed = 1;
+  while (consumed < lines.length) {
+    const continuation = lines[consumed].match(DEFINITION_CONTINUATION_PATTERN);
     if (!continuation) break;
     bodyLines.push(continuation[1]);
-    nextLine += 1;
+    consumed += 1;
   }
 
-  if (silent) return true;
-  const token = state.push(DEFINITION_TOKEN, "div", 0);
-  token.block = true;
-  token.map = [startLine, nextLine];
-  token.meta = {
+  return {
+    type: DEFINITION_TOKEN,
+    raw: takeBlockRaw(lines, consumed),
     identifier: match[1].trim(),
     body: bodyLines.join("\n").trimEnd(),
-  } satisfies FootnoteDefinitionMeta;
-  state.line = nextLine;
-  return true;
-};
-
-const configureReferenceParser = (markdown: MarkdownIt): void => {
-  if (configuredReferenceParsers.has(markdown)) return;
-  configuredReferenceParsers.add(markdown);
-  markdown.inline.ruler.before("link", REFERENCE_TOKEN, footnoteReferenceRule);
-  markdown.renderer.rules[REFERENCE_TOKEN] = (tokens, index) => {
-    const identifier = escapeMarkdownAttribute(markdown, tokens[index].content);
-    return `<sup data-xmd-footnote-reference data-identifier="${identifier}"></sup>`;
-  };
-};
-
-const configureDefinitionParser = (markdown: MarkdownIt): void => {
-  if (configuredDefinitionParsers.has(markdown)) return;
-  configuredDefinitionParsers.add(markdown);
-  markdown.block.ruler.before("xmd_raw_markdown", DEFINITION_TOKEN, footnoteDefinitionRule);
-  markdown.renderer.rules[DEFINITION_TOKEN] = (tokens, index) => {
-    // meta 由本文件的 footnoteDefinitionRule 写入，形状确定；markdown-it 15 把 token.meta
-    // 从 any 收紧为 Record<string, unknown>，因此需要显式断言。
-    const meta = tokens[index].meta as unknown as FootnoteDefinitionMeta;
-    return [
-      `<div data-xmd-footnote-definition data-identifier="${escapeMarkdownAttribute(markdown, meta.identifier)}">`,
-      `<pre data-xmd-footnote-body>${markdown.utils.escapeHtml(meta.body)}</pre>`,
-      "</div>",
-    ].join("");
-  };
+  } as MarkdownToken;
 };
 
 export const FootnoteReference = Node.create({
@@ -135,15 +93,21 @@ export const FootnoteReference = Node.create({
     return VueNodeViewRenderer(FootnoteReferenceView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          state.write(`[^${String(node.attrs.identifier)}]`);
-        },
-        parse: { setup: configureReferenceParser },
-      },
-    };
+  markdownTokenName: REFERENCE_TOKEN,
+
+  parseMarkdown: (token) => ({
+    type: "footnoteReference",
+    attrs: { identifier: String(token.identifier ?? "1") },
+  }),
+
+  renderMarkdown: (node) => `[^${String(node.attrs?.identifier ?? "1")}]`,
+
+  markdownTokenizer: {
+    name: REFERENCE_TOKEN,
+    level: "inline",
+    // 行内 tokenizer 的 start 返回语法可能出现的下标，供 marked 决定文本切分位置。
+    start: (src: string) => src.indexOf("[^"),
+    tokenize: (src: string) => tokenizeFootnoteReference(src),
   },
 });
 
@@ -194,18 +158,29 @@ export const FootnoteDefinition = Node.create({
     return VueNodeViewRenderer(FootnoteDefinitionView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          const identifier = String(node.attrs.identifier).trim();
-          const lines = String(node.attrs.body).split("\n");
-          const firstLine = `[^${identifier}]: ${lines[0] ?? ""}`;
-          const continuation = lines.slice(1).map((line) => `    ${line}`).join("\n");
-          writeMarkdownBlock(state, node, continuation ? `${firstLine}\n${continuation}` : firstLine);
-        },
-        parse: { setup: configureDefinitionParser },
-      },
-    };
+  markdownTokenName: DEFINITION_TOKEN,
+
+  parseMarkdown: (token) => ({
+    type: "footnoteDefinition",
+    attrs: {
+      identifier: String(token.identifier ?? "1"),
+      body: String(token.body ?? ""),
+    },
+  }),
+
+  renderMarkdown: (node) => {
+    const identifier = String(node.attrs?.identifier ?? "1").trim();
+    const lines = String(node.attrs?.body ?? "").split("\n");
+    const firstLine = `[^${identifier}]: ${lines[0] ?? ""}`;
+    // 续行必须保持缩进，否则重新解析时会被当成新的块。
+    const continuation = lines.slice(1).map((line) => `    ${line}`).join("\n");
+    return stripTrailingNewlines(continuation ? `${firstLine}\n${continuation}` : firstLine);
+  },
+
+  markdownTokenizer: {
+    name: DEFINITION_TOKEN,
+    level: "block",
+    start: neverInterruptParagraph,
+    tokenize: (src: string) => tokenizeFootnoteDefinition(src),
   },
 });

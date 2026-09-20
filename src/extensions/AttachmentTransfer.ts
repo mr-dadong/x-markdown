@@ -26,15 +26,9 @@ export const AttachmentTransfer = Node.create({
   },
 
   // 临时节点不写入 Markdown，避免复制过程中保存文档时产生无效链接。
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: { closeBlock: (node: unknown) => void }, node: unknown) {
-          state.closeBlock(node)
-        },
-      },
-    }
-  },
+  // 官方渲染侧没有兜底，未注册 renderMarkdown 的节点会被静默丢弃；
+  // 这里显式声明空输出，让「不落盘」成为有意行为而不是依赖库的默认。
+  renderMarkdown: () => '',
 
   renderHTML() {
     return ['div', { 'data-xmd-attachment-transfer': '' }]

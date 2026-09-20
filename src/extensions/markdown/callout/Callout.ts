@@ -1,58 +1,45 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { MarkdownIt, StateBlock } from "markdown-it";
-import type { MarkdownSerializerState } from "prosemirror-markdown";
+import type { MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import CalloutView from "./CalloutView.vue";
-import {
-  escapeMarkdownAttribute,
-  getMarkdownLine,
-  writeMarkdownBlock,
-} from "../shared/markdownRuleUtils";
 import { calloutToMarkdown } from "./calloutSource";
+import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "../shared/officialMarkdown";
 
-const TOKEN_NAME = "xmd_callout";
-const configuredParsers = new WeakSet<MarkdownIt>();
+/** 解析注册表用的 token 名，与节点名分开以免和 marked 内置 token 冲突。 */
+const TOKEN_NAME = "xmdCallout";
 
-interface CalloutTokenMeta {
-  calloutType: string;
-  title: string;
-  fold: string;
-  body: string;
-}
+/** callout 起始行：> [!类型]± 标题。 */
+const OPENING_PATTERN = /^\s*>\s*\[!([A-Za-z][\w-]*)\]([+-])?\s*(.*)$/u;
+/** callout 正文行：> 内容。 */
+const QUOTED_LINE_PATTERN = /^\s*> ?(.*)$/u;
 
-const calloutRule = (
-  state: StateBlock,
-  startLine: number,
-  endLine: number,
-  silent: boolean,
-): boolean => {
-  const openingLine = getMarkdownLine(state, startLine);
-  const match = openingLine.match(/^\s*>\s*\[!([A-Za-z][\w-]*)\]([+-])?\s*(.*)$/u);
-  if (!match) return false;
+/**
+ * 从当前位置解析 callout 引用块。
+ * 语法不匹配时返回 undefined，交给 marked 的其它 tokenizer 处理。
+ */
+const tokenizeCallout = (src: string): MarkdownToken | undefined => {
+  const lines = src.split("\n");
+  const match = lines[0]?.match(OPENING_PATTERN);
+  if (!match) return undefined;
 
+  // 起始行之后连续的「> 内容」行都属于正文，遇到第一个非引用行即结束。
   const bodyLines: string[] = [];
-  let nextLine = startLine + 1;
-  while (nextLine < endLine) {
-    const line = getMarkdownLine(state, nextLine);
-    const quotedLine = line.match(/^\s*> ?(.*)$/u);
-    if (!quotedLine) break;
-    bodyLines.push(quotedLine[1]);
-    nextLine += 1;
+  let consumed = 1;
+  while (consumed < lines.length) {
+    const quoted = lines[consumed].match(QUOTED_LINE_PATTERN);
+    if (!quoted) break;
+    bodyLines.push(quoted[1]);
+    consumed += 1;
   }
 
-  if (silent) return true;
-  const token = state.push(TOKEN_NAME, "aside", 0);
-  token.block = true;
-  token.map = [startLine, nextLine];
-  token.meta = {
+  return {
+    type: TOKEN_NAME,
+    raw: takeBlockRaw(lines, consumed),
     calloutType: match[1].toLocaleUpperCase(),
     fold: match[2] ?? "",
     title: match[3].trim(),
     body: bodyLines.join("\n").trimEnd(),
-  } satisfies CalloutTokenMeta;
-  state.line = nextLine;
-  return true;
+  } as MarkdownToken;
 };
 
 export const Callout = Node.create({
@@ -108,42 +95,35 @@ export const Callout = Node.create({
     return VueNodeViewRenderer(CalloutView);
   },
 
-  addStorage() {
-    return {
-      markdown: {
-        serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
-          // 落盘格式统一由 calloutSource 生成，保证与编辑器里的载荷源码一致。
-          writeMarkdownBlock(
-            state,
-            node,
-            calloutToMarkdown({
-              calloutType: String(node.attrs.calloutType),
-              fold: String(node.attrs.fold),
-              title: String(node.attrs.title),
-              body: String(node.attrs.body),
-            }),
-          );
-        },
-        parse: {
-          setup(markdown: MarkdownIt) {
-            if (configuredParsers.has(markdown)) return;
-            configuredParsers.add(markdown);
-            markdown.block.ruler.before("xmd_raw_markdown", TOKEN_NAME, calloutRule);
-            markdown.renderer.rules[TOKEN_NAME] = (tokens, index) => {
-              // meta 由本文件的 calloutRule 写入，形状确定；markdown-it 15 把 token.meta
-              // 从 any 收紧为 Record<string, unknown>，因此需要显式断言。
-              const meta = tokens[index].meta as unknown as CalloutTokenMeta;
-              return [
-                `<aside data-xmd-callout data-callout-type="${escapeMarkdownAttribute(markdown, meta.calloutType)}"`,
-                ` data-title="${escapeMarkdownAttribute(markdown, meta.title)}"`,
-                ` data-fold="${escapeMarkdownAttribute(markdown, meta.fold)}">`,
-                `<pre data-xmd-callout-body>${markdown.utils.escapeHtml(meta.body)}</pre>`,
-                "</aside>",
-              ].join("");
-            };
-          },
-        },
-      },
-    };
+  // 解析注册表按 markdownTokenName 建键，必须与 tokenizer 产出的 type 一致。
+  markdownTokenName: TOKEN_NAME,
+
+  parseMarkdown: (token) => ({
+    type: "callout",
+    attrs: {
+      calloutType: String(token.calloutType ?? "NOTE"),
+      title: String(token.title ?? ""),
+      fold: String(token.fold ?? ""),
+      body: String(token.body ?? ""),
+    },
+  }),
+
+  // 落盘格式统一由 calloutSource 生成，保证与编辑器里的载荷源码一致。
+  renderMarkdown: (node) =>
+    stripTrailingNewlines(
+      calloutToMarkdown({
+        calloutType: String(node.attrs?.calloutType ?? "NOTE"),
+        fold: String(node.attrs?.fold ?? ""),
+        title: String(node.attrs?.title ?? ""),
+        body: String(node.attrs?.body ?? ""),
+      }),
+    ),
+
+  markdownTokenizer: {
+    name: TOKEN_NAME,
+    level: "block",
+    // marked 用 start 判断段落是否需要在当前位置提前结束，返回 0 表示「可能在此匹配」。
+    start: neverInterruptParagraph,
+    tokenize: (src: string) => tokenizeCallout(src),
   },
 });

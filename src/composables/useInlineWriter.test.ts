@@ -95,6 +95,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "正文起点",
+            contentType: "markdown",
         });
 
         const writer = useInlineWriter({
@@ -130,6 +131,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "不能提前消失的原文",
+            contentType: "markdown",
         });
         editor.commands.setTextSelection({ from: 1, to: editor.state.doc.content.size - 1 });
 
@@ -166,6 +168,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "",
+            contentType: "markdown",
         });
 
         const writer = useInlineWriter({
@@ -193,8 +196,8 @@ describe("内联 AI 实时编写流式渲染", () => {
             editor.state.doc.descendants((node) => {
                 if (node.type.name === "table") tableCount += 1;
             });
-            assert.equal(tableCount, 1, `应渲染出表格节点，实际文档：${editor.storage.markdown.getMarkdown()}`);
-            assert.match(editor.storage.markdown.getMarkdown(), /苹果/u);
+            assert.equal(tableCount, 1, `应渲染出表格节点，实际文档：${editor.getMarkdown()}`);
+            assert.match(editor.getMarkdown(), /苹果/u);
         } finally {
             editor.destroy();
         }
@@ -204,6 +207,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "",
+            contentType: "markdown",
         });
 
         const writer = useInlineWriter({
@@ -231,7 +235,7 @@ describe("内联 AI 实时编写流式渲染", () => {
             assert.equal(
                 tableCount,
                 1,
-                `应渲染出表格节点，实际文档：${editor.storage.markdown.getMarkdown()}`,
+                `应渲染出表格节点，实际文档：${editor.getMarkdown()}`,
             );
             assert.ok(
                 tableCellCount >= 2,
@@ -246,6 +250,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "",
+            contentType: "markdown",
         });
 
         const writer = useInlineWriter({
@@ -274,6 +279,7 @@ describe("内联 AI 实时编写流式渲染", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "",
+            contentType: "markdown",
         });
 
         const writer = useInlineWriter({
@@ -304,6 +310,7 @@ describe("AI 幽灵标记显示与撤销行为", () => {
         const editor = new EditorConstructor({
             extensions: createEditorExtensions(),
             content: "原始内容",
+            contentType: "markdown",
         });
         editor.chain().setTextSelection(editor.state.doc.content.size - 1).run();
 

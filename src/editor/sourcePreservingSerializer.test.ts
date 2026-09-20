@@ -25,6 +25,7 @@ const withEditor = <T>(content: string, run: (editor: Editor) => T): T => {
     const editor: Editor = new EditorConstructor({
         extensions: createEditorExtensions(),
         content,
+        contentType: "markdown",
     });
     try {
         return run(editor);
@@ -41,7 +42,10 @@ const withEditor = <T>(content: string, run: (editor: Editor) => T): T => {
 const mergeAfterEdit = (baselineMarkdown: string, editedMarkdown: string): string =>
     withEditor(baselineMarkdown, (editor) => {
         const baseline = captureBaseline(editor, baselineMarkdown);
-        editor.commands.setContent(editedMarkdown, { emitUpdate: false });
+        editor.commands.setContent(editedMarkdown, {
+            emitUpdate: false,
+            contentType: "markdown",
+        });
         return serializePreservingSource(editor, baseline);
     });
 
@@ -54,7 +58,7 @@ const serializeUnchanged = (markdown: string): string =>
 
 /** 对照：整篇重新序列化（现有 getMarkdown 行为），用于证明未编辑块会被规范化改写。 */
 const fullReserialize = (markdown: string): string =>
-    withEditor(markdown, (editor) => editor.storage.markdown.getMarkdown());
+    withEditor(markdown, (editor) => editor.getMarkdown());
 
 describe("未编辑文档逐字节保真", () => {
     const fixtures: Array<[string, string]> = [

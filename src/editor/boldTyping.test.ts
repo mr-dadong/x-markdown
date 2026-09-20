@@ -65,7 +65,7 @@ test("逐字键入 **2** 应触发加粗输入规则", () => {
 test("insertContentAt 传入 **2** 应按 Markdown 解析为加粗", () => {
   const editor = createEditor();
   try {
-    editor.commands.insertContentAt(1, "**2**");
+    editor.commands.insertContentAt(1, "**2**", { contentType: "markdown" });
     assert.equal(
       docHasBoldMark(editor),
       true,
@@ -80,7 +80,7 @@ test("insertContentAt 传入 **2** 应按 Markdown 解析为加粗", () => {
 test("内联 AI 接受结果路径（deleteRange + insertContentAt）应解析 Markdown", () => {
   const editor = createEditor();
   try {
-    editor.commands.setContent("故障转移的完整过程");
+    editor.commands.setContent("故障转移的完整过程", { contentType: "markdown" });
     // 全选正文，模拟选区被 AI 结果替换
     const { from, to } = { from: 1, to: editor.state.doc.content.size - 1 };
     editor.commands.setTextSelection({ from, to });
@@ -88,7 +88,7 @@ test("内联 AI 接受结果路径（deleteRange + insertContentAt）应解析 M
       .chain()
       .focus()
       .deleteRange({ from, to })
-      .insertContentAt(from, "**故障转移（failover）**的完整过程。**2**")
+      .insertContentAt(from, "**故障转移（failover）**的完整过程。**2**", { contentType: "markdown" })
       .run();
     assert.equal(
       docHasBoldMark(editor),
@@ -105,7 +105,7 @@ test("过度转义的 \\*\\*2\\*\\* 不会产生加粗（复现模型输出问�
   try {
     // 部分模型会输出 \*\*加粗\*\* 这样的过度转义文本，
     // CommonMark 把 \* 解析为字面星号，因此不会有加粗标记
-    editor.commands.insertContentAt(1, "\\*\\*2\\*\\*");
+    editor.commands.insertContentAt(1, "\\*\\*2\\*\\*", { contentType: "markdown" });
     assert.equal(
       docHasBoldMark(editor),
       false,
@@ -119,7 +119,7 @@ test("过度转义的 \\*\\*2\\*\\* 不会产生加粗（复现模型输出问�
 test("归一化后的 \\*\\*2\\*\\* 应解析为加粗", () => {
   const editor = createEditor();
   try {
-    editor.commands.insertContentAt(1, normalizeAiMarkdown("\\*\\*2\\*\\*"));
+    editor.commands.insertContentAt(1, normalizeAiMarkdown("\\*\\*2\\*\\*"), { contentType: "markdown" });
     assert.equal(
       docHasBoldMark(editor),
       true,

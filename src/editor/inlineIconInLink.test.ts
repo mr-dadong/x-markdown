@@ -34,7 +34,7 @@ after(async () => {
 });
 
 const withEditor = <T>(content: string, inspect: (editor: InstanceType<typeof EditorConstructor>) => T): T => {
-  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content });
+  const editor = new EditorConstructor({ extensions: createEditorExtensions(), content, contentType: "markdown" });
   try {
     return inspect(editor);
   } finally {
@@ -60,7 +60,7 @@ describe("链接里的行内小图标", () => {
 
   test("带尺寸标注的图标：存盘后尺寸与链接都不丢（往返一致）", () => {
     const markdown = `[<span style="color: rgb(0, 0, 0);"><img src="${LUCKIN_ICON}" alt="favicon" width="16" height="16">瑞幸咖啡官方FAQ</span>](${LUCKIN_FAQ})`;
-    const saved = withEditor(markdown, (editor) => editor.storage.markdown.getMarkdown());
+    const saved = withEditor(markdown, (editor) => editor.getMarkdown());
     assert.match(saved, /width="16"/u);
     assert.match(saved, /height="16"/u);
     assert.match(saved, new RegExp(LUCKIN_FAQ.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
@@ -72,7 +72,7 @@ describe("链接里的行内小图标", () => {
 
   test("不带尺寸标注时保持原样，不擅自改写用户的 Markdown", () => {
     const markdown = `[<span style="color: rgb(0, 0, 0);">![favicon](${LUCKIN_ICON})瑞幸咖啡官方FAQ</span>](${LUCKIN_FAQ})`;
-    const saved = withEditor(markdown, (editor) => editor.storage.markdown.getMarkdown());
+    const saved = withEditor(markdown, (editor) => editor.getMarkdown());
     // 未标注尺寸就不应凭空生成 width/height
     assert.ok(!saved.includes("width="), "没有标注尺寸时不应写入 width");
     assert.ok(!saved.includes("height="), "没有标注尺寸时不应写入 height");

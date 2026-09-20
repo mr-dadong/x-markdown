@@ -26,6 +26,7 @@ const createEditor = (content: string): Editor =>
   new EditorConstructor({
     extensions: createEditorExtensions(),
     content,
+    contentType: "markdown",
   });
 
 // 构造最小可用的按键事件对象，只保留处理器关心的字段。
@@ -104,7 +105,7 @@ test("Backspace：光标在标题开头时无论几级都直接转为正文段�
     // 光标仍停在第二个块的开头，正文没有被删除。
     assert.equal(editor.state.selection.from, blockContentStart(editor, 1));
     // 序列化结果应输出普通段落，证明标题转正功能可正常落盘。
-    const markdown = editor.storage.markdown.getMarkdown();
+    const markdown = editor.getMarkdown();
     assert.match(markdown, /^# 一级标题/);
     assert.match(markdown, /二级标题/);
   } finally {
