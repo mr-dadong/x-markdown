@@ -1,6 +1,82 @@
 {
-  "latest": "1.3.6",
+  "latest": "1.3.7",
   "releases": [
+    {
+      "version": "1.3.7",
+      "date": "2026-09-20",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "修复：打开新文档时内容显示在底部而非顶部的问题，现在新文档从顶部开始显示",
+        "修复：悬停链接时中文路径显示为编码形式的问题，现在直接显示中文原文",
+        "优化：编辑器保存文本时改用最小转义规则，反斜杠、下划线、尖括号等符号仅在会被误解时才转义，源码视图与保存文件尽量保持输入原样",
+        "优化：调整标题样式大小以优化显示效果",
+        "优化：编辑器底层升级到 Tiptap 3，Markdown 解析与序列化切换到官方实现，标注、脚注、数学公式、Mermaid、HTML 块、目录等自定义块全部适配",
+        "优化：粘贴 Markdown 片段时直接按 Markdown 解析，不再经过 HTML 中转，格式识别更准确",
+        "优化：表格列对齐改用标准 align 属性，与 HTML 及导出格式保持一致",
+        "修复：表格单元格中的行内代码包含竖线时，保存后表格被拆成多列的问题"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.3.7-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.7/XMD-1.3.7-Windows-x64.exe",
+              "sha256": "057025cce197c33be4140ba6886b445323b7184fda2e91f42afbc0fc329bea7f"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.7-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.7/XMD-1.3.7-macOS-arm64.dmg",
+              "sha256": "466665abbef89b8b230b4009d814fb7d686f38c3a6cf641b47d398fe2e21f7e5"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.7-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.7/XMD-1.3.7-macOS-x64.dmg",
+              "sha256": "006b1bf2d8f63357a7bd19efe45014cd05e7b0ac22173210a3c4394f47337d6c"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.7-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.7/XMD-1.3.7-Linux-x86_64.AppImage",
+              "sha256": "165ac68c37151ce2e8c6bca3ba8c4532196b6f3fe0e5b05dce91fd31c5b23349"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.7-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.7/XMD-1.3.7-Linux-arm64.AppImage",
+              "sha256": "eb122e3afa2ac4851b9721dd072738d75790938c835970464bd288f9209ef2b3"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.3.6",
       "date": "2026-09-18",
