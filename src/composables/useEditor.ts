@@ -1123,7 +1123,7 @@ export const useMarkdownEditor = (
       attributes: {
         // 左右内边距与行宽由排版设置统一控制（typography-pane 上的 CSS 变量）。
         class:
-          "prose-editor min-h-full pb-[200px] pt-4 [&>*:first-child]:mt-0",
+          "prose-editor min-h-full pb-[200px] pt-4",
         // Markdown 中包含大量技术名词和路径，关闭浏览器拼写检查可避免无意义的红色波浪线。
         spellcheck: "false",
       },

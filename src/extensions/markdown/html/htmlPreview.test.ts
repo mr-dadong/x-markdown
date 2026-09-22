@@ -16,6 +16,10 @@ after(async () => {
   await browserWindow.happyDOM.abort()
 })
 
+/** 走完整的解析 + DOM 清洗链路，返回最终预览文档。 */
+const resolvePreview = (source: string): Promise<string> =>
+  createResolvedHtmlPreviewDocument(source, async url => url)
+
 describe('HTML 隔离预览', () => {
   test('保留当前块的 style 标签和 class', () => {
     const document = createHtmlPreviewDocument('<style>.card { color: red; }</style><div class="card">内容</div>')
@@ -69,5 +73,58 @@ describe('HTML 隔离预览', () => {
     assert.doesNotMatch(document, /body\s*\{[^}]*overflow:\s*hidden/)
     // 常见定宽元素保留固有宽度，不被压缩。
     assert.match(document, /pre, table, video, canvas, svg/)
+  })
+})
+
+describe('预览的 DOM 级清洗', () => {
+  /*
+   * 字符串正则要求 `on*` 属性前面是空白，遇到粘贴来的紧凑 HTML 就会漏掉，
+   * 属性照样进到预览 iframe 里被执行，控制台报
+   * 「Blocked script execution in 'about:srcdoc' …」。
+   * 这里覆盖那些正则覆盖不到的写法，确保任何形式都到不了 iframe。
+   */
+  const cases: Array<[string, string, string]> = [
+    ['属性紧跟在引号后', '<div title="a"onclick="alert(1)">x</div>', '<div title="a">x</div>'],
+    ['属性紧跟在斜杠后', '<div/onclick="alert(1)">x</div>', '<div>x</div>'],
+    ['属性名大小写混合', '<div OnClick="alert(1)">x</div>', '<div>x</div>'],
+    ['图片 onerror', '<img src="x" onerror="alert(1)">', '<img src="x">'],
+    ['javascript: 链接', '<a href="javascript:alert(1)">x</a>', '<a>x</a>'],
+    ['未闭合的 script', '<script>alert(1)', ''],
+    ['嵌套 srcdoc', '<iframe srcdoc="<script>alert(1)</script>"></iframe>', ''],
+    ['表单元素', '<form action="/x"><input><button>提交</button></form>', ''],
+  ]
+
+  for (const [name, source, expectedBody] of cases) {
+    test(`${name}：${JSON.stringify(source)}`, async () => {
+      const document = await resolvePreview(source)
+      const body = (/<body>([\s\S]*)<\/body>/u.exec(document)?.[1] ?? '').trim()
+
+      assert.equal(body, expectedBody, '危险内容不应进入预览 body')
+      assert.doesNotMatch(document, /<script/i)
+      assert.doesNotMatch(document, /\son[a-z]+\s*=/iu)
+      assert.doesNotMatch(document, /javascript:/iu)
+    })
+  }
+
+  test('合法内容不被误删', async () => {
+    const document = await resolvePreview(
+      '<style>.card { color: red; }</style><div class="card" style="color:red" data-id="1">正常内容</div><table><tr><td>单元格</td></tr></table>',
+    )
+
+    // class / style / data 属性都是 CSS 选择器需要的信息，必须保留。
+    assert.match(document, /class="card"/)
+    assert.match(document, /style="color:red"/)
+    assert.match(document, /data-id="1"/)
+    assert.match(document, /<td>单元格<\/td>/)
+    // 经 DOMParser 序列化后空值属性写成 `=""`，这里按最终形态断言。
+    assert.match(document, /<style data-xmd-user-css="">\.card \{ color: red; \}<\/style>/)
+  })
+
+  test('head 里自己的 CSP 与样式不会被清洗掉', async () => {
+    const document = await resolvePreview('<p>ddd</p>')
+
+    assert.match(document, /Content-Security-Policy/)
+    assert.match(document, /default-src 'none'/)
+    assert.match(document, /data-xmd-user-css/)
   })
 })

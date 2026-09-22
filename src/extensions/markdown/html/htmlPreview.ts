@@ -44,6 +44,58 @@ export const createHtmlPreviewDocument = (source: string): string => {
 </html>`
 }
 
+/** 预览 body 中必须整体移除的元素：能执行脚本，或能加载外部资源、提交表单。 */
+const FORBIDDEN_ELEMENTS = [
+  'script',
+  'iframe',
+  'frame',
+  'frameset',
+  'object',
+  'embed',
+  'form',
+  'button',
+  'textarea',
+  'select',
+  'input',
+  'link',
+  'meta',
+  'base',
+].join(',')
+
+/** 能执行脚本的 URL 协议，预览里一律清空对应属性。 */
+const DANGEROUS_URL_SCHEME = /^\s*(?:javascript|vbscript|data:text\/html)/i
+
+/**
+ * 以解析后的 DOM 为准做最终清洗，只处理 body —— head 里是我们自己写的 CSP 与样式。
+ *
+ * 上面的字符串正则是第一道过滤，只能覆盖常见写法：`on*` 属性前面不是空白时会被漏掉，
+ * 例如粘贴来的紧凑 HTML `<div title="a"onclick="…">`、`<div/onclick="…">`。
+ * 这类属性照样会进到预览 iframe 里被执行，控制台报
+ * 「Blocked script execution in 'about:srcdoc' because the document's frame is sandboxed…」。
+ * 这里按 DOM 逐元素清理，任何书写形式都逃不掉。
+ */
+const sanitizePreviewBody = (body: HTMLElement | null): void => {
+  if (!body) return
+
+  for (const element of Array.from(body.querySelectorAll(FORBIDDEN_ELEMENTS))) {
+    element.remove()
+  }
+
+  for (const element of Array.from(body.querySelectorAll('*'))) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase()
+      // 事件处理属性（onclick、onload…）与嵌套 srcdoc 一律删除。
+      if (/^on[a-z]+$/u.test(name) || name === 'srcdoc') {
+        element.removeAttribute(attribute.name)
+        continue
+      }
+      if (DANGEROUS_URL_SCHEME.test(attribute.value)) {
+        element.removeAttribute(attribute.name)
+      }
+    }
+  }
+}
+
 /**
  * HTML 预览 iframe 只允许 data/blob 图片。本地相对路径必须先由主进程读取，
  * 否则浏览器会把它解析成渲染页的 http 地址并被 CSP 拦截。
@@ -56,6 +108,7 @@ export const createResolvedHtmlPreviewDocument = async (
     createHtmlPreviewDocument(source),
     'text/html',
   )
+  sanitizePreviewBody(previewDocument.body)
   const images = Array.from(previewDocument.querySelectorAll<HTMLImageElement>('img[src]'))
 
   await Promise.all(images.map(async image => {

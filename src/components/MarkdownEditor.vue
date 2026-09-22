@@ -1279,6 +1279,18 @@ defineExpose<EditorHandle>({
 }
 
 /* ===== 标题 ===== */
+/*
+ * 首块必须去掉上边距。文档首行常以 `# 标题` 开头，而 h1 的 margin-top 是相对
+ * 自身字号的 em 值（字号 2em=30px，1.4em 即 42px），会在正文顶部顶出一大片空白。
+ * 这条规则不能用 Tailwind 的 [&>*:first-child]:mt-0：工具类位于 @layer utilities，
+ * 而无 layer 的 `.tiptap h1` 永远优先于任何层的规则，工具类会被静默压制。
+ * 写在这里与标题规则同层，靠 `.tiptap.prose-editor` 更高的权重胜出。
+ * 用 > * 覆盖标题、段落、列表等任意类型的首块，顶部留白只由容器 pt-4 提供。
+ */
+.tiptap.prose-editor > *:first-child {
+  margin-top: 0;
+}
+
 .tiptap h1,
 .tiptap h2,
 .tiptap h3,

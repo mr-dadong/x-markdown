@@ -17,8 +17,12 @@ import { MarkdownManager } from "@tiptap/markdown";
  * - 输入 `<a>`  → 存成 `&lt;a&gt;`
  *
  * TypeScript 的 private 只在编译期生效，运行时方法仍挂在 MarkdownManager 的原型上，
- * 因此这里覆盖原型方法，把转义换回「只有 Markdown 真的会误解时才补转义」的规则，
- * 源码视图尽量保持用户输入的原样，同时保证存盘后重新打开语义完全不变。
+ * 因此这里覆盖原型方法，把转义换回「只有 Markdown 真的会误解时才补转义」的规则。
+ *
+ * 关于 `<`：本项目采用「HTML 变活」的取向，`<` 一律不转义，源码视图与用户输入一致。
+ * 也就是说源码里的 `<div>` 就是 HTML，重新打开后会解析成 HTML 块，而不是字面文字 ——
+ * 这与 Typora 一致。认不出的行内标签（如 `<a/>`）由 markdownInlineHtmlLiteral.ts
+ * 兜底成字面文本，不会被丢掉。
  */
 
 /**
@@ -57,27 +61,10 @@ const isEscapableAsciiPunctuation = (character: string): boolean => {
 };
 
 /**
- * 判断下标处的 `<` 是否会被 Markdown 当成 HTML 标签或自动链接的开头。
- *
- * 只有这种位置才需要写成 `\<`；像 `a<b` 这种不成对的尖括号会被原样当作文本，
- * 不补转义，源码视图才不会被无谓的反斜杠塞满。
- */
-const startsInlineHtml = (value: string, index: number): boolean => {
-  const rest = value.slice(index);
-  return (
-    // 普通标签与闭合标签：<div>、</div>、<br/>，以及 <?php ... ?>、<!DOCTYPE ...>
-    /^<[/!?]?[A-Za-z][^<>]*>/u.test(rest)
-    // HTML 注释
-    || /^<!--/u.test(rest)
-    // 网址自动链接 <https://example.com>
-    || /^<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>/u.test(rest)
-    // 邮箱自动链接 <user@example.com>
-    || /^<[^\s<>@]+@[^\s<>@]+>/u.test(rest)
-  );
-};
-
-/**
  * 把一段正文文本转义成 Markdown 源码。
+ *
+ * `<` 不参与转义：本项目采用「HTML 变活」的取向，源码里的 `<div>` 就是 HTML 标签，
+ * 与用户输入保持一致（见文件头部说明）。
  *
  * @param value 编辑器文档里该文本节点的原始内容
  * @param startOfLine 这段文本是否位于块的起始位置
@@ -93,11 +80,6 @@ export const escapeMarkdownText = (value: string, startOfLine: boolean): string 
       // 后面是普通字符时 Markdown 本来就把它当字面反斜杠，再补一个反而会多出一个字符。
       const next = value[index + 1] ?? "";
       escaped += isEscapableAsciiPunctuation(next) || next === "" ? "\\\\" : "\\";
-      continue;
-    }
-
-    if (character === "<") {
-      escaped += startsInlineHtml(value, index) ? "\\<" : "<";
       continue;
     }
 

@@ -179,7 +179,8 @@ const renderExportContent = async (
     editable: false,
     editorProps: {
       attributes: {
-        class: "prose-editor px-20 pt-4 pb-8 [&>*:first-child]:mt-0",
+        // 首块上边距由 useEditor 同款规则在组件样式里统一清除，这里不再重复声明。
+        class: "prose-editor px-20 pt-4 pb-8",
         spellcheck: "false",
       },
     },

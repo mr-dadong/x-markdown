@@ -1,5 +1,6 @@
-import { Node, mergeAttributes } from "@tiptap/core";
-import type { MarkdownToken } from "@tiptap/core";
+import { InputRule, Node, mergeAttributes } from "@tiptap/core";
+import type { JSONContent, MarkdownToken } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
 import { stripTrailingNewlines } from "../shared/officialMarkdown";
@@ -7,6 +8,33 @@ import { stripTrailingNewlines } from "../shared/officialMarkdown";
 // 独占一行的单个 img 属于图片内容，不需要套用通用 HTML iframe 预览。
 const isStandaloneImageHtml = (source: string): boolean =>
   /^\s*<img\b[^>]*>\s*$/iu.test(source);
+
+/**
+ * 粗筛「整段文本就是一个带闭合标签的元素」，只是廉价前置条件。
+ *
+ * 这段文本到底会不会变成 HTML（块级还是行内、还是压根没变化）由解析器判定，
+ * 见 parseHtmlAsTyped。要求闭合标签，是为了避免 `<p>` 刚敲出开标签就被处理、
+ * 导致后面的内容没处输入。
+ */
+const COMPLETE_ELEMENT_PATTERN = /^<([A-Za-z][\w-]*)(?:\s[^<>]*)?>[\s\S]*<\/\1>$/u;
+
+/**
+ * 判断解析结果是否与「原样的字面文字」完全相同。
+ *
+ * `<span>sss</span>`、`<a>sss</a>` 这类 schema 认不出的标签，解析后仍然是一段
+ * 纯文字，和直接输入没有区别 —— 这种情况不该替换，交给正常输入即可。
+ */
+const isLiteralText = (nodes: readonly JSONContent[], source: string): boolean => {
+  if (nodes.length !== 1 || nodes[0].type !== "paragraph") return false;
+  const content = nodes[0].content ?? [];
+  if (content.length !== 1) return false;
+  const only = content[0];
+  return (
+    only.type === "text"
+    && (only.marks ?? []).length === 0
+    && String(only.text ?? "") === source
+  );
+};
 
 /** 读取 HTML 标签上的属性（双引号或单引号写法都支持）。 */
 const readHtmlAttributes = (source: string): Record<string, string> => {
@@ -101,6 +129,73 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
 
   addNodeView() {
     return VueNodeViewRenderer(HtmlBlockView);
+  },
+
+  /*
+   * 键入即变活：在渲染视图里敲完 `</p>` 的瞬间就把整段转成 HTML 块。
+   *
+   * 不加这条规则的话，键入时文档里是字面文字，而它的序列化结果与源码逐字节相同，
+   * 视图同步会判定「内容没变」而跳过重新解析 —— 于是同一段内容在切换视图若干次后才
+   * 突然变成 HTML 块，行为依赖切换次数。这里让转换在键入时就发生，消掉这个不确定态。
+   */
+  addInputRules() {
+    return [
+      new InputRule({
+        find: COMPLETE_ELEMENT_PATTERN,
+        handler: ({ state, range, match }) => {
+          const manager = this.editor.storage.markdown?.manager;
+          if (!manager) return null;
+
+          const source = match[0];
+          const $from = state.doc.resolve(range.to);
+          // 只处理顶层段落：嵌套在列表/引用里的情况交给重新解析，避免破坏容器结构。
+          if ($from.depth !== 1) return null;
+
+          /*
+           * 输入规则在字符真正插入文档之前运行，所以段落里还差刚敲下的那个字符：
+           * 此时段落文本是匹配结果的前缀（`<p>ddd</p` 对 `<p>ddd</p>`）。
+           * 前缀成立即说明整段就是这段 HTML，替换不会吃掉同段里的其它文字；
+           * 被吸收的那个字符也不会再单独插入，因为它已经被这次输入消费掉了。
+           */
+          if (!source.startsWith($from.parent.textContent)) return null;
+
+          /*
+           * 直接拿解析器的结果替换当前段落，而不是自己判断块级还是行内：
+           * `<p>ddd</p>` 解析成 HTML 块，`<em>x</em>` 解析成斜体文字，
+           * 两者都当场生效，与重新解析的结果天然一致。
+           */
+          const parsed = (manager.parse(source).content ?? []) as JSONContent[];
+          if (parsed.length === 0 || isLiteralText(parsed, source)) return null;
+
+          const nodes = parsed.map((node) => state.schema.nodeFromJSON(node));
+          const insertedSize = nodes.reduce((total, node) => total + node.nodeSize, 0);
+          const start = $from.before($from.depth);
+          const end = $from.after($from.depth);
+          state.tr.replaceWith(start, end, nodes);
+
+          const last = nodes[nodes.length - 1];
+          if (last.isTextblock) {
+            /*
+             * 解析结果本身就是可输入的段落（行内 HTML，如 `<em>x</em>` 变斜体文字）：
+             * 光标直接落到它的末尾，不需要额外补段落。
+             */
+            state.tr.setSelection(
+              TextSelection.create(state.tr.doc, start + insertedSize - 1),
+            );
+          } else {
+            /*
+             * 结尾是 HTML 块这类原子节点：光标必须落在可输入的文本块里，否则会变成
+             * 节点选区，用户一敲字就把整个块替换掉。后面没有文本块时补一个空段落。
+             */
+            const after = start + insertedSize;
+            if (!state.tr.doc.resolve(after).parent.inlineContent) {
+              state.tr.insert(after, state.schema.nodes.paragraph.create());
+            }
+            state.tr.setSelection(TextSelection.near(state.tr.doc.resolve(after)));
+          }
+        },
+      }),
+    ];
   },
 
   /*

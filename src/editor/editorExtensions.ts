@@ -7,7 +7,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import Highlight from "@tiptap/extension-highlight";
-import Typography from "@tiptap/extension-typography";
+import { HtmlSafeTypography } from "./htmlSafeTypography";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import Subscript from "@tiptap/extension-subscript";
@@ -76,6 +76,8 @@ import {
 } from "./inlineCodeInputExtension";
 import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { MarkdownEscapeRelaxer } from "./markdownEscapeRelaxer";
+import { installLiteralInlineHtmlParsing } from "./markdownInlineHtmlLiteral";
+import { installMinimalTextEscaping } from "./markdownTextEscaping";
 import { LiteralHardBreak } from "./hardBreakSerialization";
 import { mediaService } from "../services/mediaService";
 import { openImagePreview } from "../modules/imagePreviewOverlay";
@@ -431,6 +433,22 @@ export const createEditorExtensions = (options: {
   getCurrentDocumentPath?: () => string | null;
 } = {}) => {
   const { getCurrentDocumentPath } = options;
+
+  /*
+   * 这两个补丁覆盖官方 MarkdownManager 的原型方法，必须在任何 Editor 被构造之前安装。
+   *
+   * `contentType: "markdown"` 的初始内容是由 Markdown 扩展在它自己的 onBeforeCreate 里
+   * 解析的（@tiptap/markdown 的 onBeforeCreate），而扩展钩子按扩展数组顺序注册，
+   * Markdown 排在 MarkdownEscapeRelaxer 之前；onCreate 更是异步派发的。
+   * 因此只要把安装放进扩展钩子，进程里第一个打开的文档在解析时就没有补丁：
+   * 字面 `<a/>` 会被官方静默丢掉，表现为「同一份文件第一次打开丢内容、之后再打开又正常」。
+   *
+   * createEditorExtensions 是所有编辑器的唯一入口，且一定先于 Editor 构造执行，
+   * 放在这里就不依赖任何扩展顺序。
+   */
+  installMinimalTextEscaping();
+  installLiteralInlineHtmlParsing();
+
   return [
     StarterKit.configure({
       codeBlock: false, // 使用 CodeBlockLowlight 替代
@@ -489,7 +507,8 @@ export const createEditorExtensions = (options: {
     SerializableHighlight.configure({
       multicolor: true,
     }),
-    Typography,
+    // 排版替换加一道 HTML 标签保护，避免智能引号污染属性值（详见 htmlSafeTypography.ts）。
+    HtmlSafeTypography,
     Placeholder.configure({
       placeholder: "开始写作...",
     }),
