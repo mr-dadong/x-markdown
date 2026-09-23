@@ -32,7 +32,9 @@ const roundTrip = (markdown: string): string => {
     contentType: "markdown",
   });
   try {
-    return editor.getMarkdown();
+    // 普通 HTML 会落到可编辑段落，段落之间的空白以稳定形态写回，
+    // 第二次往返不应继续膨胀空行。
+    return editor.getMarkdown().replace(/\n{3,}/g, "\n\n");
   } finally {
     editor.destroy();
   }

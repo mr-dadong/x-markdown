@@ -74,7 +74,7 @@ describe("未编辑文档逐字节保真", () => {
         ["脚注引用与定义", "带脚注的文字[^note]。\n\n[^note]: 脚注内容"],
         ["TOC", "[TOC]\n\n# 标题"],
         ["raw 扩展块", ":::custom key=value\n扩展正文 **不得被改写**\n:::"],
-        ["多元素 HTML 块", "<div>a</div>\n<p>b</p>"],
+        ["多元素 HTML 块", "<style>.x { color: red; }</style>\n<div class=\"x\">a</div>\n<p>b</p>"],
         ["YAML 前置", "---\ntitle: 测试\ntags:\n  - markdown\n---\n\n正文。"],
         ["以代码块结尾", "# 标题\n\n```js\nconst a = 1;\n```"],
         ["以表格结尾", "前言。\n\n| a | b |\n| - | - |\n| 1 | 2 |"],

@@ -873,11 +873,8 @@ const convertBlockElement = async (
   if (el.hasAttribute("data-xmd-raw-markdown")) {
     return convertCodeBlock(el, opts);
   }
-  // 目录、HtmlBlock 兜底 DOM 等没有专属样式的块，直接解包其内容。
-  if (
-    el.hasAttribute("data-xmd-table-of-contents-view") ||
-    el.hasAttribute("data-xmd-html-view")
-  ) {
+  // 目录等没有专属样式的块，直接解包其内容。
+  if (el.hasAttribute("data-xmd-table-of-contents-view")) {
     return convertUnwrapped(el, ctx, opts);
   }
   if (classes.contains("katex-display")) {

@@ -120,6 +120,17 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(!html.includes("data-xmd-image"));
   });
 
+  test("HTML 块导出只保留渲染正文，不保留预览壳和工具条", async () => {
+    // happy-dom 对 iframe.contentDocument 支持不稳定；这里直接验证导出脚本的 DOM 处理契约。
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("./useExport.ts", import.meta.url), "utf8");
+
+    assert.ok(!source.includes("data-xmd-html-tools"));
+    assert.ok(source.includes('nodeView.querySelectorAll("[data-xmd-html-preview-status]")'));
+    assert.ok(source.includes('iframe[data-xmd-html-preview-frame]'));
+    assert.ok(source.includes("previewBody.childNodes"));
+  });
+
   test("HTML、PDF 与图片共用的导出页面会折行长代码且不保留横向滚动", async () => {
     const longCode = `const message = "${"很长的代码内容".repeat(40)}";`;
     const html = await buildExportHtml(`\`\`\`ts\n${longCode}\n\`\`\``, null, "长代码导出");

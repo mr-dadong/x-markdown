@@ -10,6 +10,13 @@ const isStandaloneImageHtml = (source: string): boolean =>
   /^\s*<img\b[^>]*>\s*$/iu.test(source);
 
 /**
+ * 普通 HTML 文本/标记应保持可编辑，只有带 style 的复杂 HTML 才隔离预览。
+ * 这样 <p>、<div>、表格等标签仍在正文流里，用户可以直接继续输入和修改。
+ */
+const needsIsolatedHtmlPreview = (source: string): boolean =>
+  /<style\b/iu.test(source);
+
+/**
  * 粗筛「整段文本就是一个带闭合标签的元素」，只是廉价前置条件。
  *
  * 这段文本到底会不会变成 HTML（块级还是行内、还是压根没变化）由解析器判定，
@@ -208,11 +215,19 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
 
   parseMarkdown: (token) => {
     const source = String(token.text ?? token.raw ?? "");
-    // 独占一行的图片走图片节点，其余 HTML 原样保存为源码块，绝不在编辑器里直接执行。
+    // 独占一行的图片走图片节点。
     if (isStandaloneImageHtml(source)) {
       const image = imageNodeFromHtml(source);
       if (image) return image;
     }
+    // 普通 HTML 不进隔离块，直接落成可编辑的段落文本。
+    if (!needsIsolatedHtmlPreview(source)) {
+      return {
+        type: "paragraph",
+        content: [{ type: "text", text: source }],
+      } as unknown as MarkdownToken;
+    }
+    // 只有带 style 的复杂 HTML 才原样保存为隔离预览块。
     return { type: "htmlBlock", attrs: { source } };
   },
 

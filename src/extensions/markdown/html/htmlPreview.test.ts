@@ -71,6 +71,8 @@ describe('HTML 隔离预览', () => {
     // 宽度溢出时允许横向滚动，而不是 overflow hidden 裁掉。
     assert.match(document, /body\s*\{[^}]*overflow-x:\s*auto/)
     assert.doesNotMatch(document, /body\s*\{[^}]*overflow:\s*hidden/)
+    // 预览遵循标准 CSS 盒模型，避免用户 HTML 的 border/padding 意外撑破块宽。
+    assert.match(document, /body :where\(\*\) \{ box-sizing: border-box; \}/)
     // 常见定宽元素保留固有宽度，不被压缩。
     assert.match(document, /pre, table, video, canvas, svg/)
   })

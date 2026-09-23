@@ -35,6 +35,7 @@ export const createHtmlPreviewDocument = (source: string): string => {
   <style>
     html { color-scheme: light dark; background: transparent; }
     body { width: 100%; min-height: 1px; margin: 0; overflow-x: auto; overflow-y: hidden; color: light-dark(#252525, #e4e6eb); background: transparent; }
+    body :where(*) { box-sizing: border-box; }
     /* 内容保留固有宽度：显式声明了宽度/min-width 的元素水平溢出并触发横向滚动，不再被视口压缩压扁。 */
     body :where(pre, table, video, canvas, svg) { max-width: none; }
   </style>

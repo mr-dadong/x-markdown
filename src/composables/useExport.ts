@@ -73,14 +73,16 @@ const collectDocumentStyles = (): string => {
 // 导出前将其还原为安全 HTML，否则浏览器会把标签源码当作代码文字显示。
 const materializeHtmlBlocks = (host: HTMLElement): void => {
   host.querySelectorAll<HTMLElement>("[data-xmd-html-view]").forEach((nodeView) => {
-    const anchor = nodeView.firstElementChild;
-    const preview = anchor?.firstElementChild;
-    if (!preview) {
+    // HTML 块只负责渲染，导出时同样只保留已渲染正文。
+    nodeView.querySelectorAll("[data-xmd-html-preview-status]").forEach((status) => status.remove());
+    const frame = nodeView.querySelector<HTMLIFrameElement>("iframe[data-xmd-html-preview-frame]");
+    const previewBody = frame?.contentDocument?.body;
+    if (!previewBody) {
       nodeView.remove();
       return;
     }
-    // Vue 节点视图外层只用于选择、拖拽和弹出编辑器，导出时仅保留 HTML 正文。
-    nodeView.replaceWith(...Array.from(preview.childNodes));
+    // iframe 文档已经完成安全清洗，导出时仅把已渲染正文摊平进导出容器。
+    nodeView.replaceWith(...Array.from(previewBody.childNodes).map((node) => node.cloneNode(true)));
   });
 
   host.querySelectorAll("pre[data-xmd-html-block]").forEach((placeholder) => {

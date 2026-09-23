@@ -70,23 +70,35 @@ describe("HTML 键入即变活", () => {
    * 视图同步会判定「内容没变」跳过重新解析 —— 于是同一段内容要在切换视图若干次后
    * 才突然变成 HTML，行为依赖切换次数。这里要求敲完闭合标签当场就生效。
    */
-  const blockCases: Array<[string, string]> = [
-    ["p 标签", "<p>ddd</p>"],
-    ["div 标签", "<div>dadong</div>"],
-    ["table 标签", "<table><tr><td>x</td></tr></table>"],
+  const blockCases: Array<[string, string, string]> = [
+    ["p 标签", "<p>ddd</p>", "paragraph"],
+    ["div 标签", "<div>dadong</div>", "paragraph"],
+    ["table 标签", "<table><tr><td>x</td></tr></table>", "paragraph"],
   ];
 
-  for (const [name, typed] of blockCases) {
+  for (const [name, typed, expectedNodeType] of blockCases) {
     test(`块级 ${name}：${JSON.stringify(typed)}`, async () => {
       const editor = await typeIntoEmptyEditor(typed);
       try {
-        assert.equal(nodeTypes(editor), "htmlBlock");
-        assert.equal(editor.state.doc.firstChild?.attrs.source, typed);
+        assert.equal(nodeTypes(editor), expectedNodeType);
+        assert.equal(editor.state.doc.textContent, typed);
       } finally {
         editor.destroy();
       }
     });
   }
+
+  test("带 style 的复杂 HTML 进入隔离块", async () => {
+    const typed = "<style>.x { color: red; }</style><div class=\"x\">ddd</div>";
+    const editor = await typeIntoEmptyEditor(typed);
+    try {
+      assert.equal(nodeTypes(editor), "htmlBlock,paragraph");
+      assert.equal(editor.state.doc.firstChild?.attrs.source, "<style>.x { color: red; }</style>");
+      assert.equal(editor.state.doc.lastChild?.textContent, "<div class=\"x\">ddd</div>");
+    } finally {
+      editor.destroy();
+    }
+  });
 
   test("行内标签当场变成对应标记，而不是 HTML 块", async () => {
     const editor = await typeIntoEmptyEditor("<em>sss</em>");
@@ -126,13 +138,12 @@ describe("HTML 键入即变活", () => {
     }
   });
 
-  test("转换后继续输入不会破坏 HTML 块", async () => {
+  test("转换后继续输入不会破坏可编辑正文", async () => {
     const editor = await typeIntoEmptyEditor("<p>ddd</p> 后续");
     try {
-      // 光标必须落在文本块里：若落在原子节点上成为节点选区，一敲字就会替换掉整个块。
-      assert.equal(nodeTypes(editor), "htmlBlock,paragraph");
-      assert.equal(editor.state.doc.firstChild?.attrs.source, "<p>ddd</p>");
-      assert.equal(editor.state.doc.lastChild?.textContent, " 后续");
+      // 普通 HTML 保持可编辑，继续输入时不会变成原子节点。
+      assert.equal(nodeTypes(editor), "paragraph");
+      assert.equal(editor.state.doc.textContent, "<p>ddd</p> 后续");
     } finally {
       editor.destroy();
     }
@@ -148,7 +159,7 @@ describe("转换结果与重新解析一致", () => {
    * Markdown 的规范写法是 `*sss*`（HTML 块则原样保留源码，因为节点存了原文）。
    */
   const cases: Array<[string, string, string]> = [
-    ["块级 HTML", "<p>ddd</p>", "<p>ddd</p>"],
+    ["普通 HTML 保持可编辑", "<p>ddd</p>", "<p>ddd</p>"],
     ["行内 HTML", "<em>sss</em>", "*sss*"],
     ["认不出的标签", "<span>sss</span>", "<span>sss</span>"],
   ];

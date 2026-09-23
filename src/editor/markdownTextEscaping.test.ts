@@ -183,11 +183,11 @@ describe("源码里的 HTML 标签按 HTML 解析", () => {
     return { editor, source: serializePreservingSource(editor, baseline) };
   };
 
-  test("块级 HTML 成为 htmlBlock，未改动的块保留原文字节", async () => {
+  test("普通 HTML 保持可编辑正文，未改动的块保留原文字节", async () => {
     const { editor, source } = await loadAndSerialize("<div>dadong</div>");
     try {
-      assert.equal(editor.state.doc.firstChild?.type.name, "htmlBlock");
-      assert.equal(editor.state.doc.firstChild?.attrs.source, "<div>dadong</div>");
+      assert.equal(editor.state.doc.firstChild?.type.name, "paragraph");
+      assert.equal(editor.state.doc.textContent, "<div>dadong</div>");
       assert.equal(source, "<div>dadong</div>", "未改动的块应保留磁盘原文字节");
     } finally {
       editor.destroy();
