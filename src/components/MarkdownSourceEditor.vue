@@ -222,6 +222,26 @@ const refreshActiveHeading = (): void => {
   if (view.value) emitActiveHeadingFor(view.value)
 }
 
+/*
+ * 滚动时按「视口垂直中间那一行属于哪一节」更新大纲高亮，与预览模式的参考线一致。
+ * 光标不动只滚动时，大纲也应指向当前正在看的那一节。
+ */
+const emitActiveHeadingForViewport = (): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+
+  const text = sourceView.state.doc.toString()
+  if (text !== outlineCacheText) {
+    outlineCacheHeadings = scanOutlineHeadings(text)
+    outlineCacheText = text
+  }
+
+  // 取垂直中间而不是顶部：顶部会让已经出现在屏幕上三分之一处的下一节滞后一节。
+  const topLine = getViewportSourceLine(sourceView.scrollDOM.clientHeight / 2)
+  if (topLine === null) return
+  emit('active-heading', findActiveHeadingByLine(outlineCacheHeadings, Math.floor(topLine)))
+}
+
 const buildExtensions = (dark: boolean): Extension[] => [
   lineNumbers(),
   highlightActiveLineGutter(),
@@ -251,6 +271,14 @@ const buildExtensions = (dark: boolean): Extension[] => [
     if (update.docChanged || update.selectionSet) {
       emitActiveHeadingFor(update.view)
     }
+  }),
+  // CodeMirror 只在滚动超出预渲染边距时才报 viewportChanged，作为高亮依据太粗，
+  // 这里直接监听滚动容器，按真实可见首行更新大纲高亮。
+  EditorView.domEventHandlers({
+    scroll: () => {
+      emitActiveHeadingForViewport()
+      return false
+    },
   }),
   sourceTheme(dark),
 ]
@@ -321,17 +349,19 @@ const measureLogicalLineHeight = (sourceView: EditorView, line: Line): number =>
 }
 
 // 视图切换定位：源码视图以“小数行号”为锚点，行号 0 起始，与 markdown-it token.map 一致。
-// 返回的是带小数的精确行（整数部分=视口顶部所在行，小数部分=切入该行的深度），
+// 返回的是带小数的精确行（整数部分=参考行所在行，小数部分=切入该行的深度），
 // 与 scrollToSourceLine 使用同一套像素↔行号换算，渲染↔源码往返才能落到同一位置、不再漂移。
-// 文档为空时返回 null。
-const getViewportSourceLine = (): number | null => {
+// offsetPx 是把参考线从视口顶部往下推的像素数（默认 0 即视口顶部；传半个视口高就是垂直中间），
+// 读取与写入必须传同一个值才互为逆运算。文档为空时返回 null。
+const getViewportSourceLine = (offsetPx = 0): number | null => {
   const sourceView = view.value
   if (!sourceView || sourceView.state.doc.length === 0) return null
   // viewport 是“可见区 + 上下各约 1000px 预渲染边距”的绘制范围；无折叠装饰时
-  // visibleRanges 与 viewport 相同，也都包含边距，不能直接当视口顶部用。
-  // 这里改用几何换算：滚动容器可见顶部相对文档顶部的距离，交给 lineBlockAtHeight
-  // 换算成真实可见首行；滚到底部留白时该方法会钳制到最后一行。
-  const visibleTop = sourceView.scrollDOM.getBoundingClientRect().top + 1 - sourceView.documentTop
+  // visibleRanges 与 viewport 相同，也都包含边距，不能直接当参考行用。
+  // 这里改用几何换算：滚动容器可见顶部（加 offsetPx）相对文档顶部的距离，
+  // 交给 lineBlockAtHeight 换算成真实可见行；滚到底部留白时该方法会钳制到最后一行。
+  const visibleTop =
+    sourceView.scrollDOM.getBoundingClientRect().top + 1 + offsetPx - sourceView.documentTop
   const block = sourceView.lineBlockAtHeight(Math.max(0, visibleTop))
   const line = sourceView.state.doc.lineAt(block.from)
   // CodeMirror 行号 1 起始，减 1 换算为 0 起始；再叠加上行内小数偏移。
@@ -341,10 +371,14 @@ const getViewportSourceLine = (): number | null => {
   return line.number - 1 + fraction
 }
 
-// 计算把视口顶部滚到指定小数行所需的滚动增量。
-// 目标行高度与当前视口顶部高度都在同一 documentTop 坐标系下，相减即得增量：
+// 计算把参考行（默认视口顶部，offsetPx 见 getViewportSourceLine）滚到指定小数行所需的滚动增量。
+// 目标行高度与当前参考线高度都在同一 documentTop 坐标系下，相减即得增量：
 // 正数向下滚、负数向上滚，与 getViewportSourceLine 的读取公式完全对称。
-const computeSourceScrollDelta = (sourceView: EditorView, line: number): number => {
+const computeSourceScrollDelta = (
+  sourceView: EditorView,
+  line: number,
+  offsetPx = 0,
+): number => {
   const document = sourceView.state.doc
   const clamped = Math.max(0, Math.min(line, document.lines - 1))
   const integer = Math.floor(clamped)
@@ -353,21 +387,24 @@ const computeSourceScrollDelta = (sourceView: EditorView, line: number): number 
   const lineHeight = measureLogicalLineHeight(sourceView, targetLine)
   const targetHeight = lineTop + (clamped - integer) * lineHeight
   const currentTop = sourceView.scrollDOM.getBoundingClientRect().top + 1 - sourceView.documentTop
-  return targetHeight - currentTop
+  // 减去 offsetPx：参考线在视口顶部下方时，目标行要停在更低的位置。
+  return targetHeight - currentTop - offsetPx
 }
 
-// 把指定行（0 起始，允许小数）滚动到视口顶部，不改动光标与选区。
+// 把指定行（0 起始，允许小数）滚动到参考线处，不改动光标与选区。
+// offsetPx 为参考线距视口顶部的像素数（默认 0 即视口顶部；半个视口高就是垂直中间），
+// 与 getViewportSourceLine 传同一个值才互为逆运算，往返切换才不会漂移。
 // 不再对小数行向下取整——取整正是往返切换每次向块顶漂移一行的根因。
-const scrollToSourceLine = (line: number): void => {
+const scrollToSourceLine = (line: number, offsetPx = 0): void => {
   const sourceView = view.value
   if (!sourceView) return
   // 第一次按当前测量结果立即滚动，消除切换瞬间的空白感。
-  sourceView.scrollDOM.scrollTop += computeSourceScrollDelta(sourceView, line)
+  sourceView.scrollDOM.scrollTop += computeSourceScrollDelta(sourceView, line, offsetPx)
   // 编辑器刚从 v-show 隐藏切回显示、或目标行原本在可视区之外时，CodeMirror 对
   // 离屏行仍按默认行高估算，首次滚动会落在过期的高度上。等本轮测量完成、目标行
   // 进入可视区拿到真实高度后，再精确校正一次（read 取值、write 写入，符合测量规范）。
   sourceView.requestMeasure({
-    read: (measuredView) => computeSourceScrollDelta(measuredView, line),
+    read: (measuredView) => computeSourceScrollDelta(measuredView, line, offsetPx),
     write: (delta, measuredView) => {
       measuredView.scrollDOM.scrollTop += delta
     },
@@ -381,6 +418,33 @@ const scrollToTop = (): void => {
   const sourceView = view.value
   if (!sourceView) return
   sourceView.scrollDOM.scrollTop = 0
+}
+
+/*
+ * 点击大纲条目：把光标移到该标题所在行，再把这一行滚到视口垂直中间。
+ * 只滚动不改光标时，大纲高亮仍停在旧位置，看起来就是「高亮的不是正在看的那条」。
+ * 落点必须与大纲高亮的参考线（视口垂直中间）一致：滚到顶部时，中央参考线会落到
+ * 下一节标题上，点第 5 章反而高亮第 6 章。下标直接用本视图的扫描结果换算，与左侧大纲同源。
+ */
+const scrollToHeading = (headingIndex: number): void => {
+  const sourceView = view.value
+  if (!sourceView) return
+
+  const text = sourceView.state.doc.toString()
+  if (text !== outlineCacheText) {
+    outlineCacheHeadings = scanOutlineHeadings(text)
+    outlineCacheText = text
+  }
+  const heading = outlineCacheHeadings[headingIndex]
+  if (!heading) return
+
+  // 行号可能超出文档行数（内容刚变化时的边界情况），越界就不动。
+  if (heading.line >= sourceView.state.doc.lines) return
+
+  const lineInfo = sourceView.state.doc.line(heading.line + 1)
+  sourceView.dispatch({ selection: { anchor: lineInfo.from } })
+  sourceView.focus()
+  scrollToSourceLine(heading.line, sourceView.scrollDOM.clientHeight / 2)
 }
 
 const getView = (): EditorView | null => view.value
@@ -425,6 +489,7 @@ defineExpose<SourceEditorHandle>({
   refreshActiveHeading,
   getViewportSourceLine,
   scrollToSourceLine,
+  scrollToHeading,
   scrollToTop,
   getView,
   updateSearch: (matches: { from: number; to: number }[], currentIndex: number) => {

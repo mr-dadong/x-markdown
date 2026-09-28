@@ -628,7 +628,9 @@ onUnmounted(() => {
 })
 
 const handleScrollToHeading = (headingIndex: number): void => {
-    editorRef.value?.scrollToHeading(headingIndex)
+    // 必须交给当前可见的编辑器：两个编辑器常驻内存，隐藏的那个滚动没有意义。
+    if (isSourceMode.value) sourceEditorRef.value?.scrollToHeading(headingIndex)
+    else editorRef.value?.scrollToHeading(headingIndex)
 }
 
 // 大纲高亮：哪个编辑器在用就由谁上报光标所在的标题下标（-1 表示在第一个标题之前）。

@@ -15,6 +15,7 @@ export interface HeadingItem {
 }
 
 // 收集文档顶层标题：位置、级别、标题文本。
+// 用于 AI 写作上下文——面包屑与章节范围都只以顶层标题划分章节。
 export const collectHeadings = (doc: ProseMirrorNode): HeadingItem[] => {
   const headings: HeadingItem[] = [];
   let pos = 0;
@@ -27,6 +28,29 @@ export const collectHeadings = (doc: ProseMirrorNode): HeadingItem[] => {
       });
     }
     pos += child.nodeSize;
+  });
+  return headings;
+};
+
+/**
+ * 收集文档里出现的全部标题（含嵌套在列表项等容器内的），按文档顺序。
+ *
+ * 左侧大纲是按 Markdown 源码逐行扫描出来的，列表项里缩进的 `# 标题` 同样会被它
+ * 算作一条大纲。若这里只数顶层标题，大纲下标与光标下标就会错位，表现为「高亮的
+ * 不是当前所在的那条大纲」。所以大纲相关的位置换算统一走这个函数。
+ */
+export const collectAllHeadings = (doc: ProseMirrorNode): HeadingItem[] => {
+  const headings: HeadingItem[] = [];
+  // descendants 给出的 pos 就是节点的起始位置，与 collectHeadings 的累加口径一致。
+  doc.descendants((node, pos) => {
+    if (node.type.name === "heading") {
+      headings.push({
+        pos,
+        level: node.attrs.level as number,
+        text: node.textContent,
+      });
+    }
+    return true;
   });
   return headings;
 };

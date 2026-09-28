@@ -133,6 +133,18 @@
     @apply w-screen h-screen overflow-hidden;
   }
 
+  /*
+   * Tailwind v4 的 preflight 删掉了 v3 里的 `button, [role="button"] { cursor: pointer }`，
+   * 按钮因此退回浏览器默认的箭头光标，鼠标移上去不再变小手。
+   * 全项目有一百多个按钮，逐个补 cursor-pointer 既啰嗦又容易漏，这里统一把 v3 的行为补回来。
+   * 禁用态不设小手；需要别的禁用样式时仍可用 disabled:cursor-not-allowed 覆盖
+   * （工具类所在层在 base 之后，优先级更高）。
+   */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   ::selection {
     background-color: var(--color-selection);
   }

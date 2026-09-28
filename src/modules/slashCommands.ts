@@ -186,6 +186,17 @@ export const slashCommands: SlashCommand[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run(),
   },
   {
+    id: "page-break",
+    group: "列表与内容",
+    label: "分页符",
+    description: "插入分页符，打印与导出 PDF 时从新的一页开始",
+    icon: "lucide:separator-horizontal",
+    iconClass: "bg-toolbar text-muted",
+    keywords: ["分页", "分页符", "换页", "pagebreak", "page-break", "fenye", "fenyefu", "fyf"],
+    // 分页符是原子块节点，插入后补一个空段落，光标才能继续往下写正文。
+    run: (editor, range) => insertMarkdownModule(editor, range, "pageBreak"),
+  },
+  {
     id: "table",
     group: "列表与内容",
     label: "表格",

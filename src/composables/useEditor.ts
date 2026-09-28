@@ -48,6 +48,7 @@ import { normalizeAiMarkdown } from "../utils/aiMarkdown";
 import { consumeAgentSync } from "../utils/documentAgent";
 import { hasMarkdownSyntax } from "../utils/markdownDetector";
 import { createAttachmentTransferTracker } from "../modules/attachmentTransferTracker";
+import { collectAllHeadings } from "../modules/writerContext";
 
 
 interface BlockPosition {
@@ -1454,14 +1455,30 @@ export const useMarkdownEditor = (
   );
 
   const scrollToHeading = (headingIndex: number): void => {
-    if (!editor.value) return;
+    const instance = editor.value;
+    if (!instance) return;
 
-    // 大纲和编辑器都按文档顺序读取标题，直接定位真实标题节点，避免依赖不存在的 data 属性。
-    const headingElements = editor.value.view.dom.querySelectorAll<HTMLElement>(
-      "h1, h2, h3, h4, h5, h6",
-    );
-    const targetHeading = headingElements.item(headingIndex);
-    targetHeading?.scrollIntoView({ block: "start" });
+    /*
+     * 大纲下标→标题位置必须与左侧大纲同源：大纲按源码逐行扫描，列表项里缩进的
+     * 标题也算一条，所以这里同样用 collectAllHeadings（含嵌套标题）。
+     * 光标必须一起移过去：只滚动不改光标时，大纲高亮仍停在旧位置，
+     * 看起来就是「高亮的不是我正在看的那条标题」。
+     */
+    const target = collectAllHeadings(instance.state.doc)[headingIndex];
+    if (!target) return;
+
+    instance.chain().focus().setTextSelection(target.pos + 1).run();
+    // 用文档位置取标题 DOM，而不是按 h1-h6 顺序数：HTML 块渲染出的标题标签
+    // 也会出现在 DOM 里，按标签顺序数会整体错位。
+    const headingDom = instance.view.nodeDOM(target.pos);
+    if (headingDom instanceof HTMLElement) {
+      /*
+       * 滚到视口中间，必须与大纲高亮的参考线（视口垂直中间，见 MarkdownEditor 的
+       * refreshActiveHeadingFromScroll）对齐：滚到顶部时，中央参考线会落到下一节标题上，
+       * 点第 5 章反而高亮第 6 章。
+       */
+      headingDom.scrollIntoView({ block: "center" });
+    }
   };
 
   // 生命周期

@@ -268,7 +268,7 @@ import {
 } from '../modules/imageFileActions'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
-import { buildWriterContext, collectHeadings, findActiveHeadingIndex } from '../modules/writerContext'
+import { buildWriterContext, collectAllHeadings, findActiveHeadingIndex } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
@@ -425,7 +425,8 @@ const bindSlashMenu = (el: unknown): void => {
 
 /*
  * 大纲高亮：把光标所在的标题下标上报给外层（-1 表示光标停在第一个标题之前）。
- * 标题顺序取自文档节点，与大纲面板扫描源码得到的顺序一致。
+ * 标题顺序必须与左侧大纲一致，因此用 collectAllHeadings（含嵌套标题），
+ * 只数顶层标题会在存在嵌套标题时整体错位。
  */
 const activeHeadingIndex = ref(-1)
 const refreshActiveHeading = (): void => {
@@ -435,7 +436,7 @@ const refreshActiveHeading = (): void => {
     return
   }
   activeHeadingIndex.value = findActiveHeadingIndex(
-    collectHeadings(instance.state.doc),
+    collectAllHeadings(instance.state.doc),
     instance.state.selection.from,
   )
 }
@@ -816,6 +817,8 @@ const handleEditorScroll = (): void => {
   handleAiWriterScroll()
   // 滚动时重新计算标题标签位置，让标签跟随标题移动。
   refreshHeadingBadge()
+  // 大纲高亮跟着视口顶部走，而不是只看光标（见 refreshActiveHeadingFromScroll）。
+  scheduleActiveHeadingFromScroll()
 }
 
 // 菜单使用 fixed 定位，需要按编辑区而非整个窗口限制上下边界，避免覆盖底部状态栏。
@@ -1175,6 +1178,50 @@ const getViewportAnchor = (): ViewportAnchor | null => {
 
 const getBlockCount = (): number => editor.value?.state.doc.childCount ?? 0
 
+/*
+ * 滚动时按「视口垂直中间那一行属于哪一节」更新大纲高亮。
+ *
+ * 参考线取中间而不是顶部：取顶部时，下一节标题已经出现在屏幕上三分之一处、
+ * 人已经在读它了，高亮却还停在上一节，明显滞后；取底部（标题一露头就切换）
+ * 又会点亮还没开始读的那一节，且在章节边界附近上下微调时来回闪。
+ * 中间线是这两者的折中，也最接近"我此刻在看哪儿"。
+ *
+ * 判定方式：取正文横向范围内、滚动容器垂直中间那一点，交给 ProseMirror 换算成
+ * 文档位置，再按位置找出当前标题。用坐标命中而不是逐个读顶层块的
+ * getBoundingClientRect，长文档滚动时不会逐帧遍历整篇文档。
+ */
+const refreshActiveHeadingFromScroll = (): void => {
+  const instance = editor.value
+  const scroller = getEditorScroller()
+  if (!instance || !scroller) return
+
+  const scrollerRect = scroller.getBoundingClientRect()
+  const contentRect = instance.view.dom.getBoundingClientRect()
+  // 编辑器隐藏时（源码模式下本视图不显示）读到的坐标全为 0，命中不到内容就跳过。
+  if (contentRect.width === 0) return
+
+  const resolved = instance.view.posAtCoords({
+    left: contentRect.left + contentRect.width / 2,
+    top: scrollerRect.top + scrollerRect.height / 2,
+  })
+  if (!resolved) return
+
+  activeHeadingIndex.value = findActiveHeadingIndex(
+    collectAllHeadings(instance.state.doc),
+    resolved.pos,
+  )
+}
+
+// 滚动是高频事件，用 rAF 合并成每帧一次，避免重复读取布局。
+let activeHeadingFrame = 0
+const scheduleActiveHeadingFromScroll = (): void => {
+  if (activeHeadingFrame !== 0) return
+  activeHeadingFrame = requestAnimationFrame(() => {
+    activeHeadingFrame = 0
+    refreshActiveHeadingFromScroll()
+  })
+}
+
 // 把视口顶部滚动到目标块的指定比例位置。
 // 用增量方式写 scrollTop：getBoundingClientRect 与 scrollTop 都在同一坐标系下，
 // 预览缩放（CSS zoom）时增量依然正确；比例由源码行范围换算而来，往返不漂移。
@@ -1493,6 +1540,18 @@ defineExpose<EditorHandle>({
 /* Tailwind 基础样式会清除列表标记，这里为编辑器内容恢复圆点和数字。 */
 .tiptap ul {
   list-style-type: disc;
+}
+
+/*
+ * 嵌套列表按层级换标记：二级空心点、三级方块，与 Typora 及各浏览器默认一致。
+ * 不写这几条时，上面那条 disc 会作用于所有层级，二级也显示实心点、看不出层级。
+ */
+.tiptap ul ul {
+  list-style-type: circle;
+}
+
+.tiptap ul ul ul {
+  list-style-type: square;
 }
 
 .tiptap ol {

@@ -26,4 +26,10 @@ describe("斜杠命令搜索排序", () => {
     assert.equal(commands[0]?.id, "ai-write");
     assert.equal(commands.some((command) => command.id === "code-block"), true);
   });
+
+  test("输入分页能搜到分页符命令", () => {
+    assert.equal(filterSlashCommands("分页")[0]?.id, "page-break");
+    // 顺带覆盖拼音首字母入口，避免关键词表退化后无人察觉。
+    assert.equal(filterSlashCommands("fyf")[0]?.id, "page-break");
+  });
 });
