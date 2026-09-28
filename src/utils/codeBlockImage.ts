@@ -204,8 +204,8 @@ export const codeBlockToPngSlices = async (
 ): Promise<Uint8Array[]> => {
     // 先整块挂载一次，量出整块宽度与平均行高，据此规划分片。
     const fullHost = mountCodeBlockSnapshot(codeBlockRoot, wrap);
-    let fullWidth = 0;
-    let linesPerSlice = 1;
+    let fullWidth: number;
+    let linesPerSlice: number;
     try {
         await waitForLayout();
         const mountedCode = fullHost.querySelector("pre code");

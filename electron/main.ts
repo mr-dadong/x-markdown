@@ -276,7 +276,10 @@ async function fetchUpdateManifest(url: string): Promise<UpdateManifest> {
   const requestUrl = new URL(url);
   // 清单地址固定不变，附加时间戳可绕过客户端与 CDN 的历史缓存，确保跨版本更新时拿到真正的最新版本。
   requestUrl.searchParams.set("timestamp", Date.now().toString());
-  const response = await net.fetch(requestUrl.toString());
+  // 清单托管在外部服务上，必须加超时，避免网络异常时更新检测一直挂起。
+  const response = await net.fetch(requestUrl.toString(), {
+    signal: AbortSignal.timeout(10000),
+  });
   if (!response.ok) throw new Error(`获取版本信息失败（${response.status}）`);
 
   const manifest: unknown = await response.json();
@@ -567,6 +570,8 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
     const response = await net.fetch(parsedUrl.toString(), {
       method: "HEAD",
       redirect: "follow",
+      // 探测安装包地址同样访问外部网络，加超时避免下载流程卡在这一步。
+      signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) throw new Error(`下载安装包失败（${response.status}）`);
     const contentType =
@@ -1923,7 +1928,9 @@ ipcMain.handle(
     // 系统剪贴板需要真实位图，不能只写入 Markdown 中的相对图片地址。
     let image;
     if (/^https?:/i.test(url)) {
-      const response = await net.fetch(url);
+      const response = await net.fetch(url, {
+        signal: AbortSignal.timeout(10000),
+      });
       if (!response.ok) throw new Error(`下载图片失败：${response.status}`);
       image = nativeImage.createFromBuffer(
         Buffer.from(await response.arrayBuffer()),

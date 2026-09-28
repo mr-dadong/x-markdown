@@ -88,12 +88,13 @@ const MEDIA_EXTENSION_CONTENT_TYPE: Record<string, string> = {
   bmp: "image/bmp",
 };
 
-// 外部图片（http(s) / blob）尝试用 fetch 拉取，CORS 或网络失败时返回 null。
+// 外部图片（http(s) / blob）尝试用 fetch 拉取，CORS、网络失败或超时都返回 null。
 const fetchImageBytes = async (
   src: string,
 ): Promise<{ mime: string; bytes: Uint8Array } | null> => {
   try {
-    const response = await fetch(src);
+    // 图片来自外部地址，必须加超时，否则某个慢站点会让整个导出流程一直挂起。
+    const response = await fetch(src, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) return null;
     const contentType = (response.headers.get("content-type") ?? "")
       .split(";")[0]

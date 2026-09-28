@@ -25,8 +25,6 @@ export const readPageBreakStyle = (source: string): string | null => {
   return PAGE_BREAK_DECLARATION_PATTERN.test(styleText) ? styleText.trim() : null;
 };
 
-export const isPageBreakHtml = (source: string): boolean => readPageBreakStyle(source) !== null;
-
 export interface PageBreakOptions {
   HTMLAttributes: Record<string, unknown>;
 }
@@ -59,7 +57,8 @@ export const PageBreak = Node.create<PageBreakOptions>({
    * 因此这里必须输出真正的分页元素，编辑区那条虚线由节点视图负责。
    */
   renderHTML({ HTMLAttributes }) {
-    const { source, style, ...attributes } = HTMLAttributes;
+    // source 只用于 Markdown 序列化，这里解构出来是为了不把它透传到 DOM 属性上。
+    const { source: _source, style, ...attributes } = HTMLAttributes;
     return [
       "div",
       mergeAttributes(this.options.HTMLAttributes, attributes, {

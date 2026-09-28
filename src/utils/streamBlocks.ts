@@ -18,8 +18,8 @@ export const splitStreamBlocks = (text: string): { done: string[]; tail: string 
             if (!inFence) {
                 if (current) {
                     done.push(current)
-                    current = ''
                 }
+                // 围栏行一定开启新块，直接覆盖 current 即可。
                 current = line
                 inFence = true
             } else {

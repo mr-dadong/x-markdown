@@ -9,7 +9,8 @@ concurrency = 16
 # 精确安装
 exact = true
 # 锁定文件
-lockfile = "bun.lockb"
+# bun 1.2 起使用文本格式的 bun.lock，仓库里跟踪的也是它。
+lockfile = "bun.lock"
 
 # 运行时配置
 [run]

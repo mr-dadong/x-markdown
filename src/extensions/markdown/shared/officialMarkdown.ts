@@ -27,9 +27,6 @@ export const stripTrailingNewlines = (value: string): string => value.replace(/\
 export const withSingleTrailingNewline = (value: string): string =>
   `${value.replace(/\n+$/u, "")}\n`;
 
-/** 取 src 的第一行，供 tokenizer 的 start 判断语法是否出现在当前位置。 */
-export const firstLineOf = (src: string): string => src.split("\n", 1)[0] ?? "";
-
 /**
  * 块级自定义 tokenizer 的 start 返回值：-1 表示「不需要打断段落」。
  *
