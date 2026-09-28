@@ -12,6 +12,8 @@ export interface ViewportAnchor {
 
 export interface EditorHandle {
   scrollToHeading: (headingIndex: number) => void;
+  /** 主动上报一次光标所在的标题下标，用于切换视图后刷新大纲高亮。 */
+  refreshActiveHeading: () => void;
   // 视图切换定位：渲染视图以“顶层块 + 块内偏移比例”为锚点。
   getViewportAnchor: () => ViewportAnchor | null;
   getBlockCount: () => number;
@@ -28,6 +30,8 @@ export interface EditorHandle {
 }
 
 export interface SourceEditorHandle {
+  /** 主动上报一次光标所在的标题下标，用于切换视图后刷新大纲高亮。 */
+  refreshActiveHeading: () => void;
   // 视图切换定位：源码视图以“小数行号”为锚点（0 起始，整数部分=视口顶部所在行，
   // 小数部分=切入该行的深度），与 scrollToSourceLine 共用同一套像素↔行号换算。
   getViewportSourceLine: () => number | null;

@@ -39,7 +39,7 @@ const PlainSuperscript = Superscript.extend({
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Color from "@tiptap/extension-color";
-import { TextStyle } from "@tiptap/extension-text-style";
+import { BackgroundColor, FontSize, TextStyle } from "@tiptap/extension-text-style";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { DEFAULT_CODE_BLOCK_LANGUAGE } from "../modules/codeBlockLanguages";
@@ -48,7 +48,8 @@ import { BlockMarquee } from "../extensions/BlockMarquee";
 import { Video, VideoLinkParser } from "../extensions/Video";
 import { Attachment, AttachmentLinkParser } from "../extensions/Attachment";
 import { AttachmentTransfer } from "../extensions/AttachmentTransfer";
-import { RawMarkdownBlock } from "../extensions/RawMarkdownBlock";
+import { RawMarkdownBlock, LinkReferenceDefinition } from "../extensions/RawMarkdownBlock";
+import { installHtmlEntityDecoding } from "./markdownEntityDecoding";
 import { AiGhostMark } from "../extensions/AiGhostMark";
 import { CodeOccurrenceHighlight } from "../extensions/CodeOccurrenceHighlight";
 import {
@@ -56,9 +57,11 @@ import {
   FootnoteDefinition,
   FootnoteReference,
   HtmlBlock,
+  HtmlTextTag,
   MathBlock,
   MathInline,
   MermaidBlock,
+  PageBreak,
   TableOfContents,
 } from "../extensions/markdown";
 import {
@@ -67,6 +70,7 @@ import {
 } from "./codeBlockExtension";
 import {
   ClickableBlockGap,
+  InlineImageParagraph,
   ReadableGapCursor,
   TrailingParagraph,
 } from "./documentStructureExtensions";
@@ -77,8 +81,13 @@ import {
 import { TableColumnAlignment } from "./tableColumnAlignmentExtension";
 import { MarkdownEscapeRelaxer } from "./markdownEscapeRelaxer";
 import { installLiteralInlineHtmlParsing } from "./markdownInlineHtmlLiteral";
+import {
+  InlineHtmlSourceForm,
+  installInlineHtmlSourceFormSerialization,
+} from "./inlineHtmlSourceForm";
 import { installMinimalTextEscaping } from "./markdownTextEscaping";
 import { LiteralHardBreak } from "./hardBreakSerialization";
+import { readStylePixels, readStyleZoom, stripStyleSizes } from "./imageStyle";
 import { mediaService } from "../services/mediaService";
 import { openImagePreview } from "../modules/imagePreviewOverlay";
 import {
@@ -151,6 +160,39 @@ const SerializableHighlight = Highlight.extend({
   },
 });
 
+/** textStyle 上承载的样式属性与对应的 CSS 属性名。 */
+const TEXT_STYLE_CSS_PROPERTIES: Array<[attribute: string, cssProperty: string]> = [
+  ["color", "color"],
+  ["backgroundColor", "background-color"],
+  ["fontFamily", "font-family"],
+  ["fontSize", "font-size"],
+];
+
+/** 把 textStyle 的样式属性拼成 CSS 声明串；没有任何样式时返回空串。 */
+const textStyleCssDeclarations = (attributes: Record<string, unknown> | undefined): string =>
+  TEXT_STYLE_CSS_PROPERTIES
+    .map(([attribute, cssProperty]) => {
+      const value = attributes?.[attribute];
+      return typeof value === "string" && value.length > 0 ? `${cssProperty}: ${value}` : "";
+    })
+    .filter((declaration) => declaration.length > 0)
+    .join("; ");
+
+/*
+ * textStyle 承载颜色、背景色、字体等样式，官方扩展却没有提供 renderMarkdown：
+ * 由工具条加上（而不是写在 HTML 里）的样式会在序列化时整段丢掉，只剩文字。
+ * 这里补上 `<span style="…">` 写法；HTML 写的 span 由
+ * inlineHtmlSourceForm.ts 记录的原标签负责写回。
+ */
+const SerializableTextStyle = TextStyle.extend({
+  renderMarkdown: (node, helpers) => {
+    const declarations = textStyleCssDeclarations(node.attrs);
+    const content = helpers.renderChildren(node);
+    // 没有任何样式时不产出空 <span>，避免把纯文字凭空包一层标签。
+    return declarations ? `<span style="${declarations}">${content}</span>` : content;
+  },
+});
+
 // markdown-it 会把“普通项目 + 任务项目”组成的整个列表识别为 taskList。
 // 默认扩展只允许 taskItem，会在普通项目的位置补出空任务；这里明确允许两种
 // 列表项共存，保证从 Typora 等编辑器打开混合列表后不会污染原文。
@@ -207,13 +249,19 @@ const SerializableTable = Table.extend({
 
     const rows: MarkdownTableCell[][] = (node.content ?? []).map((row, rowIndex) =>
       (row.content ?? []).map((cell, cellIndex) => {
-        // 单元格内容是段落，取段落的行内子节点交给官方渲染器，
+        // 单元格内容是一串段落，逐个把段落的行内子节点交给官方渲染器，
         // 保证单元格内的加粗、链接等标记与正文共用同一套规则。
-        const paragraph = cell.content?.[0];
-        const rendered = helpers.renderChildren(paragraph?.content ?? []);
+        // 必须渲染全部段落：合并单元格会把另一格的内容作为新段落并入本格，
+        // 只渲染第一段会静默丢掉后面的内容（存盘后文字直接消失）。
+        const paragraphs = (cell.content ?? []).map((paragraph) =>
+          helpers.renderChildren(paragraph.content ?? []),
+        );
+        // Markdown 表格的一格写不下换行，段与段之间用行内 <br> 表示。
+        // 并入空单元格时最后一段是空的，写成 <br> 只会在格尾留下无意义的换行。
+        while (paragraphs.length > 0 && paragraphs[paragraphs.length - 1] === "") paragraphs.pop();
         return {
           content: escapeTablePipes(
-            restoreTableBackticks(rendered),
+            restoreTableBackticks(paragraphs.join("<br>")),
             codePipeStyles?.[rowIndex]?.[cellIndex] === true,
           ),
           // 对齐存放在官方的 align 属性上，取值收敛到 Markdown 能表达的三种。
@@ -233,6 +281,10 @@ const SerializableTable = Table.extend({
 // `<img src="..." width="16" height="16">`（favicon、徽章等行内小图标尤其常见）。
 // 因此 width 与 height 都要被节点接收并原样写回，否则用户写下的尺寸会被静默丢弃、
 // 图片退化成自然尺寸（24×24 或 48×48 的图标放进正文会明显大于文字）。
+//
+// style 的处理与 Typora 一致：尺寸类声明（width/height/zoom）在编辑器里生效，
+// 其余声明只影响导出，但整段 style 原文必须原样写回，否则用户的样式会静默丢失。
+// 解析规则见 editor/imageStyle.ts。
 const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
   Image.extend({
     addAttributes() {
@@ -255,6 +307,15 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           parseHTML: parsePixelAttribute("height"),
           renderHTML: (attributes) =>
             attributes.height ? { height: String(attributes.height) } : {},
+        },
+        // style 原文：编辑器只让尺寸与 zoom 生效，但存盘必须逐字写回用户的 style。
+        styleSource: {
+          default: null,
+          parseHTML: (element) => {
+            const raw = element.getAttribute("style");
+            return raw && raw.trim() !== "" ? raw : null;
+          },
+          renderHTML: () => ({}),
         },
       };
     },
@@ -323,13 +384,36 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           openPreview();
         });
 
+        // 右键菜单由 MarkdownEditor 用 Vue 渲染（需要确认弹窗与文件操作），
+        // 这里只把事件连同图片地址抛出去，避免在节点视图里堆一套菜单 DOM。
+        wrapper.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          wrapper.dispatchEvent(
+            new CustomEvent("xmd-image-contextmenu", {
+              bubbles: true,
+              detail: {
+                src: String(currentNode.attrs.src ?? ""),
+                x: event.clientX,
+                y: event.clientY,
+              },
+            }),
+          );
+        });
+
         const renderImage = (src: string, alt: string | null, title: string | null): void => {
           image.alt = alt ?? "";
           image.title = title ?? "";
-          // 用户通过 HTML 属性指定的尺寸优先；未指定时清空内联样式，
-          // 交回全局图片样式（max-width:100%、height:auto）按自然比例显示。
-          image.style.width = currentNode.attrs.width ? `${currentNode.attrs.width}px` : "";
-          image.style.height = currentNode.attrs.height ? `${currentNode.attrs.height}px` : "";
+          // 用户通过 HTML 属性指定的尺寸优先；属性没写时退回 style 里的尺寸，
+          // 都没有就清空内联样式，交回全局图片样式（max-width:100%、height:auto）按自然比例显示。
+          const styleSource = (currentNode.attrs.styleSource as string | null) ?? null;
+          const width = (currentNode.attrs.width as number | null) ?? readStylePixels(styleSource, "width");
+          const height = (currentNode.attrs.height as number | null) ?? readStylePixels(styleSource, "height");
+          image.style.width = width ? `${width}px` : "";
+          image.style.height = height ? `${height}px` : "";
+          // zoom 同样来自 style，直接作用在 DOM 上，存盘仍写原始 style 文本。
+          const zoom = readStyleZoom(styleSource);
+          image.style.zoom = zoom ? `${zoom}%` : "";
           void mediaService
             .readImage(src, getCurrentDocumentPath?.() ?? null)
             .then((displayUrl) => {
@@ -373,6 +457,8 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
                 // 用户手动调整宽度后，原先按图标标注的固定高度不再成立，
                 // 一并清空，让图片按原图比例显示。
                 height: null,
+                // style 里的宽高同样会锁死比例，一起去掉（zoom 等其它声明保留）。
+                styleSource: stripStyleSizes(currentNode.attrs.styleSource as string | null),
               }),
             );
           };
@@ -419,9 +505,13 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         : "";
       const width = node.attrs?.width ? ` width="${node.attrs.width}"` : "";
       const height = node.attrs?.height ? ` height="${node.attrs.height}"` : "";
+      // style 原文逐字写回：编辑器只实现尺寸与 zoom，其余声明交给导出。
+      const style = node.attrs?.styleSource
+        ? ` style="${String(node.attrs.styleSource).replaceAll('"', "&quot;")}"`
+        : "";
 
-      if (width || height) {
-        return `<img src="${source}" alt="${alt}"${title}${width}${height}>`;
+      if (width || height || style) {
+        return `<img src="${source}" alt="${alt}"${title}${width}${height}${style}>`;
       }
       return `![${alt}](${source}${node.attrs?.title ? ` "${node.attrs.title}"` : ""})`;
     },
@@ -435,7 +525,7 @@ export const createEditorExtensions = (options: {
   const { getCurrentDocumentPath } = options;
 
   /*
-   * 这两个补丁覆盖官方 MarkdownManager 的原型方法，必须在任何 Editor 被构造之前安装。
+   * 这几个补丁覆盖官方 MarkdownManager 的原型方法，必须在任何 Editor 被构造之前安装。
    *
    * `contentType: "markdown"` 的初始内容是由 Markdown 扩展在它自己的 onBeforeCreate 里
    * 解析的（@tiptap/markdown 的 onBeforeCreate），而扩展钩子按扩展数组顺序注册，
@@ -448,6 +538,8 @@ export const createEditorExtensions = (options: {
    */
   installMinimalTextEscaping();
   installLiteralInlineHtmlParsing();
+  installInlineHtmlSourceFormSerialization();
+  installHtmlEntityDecoding();
 
   return [
     StarterKit.configure({
@@ -458,7 +550,9 @@ export const createEditorExtensions = (options: {
       underline: false, // v3 起 StarterKit 内置 Underline，改用下方显式注册的 Underline
       listKeymap: false, // v3 新增的列表快捷键会改变 Tab/Enter 语义，保持升级前行为
       trailingNode: false, // 末尾段落由 TrailingParagraph 统一负责，避免重复追加
+      paragraph: false, // 改用 InlineImageParagraph：独占一段的图片留在段落里
     }),
+    InlineImageParagraph,
     LiteralHardBreak,
     SafeInlineCode,
     InlineCodeOpeningBacktick,
@@ -475,8 +569,16 @@ export const createEditorExtensions = (options: {
     // 序列化输出前放宽惰性转义（Typora 风格：两侧皆空白的 \* 不再转义）
     MarkdownEscapeRelaxer,
     RawMarkdownBlock,
+    // 链接引用定义按原样保存，避免 baseline 对账失败与定义行丢失。
+    LinkReferenceDefinition,
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
     HtmlBlock.configure({ getCurrentDocumentPath: getCurrentDocumentPath ?? (() => null) }),
+    // 分页符：编辑区显示可见标记，导出/打印时输出真正的分页元素。
+    PageBreak,
+    // 行内 HTML 保留用户写法：预览照常渲染成粗体/下划线等，源码与存盘文件按原标签输出。
+    InlineHtmlSourceForm,
+    // kbd/var/samp 这类「文本语义标签」渲染成真正的 HTML 元素，而不是露出尖括号。
+    HtmlTextTag,
     MermaidBlock,
     MathBlock,
     MathInline,
@@ -527,7 +629,11 @@ export const createEditorExtensions = (options: {
         /^[a-z][a-z0-9+.-]*:/i.test(url) ? ctx.defaultValidate(url) : true,
     }),
     Color,
-    TextStyle,
+    SerializableTextStyle,
+    // 这两个全局属性让 <span style="font-size/background-…"> 这类写法真正生效，
+    // 与 Typora 的渲染一致（属性本身写回 Markdown 时仍按原标签保留）。
+    BackgroundColor,
+    FontSize,
     CompatibleTaskList,
     TaskItem.configure({
       nested: true,

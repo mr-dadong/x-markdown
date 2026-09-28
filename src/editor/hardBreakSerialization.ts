@@ -1,5 +1,6 @@
 import type { MarkdownToken } from "@tiptap/core";
 import HardBreak from "@tiptap/extension-hard-break";
+import { INLINE_HTML_OPEN_ATTRIBUTE } from "./inlineHtmlSourceForm";
 
 /** 行尾两空格硬换行的标记（仅存在于解析内存，不进入编辑器 DOM）。 */
 const SPACE_BREAK_ATTRIBUTE = "data-xmd-space-break";
@@ -62,6 +63,10 @@ export const LiteralHardBreak = HardBreak.extend({
   }),
 
   renderMarkdown: (node, helpers, ctx) => {
+    // 用户写的行内 `<br>` 按原样输出，不改写成反斜杠换行写法。
+    const htmlOpenTag = node.attrs?.[INLINE_HTML_OPEN_ATTRIBUTE];
+    if (typeof htmlOpenTag === "string" && htmlOpenTag.length > 0) return htmlOpenTag;
+
     const literal = node.attrs?.literal;
     /*
      * 列表项内的换行必须补上缩进，否则续行会被重新解析成新的块

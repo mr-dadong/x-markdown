@@ -1,9 +1,10 @@
 import { reactive, watch } from 'vue'
 import type { CodeBlockStyleId } from '../modules/codeBlockStyles'
+import type { PdfPageSize } from '../utils/pdfOptions'
 import { defaultShortcuts } from '../constants/shortcuts'
 import { isValidShortcut } from '../utils/shortcuts'
 
-export type SettingsSection = 'general' | 'typography' | 'theme' | 'shortcuts' | 'ai' | 'changelog' | 'about'
+export type SettingsSection = 'general' | 'typography' | 'theme' | 'export' | 'shortcuts' | 'ai' | 'changelog' | 'about'
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type EditorMode = 'preview' | 'source'
 export type AttachmentHandling = 'reference' | 'copy-to-assets'
@@ -27,6 +28,14 @@ interface AppSettings {
   bodyFont: EditorBodyFont
   lineWidth: EditorLineWidth
   previewZoom: PreviewZoomLevel
+  // 导出 PDF：纸张、页边距（英寸）、页眉页脚（支持 ${pageNo} 等占位符）、标题间分页。
+  pdfPageSize: PdfPageSize
+  pdfPageWidth: number
+  pdfPageHeight: number
+  pdfMargin: number
+  pdfHeaderText: string
+  pdfFooterText: string
+  pdfBreakBetweenH1: boolean
   shortcuts: Record<string, string>
 }
 
@@ -46,6 +55,14 @@ const defaultSettings: AppSettings = {
   bodyFont: 'system',
   lineWidth: 'full',
   previewZoom: 'standard',
+  pdfPageSize: 'A4',
+  // 8.27 × 11.69 英寸即 A4；页边距 0.5 英寸与旧版硬编码值一致。
+  pdfPageWidth: 8.27,
+  pdfPageHeight: 11.69,
+  pdfMargin: 0.5,
+  pdfHeaderText: '',
+  pdfFooterText: '',
+  pdfBreakBetweenH1: false,
   shortcuts: defaultShortcuts(),
 }
 

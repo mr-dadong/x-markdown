@@ -17,6 +17,11 @@ import { javascript } from '@codemirror/lang-javascript'
 import { tags } from '@lezer/highlight'
 import { useSettings, type EditorLineWidth } from '../composables/useSettings'
 import type { SourceEditorHandle } from '../types/editor'
+import {
+  findActiveHeadingByLine,
+  scanOutlineHeadings,
+  type OutlineHeading,
+} from '../utils/outlineHeadings'
 
 const props = defineProps<{
   content: string
@@ -25,6 +30,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:content': [content: string]
+  'active-heading': [headingIndex: number]
 }>()
 
 const { settings } = useSettings()
@@ -195,6 +201,27 @@ const codeLanguages = (info: string): Language | LanguageDescription | null => {
   return null
 }
 
+/*
+ * 大纲高亮：源码模式有精确的光标行号，按行匹配标题即可。
+ * 扫描结果按文本缓存，光标移动时不重复扫描整篇源码。
+ */
+let outlineCacheText = ''
+let outlineCacheHeadings: OutlineHeading[] = []
+const emitActiveHeadingFor = (target: EditorView): void => {
+  const text = target.state.doc.toString()
+  if (text !== outlineCacheText) {
+    outlineCacheHeadings = scanOutlineHeadings(text)
+    outlineCacheText = text
+  }
+  const line = target.state.doc.lineAt(target.state.selection.main.head).number - 1
+  emit('active-heading', findActiveHeadingByLine(outlineCacheHeadings, line))
+}
+
+/** 切换视图后主动上报一次，避免大纲高亮停留在另一个视图的光标位置。 */
+const refreshActiveHeading = (): void => {
+  if (view.value) emitActiveHeadingFor(view.value)
+}
+
 const buildExtensions = (dark: boolean): Extension[] => [
   lineNumbers(),
   highlightActiveLineGutter(),
@@ -221,6 +248,9 @@ const buildExtensions = (dark: boolean): Extension[] => [
     if (update.docChanged) {
       emit('update:content', update.state.doc.toString())
     }
+    if (update.docChanged || update.selectionSet) {
+      emitActiveHeadingFor(update.view)
+    }
   }),
   sourceTheme(dark),
 ]
@@ -244,6 +274,8 @@ onMounted(() => {
     })
     gutterObserver.observe(gutterElement)
   }
+  // 挂载时先报一次，避免刚切到源码模式时大纲还留着预览模式的高亮。
+  emitActiveHeadingFor(view.value)
 })
 
 onBeforeUnmount(() => {
@@ -390,6 +422,7 @@ const getCursorOffset = (): number | null => {
 }
 
 defineExpose<SourceEditorHandle>({
+  refreshActiveHeading,
   getViewportSourceLine,
   scrollToSourceLine,
   scrollToTop,

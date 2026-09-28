@@ -31,6 +31,20 @@ export const collectHeadings = (doc: ProseMirrorNode): HeadingItem[] => {
   return headings;
 };
 
+// 光标所在的标题下标：取光标处（含光标所在标题）之前的最后一个标题。
+// 光标位于第一个标题之前时返回 -1，表示没有“当前标题”可高亮。
+export const findActiveHeadingIndex = (
+  headings: readonly HeadingItem[],
+  pos: number,
+): number => {
+  let active = -1;
+  for (let index = 0; index < headings.length; index += 1) {
+    if (headings[index].pos > pos) break;
+    active = index;
+  }
+  return active;
+};
+
 // 面包屑由光标之前的标题构成：遇到更浅级别时替换掉更深的层级，
 // 例如 h1 > h3 > h2 的文档里光标在 h2 之后，面包屑为 [h1, h2]。
 export const buildBreadcrumb = (headings: HeadingItem[], pos: number): string[] => {

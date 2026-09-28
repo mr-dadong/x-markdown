@@ -103,6 +103,22 @@ export interface ExportHtmlData {
   suggestedName: string;
 }
 
+// 打印参数（尺寸单位英寸）：由渲染进程按设置算好，主进程只做校验后交给 printToPDF。
+export interface PdfPrintOptions {
+  pageSize: string | { width: number; height: number };
+  margins: { top: number; right: number; bottom: number; left: number };
+  displayHeaderFooter: boolean;
+  headerTemplate: string;
+  footerTemplate: string;
+}
+
+// 导出 PDF：除 HTML 外还要带上纸张、页边距与页眉页脚。
+export interface ExportPdfData {
+  html: string;
+  suggestedName: string;
+  printOptions: PdfPrintOptions;
+}
+
 // 导出为纯文本：渲染进程直接把文档原文交给主进程写 .txt 文件。
 export interface ExportTextData {
   text: string;
@@ -127,10 +143,12 @@ export interface ExportImageData {
   suggestedName: string;
 }
 
-// 保存 PNG 图片：渲染进程（html-to-image）已生成 PNG 二进制，主进程只负责弹保存框并落盘。
-export interface ExportPngData {
-  pngData: Uint8Array;
-  suggestedName: string;
+// 写入 PNG 文件：渲染进程先用 choosePngSavePath 拿到落盘路径，
+// 生成图片后再把每张图片的二进制交给主进程；
+// 多于一张时主进程按「原名-1.png、原名-2.png…」依次落盘。
+export interface WritePngFilesData {
+  filePath: string;
+  slices: Uint8Array[];
 }
 
 // 本地链接打开结果：markdown 表示链接指向 Markdown 文档，
@@ -144,6 +162,24 @@ export type OpenLocalLinkResult =
 export interface EditorFileStat {
   exists: boolean;
   size: number;
+}
+
+// 图片文件整理：重命名、移动到其它目录、删除磁盘文件。
+// 只对本地图片有效，远程地址与 data URL 会由主进程直接拒绝。
+export type EditorImageEditAction = "rename" | "move" | "delete-file";
+
+export interface EditorImageEditRequest {
+  /** 文档里写的图片地址（相对文档目录或绝对路径）。 */
+  url: string;
+  currentDocumentPath: string | null;
+  action: EditorImageEditAction;
+  /** 仅重命名需要：新的文件名，可以省略扩展名。 */
+  newName?: string;
+}
+
+// 整理完成后文档里应该使用的图片地址：删除磁盘文件时为 null（引用由渲染层自行移除）。
+export interface EditorImageEditResult {
+  url: string | null;
 }
 
 export interface ElectronAPI {
@@ -186,12 +222,15 @@ export interface ElectronAPI {
   clearRecentFiles: () => Promise<void>;
   removeAllListeners: (channel: IpcChannel) => void;
   exportHtml: (data: ExportHtmlData) => Promise<ExportResult>;
-  exportPdf: (data: ExportHtmlData) => Promise<ExportResult>;
+  exportPdf: (data: ExportPdfData) => Promise<ExportResult>;
   exportZip: (data: ExportZipData) => Promise<ExportResult>;
   exportText: (data: ExportTextData) => Promise<ExportResult>;
   exportDocx: (data: ExportDocxData) => Promise<ExportResult>;
   exportImage: (data: ExportImageData) => Promise<ExportResult>;
-  exportPng: (data: ExportPngData) => Promise<ExportResult>;
+  /** 代码块导出图片第一步：弹出保存对话框并返回用户选择的路径，取消时返回 null。 */
+  choosePngSavePath: (suggestedName: string) => Promise<string | null>;
+  /** 代码块导出图片第二步：把生成好的 PNG 分片写入已选定路径（多片时自动编号）。 */
+  writePngFiles: (data: WritePngFilesData) => Promise<void>;
   readDirectory: (dirPath: string) => Promise<DirectoryEntry[]>;
   createFileTreeEntry: (parentPath: string, name: string, isDirectory: boolean) => Promise<void>;
   renameFileTreeEntry: (entryPath: string, newName: string) => Promise<void>;
@@ -253,6 +292,9 @@ export interface ElectronAPI {
     url: string,
     currentDocumentPath: string | null,
   ) => Promise<EditorFileStat>;
+  editEditorImage: (
+    request: EditorImageEditRequest,
+  ) => Promise<EditorImageEditResult>;
   openLocalLink: (
     url: string,
     currentDocumentPath: string | null,

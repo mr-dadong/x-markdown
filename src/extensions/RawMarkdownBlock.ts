@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Extension, Node, mergeAttributes } from "@tiptap/core";
 import type { MarkdownToken } from "@tiptap/core";
 import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "./markdown/shared/officialMarkdown";
 
@@ -106,4 +106,29 @@ export const RawMarkdownBlock = Node.create({
     tokenize: (src: string, tokens: MarkdownToken[]) =>
       tokenizeRawMarkdown(src, tokens.length === 0),
   },
+});
+
+/**
+ * 链接引用定义（`[1]: https://example.com`）的保真处理。
+ *
+ * marked 会为这种行产出 `def` token，但官方没有为它注册任何处理器，于是定义行
+ * 既不进文档也不会被写回，带来两个后果：
+ * - 文档顶层节点数比源码块少一个，建立原文基准时会抛「Index out of range」，
+ *   基准建不起来，之后每次保存都退化成整篇重写；
+ * - 一旦重新序列化，`[1]: …` 定义行直接消失。
+ *
+ * 定义在文档里没有可编辑的对应语法，因此与 frontmatter、`:::` 扩展块同样处理：
+ * 原样存成 rawMarkdownBlock，只在源码模式编辑。
+ * 注意本处理器只保证定义行不丢；引用式链接本身仍会被解析成链接标记，
+ * 重写时输出行内形式 `[文字](地址)`。
+ */
+export const LinkReferenceDefinition = Extension.create({
+  name: "linkReferenceDefinition",
+
+  markdownTokenName: "def",
+
+  parseMarkdown: (token) => ({
+    type: "rawMarkdownBlock",
+    attrs: { raw: stripTrailingNewlines(String(token.raw ?? "")) },
+  }),
 });

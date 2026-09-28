@@ -135,6 +135,19 @@ export const serializeSingleBlock = (
     });
 
 /**
+ * 解析器为「连续空行」补出的空段落。
+ *
+ * 源码里空行只是块之间的分隔符，不构成块；Markdown 管理器为了让用户能点到那段
+ * 空白里继续输入，会给它补一个空段落节点。它没有对应的源码块，配对时必须跳过，
+ * 否则后面的源码块会整体错位一格：指纹配到错的节点上，增量保存会把内容重复一遍。
+ *
+ * 顶层真正的块永远有内容（空标题、空引用里的空段落都嵌套在容器内），
+ * 因此「顶层空段落」只可能是这种补出来的占位段落。
+ */
+const isEmptyPlaceholderParagraph = (node: ProseMirrorNode): boolean =>
+    node.type.name === "paragraph" && node.content.size === 0;
+
+/**
  * 以 `text` 为原文、`editor.state.doc` 为对应文档，捕获一份 baseline。
  * 必须在文本与文档一致的时刻调用（onCreate 用初始内容、watch 的 setContent 之后），
  * 否则指纹与源码切片会错位。
@@ -152,6 +165,7 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
     const doc = editor.state.doc;
     const segments: BaselineSegment[] = [];
     let previousCoreEnd = 0;
+    let childIndex = 0;
     for (let index = 0; index < ranges.length; index += 1) {
         const start = lineStart(ranges[index].startLine);
         const rawEnd = lineStart(ranges[index].endLine);
@@ -159,12 +173,25 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
         // 把结尾换行剥出核心内容，交由下一块的 gap（或末块 trailing）承载，
         // 这样替换某块时不会因为源码尾部换行与 gap 叠加而错乱分隔。
         const core = text.slice(start, rawEnd).replace(/\n+$/, "");
+
+        while (childIndex < doc.childCount && isEmptyPlaceholderParagraph(doc.child(childIndex))) {
+            childIndex += 1;
+        }
+        if (childIndex >= doc.childCount) {
+            // 源码块在文档里没有对应节点，说明解析器把它丢掉了（不是空段落那种占位，
+            // 也不能靠猜默认值兜底）：直接报错，避免发出内容缺失或重复的源码。
+            throw new Error(
+                `无法建立原文基准：源码第 ${ranges[index].startLine + 1} 行起的块在文档里没有对应节点`,
+            );
+        }
+
         segments.push({
             gap: text.slice(previousCoreEnd, start),
             source: core,
-            fingerprint: fingerprint(doc.child(index)),
+            fingerprint: fingerprint(doc.child(childIndex)),
         });
         previousCoreEnd = start + core.length;
+        childIndex += 1;
     }
 
     return { text, segments, trailing: text.slice(previousCoreEnd) };

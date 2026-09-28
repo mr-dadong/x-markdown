@@ -1,5 +1,7 @@
 import type {
   AttachmentCopyProgress,
+  EditorImageEditRequest,
+  EditorImageEditResult,
   ImportEditorFileOptions,
   SelectEditorFileOptions,
 } from "../types/electron";
@@ -68,6 +70,10 @@ export const mediaService = {
     window.electronAPI.openEditorFile(url, currentDocumentPath),
   fileStat: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.editorFileStat(url, currentDocumentPath),
+  editImage: (
+    request: EditorImageEditRequest,
+  ): Promise<EditorImageEditResult> =>
+    window.electronAPI.editEditorImage(request),
   openLocalLink: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.openLocalLink(url, currentDocumentPath),
 };

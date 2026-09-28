@@ -3,11 +3,13 @@ import type {
   ApplicationMenuPosition,
   AttachmentCopyProgress,
   EditorFileStat,
+  EditorImageEditRequest,
+  EditorImageEditResult,
   ElectronAPI,
   ExportDocxData,
   ExportHtmlData,
+  ExportPdfData,
   ExportImageData,
-  ExportPngData,
   ExportTextData,
   ExportZipData,
   ImportEditorFileOptions,
@@ -19,6 +21,7 @@ import type {
   SaveFileData,
   SaveFileResult,
   SelectEditorFileOptions,
+  WritePngFilesData,
 } from '../src/types/electron'
 import type { UpdateDownloadProgress } from '../src/types/update'
 import type {
@@ -355,6 +358,9 @@ const electronAPI: ElectronAPI = {
   editorFileStat: (url: string, currentDocumentPath: string | null): Promise<EditorFileStat> =>
     ipcRenderer.invoke(IPC_CHANNELS.editorFileStat, { url, currentDocumentPath }),
 
+  editEditorImage: (request: EditorImageEditRequest): Promise<EditorImageEditResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.editEditorImage, request),
+
   openLocalLink: (url: string, currentDocumentPath: string | null): Promise<OpenLocalLinkResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.openLocalLink, { url, currentDocumentPath }),
 
@@ -362,7 +368,7 @@ const electronAPI: ElectronAPI = {
 
   exportHtml: (data: ExportHtmlData) => ipcRenderer.invoke(IPC_CHANNELS.exportHtml, data),
 
-  exportPdf: (data: ExportHtmlData) => ipcRenderer.invoke(IPC_CHANNELS.exportPdf, data),
+  exportPdf: (data: ExportPdfData) => ipcRenderer.invoke(IPC_CHANNELS.exportPdf, data),
 
   exportZip: (data: ExportZipData) => ipcRenderer.invoke(IPC_CHANNELS.exportZip, data),
 
@@ -372,7 +378,11 @@ const electronAPI: ElectronAPI = {
 
   exportImage: (data: ExportImageData) => ipcRenderer.invoke(IPC_CHANNELS.exportImage, data),
 
-  exportPng: (data: ExportPngData) => ipcRenderer.invoke(IPC_CHANNELS.exportPng, data),
+  choosePngSavePath: (suggestedName: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.choosePngSavePath, suggestedName),
+
+  writePngFiles: (data: WritePngFilesData): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.writePngFiles, data),
 
   openExternalLink: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.openExternalLink, url),
 

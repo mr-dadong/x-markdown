@@ -38,7 +38,9 @@ export const IPC_CHANNELS = {
   exportText: "export-text",
   exportDocx: "export-docx",
   exportImage: "export-image",
-  exportPng: "export-png",
+  // 代码块导出 PNG 拆成两步：先选路径，再写入生成好的二进制（可分多片）。
+  choosePngSavePath: "choose-png-save-path",
+  writePngFiles: "write-png-files",
   readDirectory: "read-directory",
   createFileTreeEntry: "create-file-tree-entry",
   renameFileTreeEntry: "rename-file-tree-entry",
@@ -67,6 +69,7 @@ export const IPC_CHANNELS = {
   resolveEditorVideo: "resolve-editor-video",
   openEditorFile: "open-editor-file",
   editorFileStat: "editor-file-stat",
+  editEditorImage: "edit-editor-image",
   openLocalLink: "open-local-link",
   checkForUpdates: "check-for-updates",
   openExternalLink: "open-external-link",

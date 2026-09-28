@@ -4,6 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
 import { stripTrailingNewlines } from "../shared/officialMarkdown";
+import { readPageBreakStyle } from "./PageBreak";
 
 // 独占一行的单个 img 属于图片内容，不需要套用通用 HTML iframe 预览。
 const isStandaloneImageHtml = (source: string): boolean =>
@@ -219,6 +220,14 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
     if (isStandaloneImageHtml(source)) {
       const image = imageNodeFromHtml(source);
       if (image) return image;
+    }
+    // 分页符走专用节点：编辑区显示可见的虚线标记，导出时输出真正的分页元素。
+    const pageBreakStyle = readPageBreakStyle(source);
+    if (pageBreakStyle) {
+      return {
+        type: "pageBreak",
+        attrs: { source: stripTrailingNewlines(source), style: pageBreakStyle },
+      } as unknown as MarkdownToken;
     }
     // 普通 HTML 不进隔离块，直接落成可编辑的段落文本。
     if (!needsIsolatedHtmlPreview(source)) {

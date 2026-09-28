@@ -79,6 +79,10 @@ describe("未编辑文档逐字节保真", () => {
         ["以代码块结尾", "# 标题\n\n```js\nconst a = 1;\n```"],
         ["以表格结尾", "前言。\n\n| a | b |\n| - | - |\n| 1 | 2 |"],
         ["EOF 换行保留", "# 标题\n\n正文。\n"],
+        ["多空行段落", "a\n\n\n\nb"],
+        ["开头空行", "\n\n\n# 标题\n\n正文。"],
+        ["链接引用定义", "[文字][1]\n\n[1]: https://example.com"],
+        ["连续链接定义", "[1]: https://a.com\n[2]: https://b.com\n\n正文。"],
         ["空文档", ""],
         ["仅空行", "\n\n   \n"],
     ];
@@ -170,6 +174,61 @@ describe("末尾块与 TrailingParagraph 对账", () => {
         const edited = "# 新标题\n\n```js\nconst a = 1;\n```\n";
         const output = mergeAfterEdit(baseline, edited);
         assert.equal(output, "# 新标题\n\n```js\nconst a = 1;\n```\n");
+    });
+});
+
+describe("解析器补出的空段落不影响对账", () => {
+    /*
+     * 连续空行会被解析器补成空段落节点（让用户能点进那段空白输入），
+     * 它没有对应的源码块。若按序号硬配对，后面的块会整体错位一格、指纹配到错的节点上，
+     * 增量保存就会把内容重复一遍（`a\n\n\n\nb` 编辑后曾输出 `ax\n\nb\n\nb`）。
+     */
+    test("两段之间 3 个空行：编辑其中一段不重复内容", () => {
+        const source = "a\n\n\n\nb";
+        const output = withEditor(source, (editor) => {
+            const baseline = captureBaseline(editor, source);
+            editor.view.dispatch(editor.state.tr.insertText("x", 2));
+            return serializePreservingSource(editor, baseline);
+        });
+        assert.equal(output, "ax\n\nb");
+    });
+
+    test("空行段落夹在多个块之间时，只有被编辑的块重写", () => {
+        const source = "# 标题\n\n\n\n_下划线_ 段落\n\n\n\n- 甲\n* 乙";
+        const output = withEditor(source, (editor) => {
+            const baseline = captureBaseline(editor, source);
+            const headingEnd = 1 + editor.state.doc.child(0).content.size;
+            editor.view.dispatch(editor.state.tr.insertText("X", headingEnd));
+            return serializePreservingSource(editor, baseline);
+        });
+        /*
+         * 未编辑的块逐字节保留：下划线强调不变星号、相邻列表不被拆开、
+         * 两个保留块之间的连续空行照原文还原。
+         * 被编辑块后面那组空行收敛成一个空行，是改动边界的既有写法
+         * （serializePreservingSource 只对「两侧都是保留块」的边界还原原文空白）。
+         */
+        assert.equal(output, "# 标题X\n\n_下划线_ 段落\n\n\n\n- 甲\n* 乙");
+    });
+});
+
+describe("链接引用定义", () => {
+    const source = "[文字][1]\n\n[1]: https://example.com";
+
+    /*
+     * marked 会产出 def token，官方没有处理器：定义行既不进文档也不被写回，
+     * 于是文档顶层节点比源码块少一个，建立基准时直接抛错，重写后定义行消失。
+     * 现在定义行按「不理解的块」原样保存，只在源码模式编辑。
+     */
+    test("编辑引用它的段落：定义行原样保留", () => {
+        const output = mergeAfterEdit(source, "[新文字][1]\n\n[1]: https://example.com");
+        assert.equal(output, "[新文字](https://example.com)\n\n[1]: https://example.com");
+    });
+
+    test("全文重写也不会丢掉定义行", () => {
+        assert.ok(
+            fullReserialize(source).includes("[1]: https://example.com"),
+            `定义行必须保留，实际输出：${fullReserialize(source)}`,
+        );
     });
 });
 

@@ -1,7 +1,44 @@
-import { Extension } from "@tiptap/core";
+import { Extension, type JSONContent, type MarkdownParseHelpers } from "@tiptap/core";
+// 官方段落扩展：项目要改它的 Markdown 解析（见下方 InlineImageParagraph）。
+// 与 @tiptap/core、@tiptap/pm 一样，属于 StarterKit 带来的同级包，仓库未单独声明版本。
+import { Paragraph } from "@tiptap/extension-paragraph";
 import { GapCursor } from "@tiptap/pm/gapcursor";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { FIND_REPLACE_EDIT_META } from "../constants";
+
+/*
+ * 段落解析：独占一段的图片必须留在段落里。
+ *
+ * 官方 @tiptap/extension-paragraph 的 parseMarkdown 有一条规则：段落里只有一个图片
+ * token 时，交给 parseChildren 在块级重新解析，把图片提升成顶层节点。这假设图片是
+ * 块级节点（官方 Image 的默认值）。
+ *
+ * 但项目的图片是行内节点（`inline: true`）：链接里的行内小图标、正文中的徽章都必须能
+ * 放进段落。提升之后 doc 里出现行内节点，属于非法结构 —— doc 的内容表达式不允许它，
+ * 于是针对该节点的所有结构修改都会被静默丢弃：表现是独占一段的图片拖动改不了宽度、
+ * 也无法重命名或移动（modules/imageFileActions.ts 依赖 setNodeMarkup）。
+ *
+ * 这里只去掉那条提升规则，其余分支继续走官方实现；HTML 写的独占 `<img>` 向来就是
+ * 包在段落里的（见 extensions/markdown/html/HtmlBlock.ts），两种写法因此保持一致。
+ */
+export const InlineImageParagraph = Paragraph.extend({
+  parseMarkdown(token: unknown, helpers: MarkdownParseHelpers): JSONContent {
+    const tokens = (token as { tokens?: { type: string }[] }).tokens ?? [];
+    if (tokens.length === 1 && tokens[0].type === "image") {
+      return helpers.createNode("paragraph", undefined, helpers.parseInline(tokens));
+    }
+
+    // this.parent 由 TipTap 在解析字段时注入，但未出现在 parseMarkdown 的公开类型里。
+    const parentParse = (
+      this as unknown as {
+        parent?: (token: unknown, helpers: MarkdownParseHelpers) => JSONContent | undefined;
+      }
+    ).parent?.(token, helpers);
+    // 官方实现不可用时直接报错，避免段落解析静默退化成空段落。
+    if (!parentParse) throw new Error("官方 Paragraph 的 parseMarkdown 不可用");
+    return parentParse;
+  },
+});
 
 type TemporaryParagraphMeta =
   | { add: number }

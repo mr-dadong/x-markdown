@@ -97,6 +97,47 @@ describe("纯文本与 ZIP 导出", () => {
   });
 });
 
+describe("分页符与打印样式", () => {
+  const pageBreakMarkdown = [
+    "# 第一章",
+    "",
+    "正文一。",
+    "",
+    '<div style="page-break-after: always"></div>',
+    "",
+    "# 第二章",
+    "",
+    "正文二。",
+  ].join("\n");
+
+  test("分页符在导出结果里是真正的分页元素，不带编辑区的标记文字", async () => {
+    const html = await buildExportHtml(pageBreakMarkdown, null, "分页符导出");
+    const exportedDocument = new DOMParser().parseFromString(html, "text/html");
+    const placeholder = exportedDocument.querySelector("[data-xmd-page-break]");
+
+    assert.ok(placeholder, "导出 HTML 里必须保留分页元素");
+    // happy-dom 会规范化 style 属性（补分号），这里只校验分页声明本身。
+    assert.match(placeholder.getAttribute("style") ?? "", /page-break-after:\s*always/u);
+    // 编辑区那条“分页符”虚线是节点视图专属的，不能进入导出正文。
+    assert.ok(
+      !exportedDocument.body.textContent?.includes("分页符"),
+      "编辑区的分页符标签不应进入导出正文",
+    );
+  });
+
+  test("一级标题前分页的打印样式按需注入", async () => {
+    const withoutBreaks = await buildExportHtml(pageBreakMarkdown, null, "不分页");
+    const withBreaks = await buildExportHtml(pageBreakMarkdown, null, "分页", undefined, {
+      breakBetweenH1: true,
+    });
+
+    assert.ok(!withoutBreaks.includes("break-before: page"));
+    assert.ok(withBreaks.includes("break-before: page"));
+    // 首个标题之前不能分页，否则文档开头会多出空白页。
+    assert.ok(withBreaks.includes("h1:first-of-type"));
+  });
+});
+
 describe("HTML 与 DOCX 导出", () => {
   const markdown = [
     "# 导出标题",
@@ -170,8 +211,7 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(pre?.querySelector(".hljs-comment"));
   });
 
-  test("DOCX 导出生成合法包结构、正文、链接和安全 XML", async () => {
-    const data = await buildExportDocx(markdown, null, "导出测试");
+  test("DOCX 导出生成合法包结构、正文、链接和安全 XML", async () => {    const data = await buildExportDocx(markdown, null, "导出测试");
     const zip = await JSZip.loadAsync(data);
     const requiredFiles = [
       "[Content_Types].xml",

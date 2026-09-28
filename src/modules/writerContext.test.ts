@@ -10,12 +10,14 @@ let createEditorExtensions: typeof import("../editor/editorExtensions").createEd
 let buildWriterContext: typeof import("./writerContext").buildWriterContext;
 let buildBreadcrumb: typeof import("./writerContext").buildBreadcrumb;
 let findSectionRange: typeof import("./writerContext").findSectionRange;
+let findActiveHeadingIndex: typeof import("./writerContext").findActiveHeadingIndex;
 
 before(async () => {
   browserWindow = installDomEnvironment();
   ({ Editor: EditorConstructor } = await import("@tiptap/vue-3"));
   ({ createEditorExtensions } = await import("../editor/editorExtensions"));
-  ({ buildWriterContext, buildBreadcrumb, findSectionRange } = await import("./writerContext"));
+  ({ buildWriterContext, buildBreadcrumb, findSectionRange, findActiveHeadingIndex } =
+    await import("./writerContext"));
 });
 
 after(async () => {
@@ -73,6 +75,19 @@ describe("标题面包屑与章节范围（纯函数）", () => {
   test("光标前无标题时章节从文档开头到第一个标题", () => {
     // pos=0 位于第一个标题起点之前
     assert.deepEqual(findSectionRange(headings, 0, 100), { from: 0, to: 20 });
+  });
+
+  test("光标所在标题的下标用于大纲高亮", () => {
+    assert.equal(findActiveHeadingIndex(headings, 0), 0, "光标在第一个标题的起点上");
+    assert.equal(findActiveHeadingIndex(headings, 5), 0, "第一个标题内部");
+    assert.equal(findActiveHeadingIndex(headings, 30), 1, "第二个标题之后到第三个标题之前");
+    assert.equal(findActiveHeadingIndex(headings, 100), 3, "最后一个标题之后仍是最后一个标题");
+    // 文档开头有正文时，光标停在第一个标题之前就没有可高亮的标题
+    const shifted = [
+      { pos: 10, level: 1, text: "开头有正文" },
+      { pos: 30, level: 1, text: "第二章" },
+    ];
+    assert.equal(findActiveHeadingIndex(shifted, 5), -1, "第一个标题之前没有当前标题");
   });
 });
 

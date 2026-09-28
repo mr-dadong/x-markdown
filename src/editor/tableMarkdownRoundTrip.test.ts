@@ -150,3 +150,43 @@ describe("表格 Markdown 往返", () => {
     assert.deepEqual(rows, [["列1", "列2"], ["a|b", "c"]]);
   });
 });
+
+describe("合并单元格后的落盘内容", () => {
+  /** 选中表格正文行的两个单元格并执行合并（与工具栏「合并/拆分」按钮同一条命令）。 */
+  const mergeBodyCells = (editor: Editor): void => {
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "tableCell") positions.push(position);
+      return true;
+    });
+    editor.commands.setCellSelection({ anchorCell: positions[0], headCell: positions[1] });
+    editor.chain().focus().mergeOrSplit().run();
+  };
+
+  /*
+   * 合并单元格在 Markdown 里只表达为「一格」，被并入的内容会作为新段落进入本格。
+   * 早期实现只渲染单元格的第一个段落，于是合并后存盘会静默丢掉并入的那部分文字。
+   */
+  test("两格文本都写进同一格，不再丢内容", async () => {
+    const source = "| 甲 | 乙 |\n| --- | --- |\n| a1 | b1 |\n";
+    const markdown = await withEditor(source, true, (editor) => {
+      mergeBodyCells(editor);
+      return editor.getMarkdown();
+    });
+
+    assert.ok(markdown.includes("a1<br>b1"), `并入的内容必须保留，实际输出：${markdown}`);
+    const rows = await withEditor(markdown, true, (editor) => readTable(editor).rows);
+    assert.equal(rows[1]?.[0], "a1b1");
+  });
+
+  test("并入空单元格时，格尾不会留下多余的 <br>", async () => {
+    const source = "| 甲 | 乙 |\n| --- | --- |\n| a1 |  |\n";
+    const markdown = await withEditor(source, true, (editor) => {
+      mergeBodyCells(editor);
+      return editor.getMarkdown();
+    });
+
+    assert.ok(markdown.includes("a1"), `实际输出：${markdown}`);
+    assert.ok(!markdown.includes("<br>"), `空段落不应写成 <br>，实际输出：${markdown}`);
+  });
+});

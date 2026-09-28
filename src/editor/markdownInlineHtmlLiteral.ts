@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { MarkdownManager } from "@tiptap/markdown";
+import { runWithInlineHtmlSourceForm } from "./inlineHtmlSourceForm";
 
 /**
  * 行内 HTML 的保真解析：标签要么变成真正的节点/标记，要么原样保留为字面文本。
@@ -70,13 +71,20 @@ export const installLiteralInlineHtmlParsing = (): void => {
     this: MarkdownManagerInternals,
     token: { block?: boolean; raw?: string; text?: string },
   ): unknown {
-    const result = originalParseHTMLToken.call(this, token);
-
     const html = String(token.raw ?? token.text ?? "");
 
     // 只接管行内 HTML：块级 HTML 由 HtmlBlock 扩展负责，且必须以 `<` 开头，
     // 避免把纯空白等无内容 token 也收成节点。
-    if (token.block || !html.startsWith("<")) return result;
+    const isInlineHtml = !token.block && html.startsWith("<");
+
+    /*
+     * 行内 HTML 交给官方解析时打开「记录源码形态」开关：schema 认领出来的标记与节点
+     * 会记住用户写的那个标签，序列化时按原样输出（见 inlineHtmlSourceForm.ts）。
+     */
+    const parseToken = (): unknown => originalParseHTMLToken.call(this, token);
+    const result = isInlineHtml ? runWithInlineHtmlSourceForm(parseToken) : parseToken();
+
+    if (!isInlineHtml) return result;
 
     // 出口 1：官方准备丢弃这个 token。
     if (result === null || result === undefined) return this.htmlAsLiteralText(html, false);

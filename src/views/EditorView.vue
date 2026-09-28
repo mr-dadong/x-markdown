@@ -5,6 +5,7 @@
 
         <div class="flex flex-1 overflow-hidden">
             <Sidebar v-if="isSidebarVisible" :current-file-path="currentFilePath" :content="currentContent"
+                :active-heading-index="activeHeadingIndex"
                 @open-file="handleOpenFileFromSidebar" @scroll-to="handleScrollToHeading" />
             <!-- min-w-0 允许编辑区在 flex 布局中正确收缩，避免右侧残留空白。 -->
             <main class="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-paper">
@@ -20,10 +21,12 @@
                 <MarkdownEditor v-if="isDocumentOpen" ref="editorRef" :initial-content="currentContent"
                     :current-file-path="currentFilePath" :active="!isSourceMode" v-show="!isSourceMode"
                     :modal-open="isSettingsOpen || isUpdateModalOpen || isExporting" @update:content="handleContentUpdate"
+                    @active-heading="handlePreviewActiveHeading"
                     @open-ai-panel="isAiChatOpen = true" @open-settings="openAiSettings"
                     @add-to-selection="handleAddToSelection" @open-local-markdown="handleOpenFileFromSidebar" />
                 <MarkdownSourceEditor v-if="isDocumentOpen" v-show="isSourceMode" ref="sourceEditorRef"
-                    :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate" />
+                    :content="currentContent" :is-dark-theme="isDarkTheme" @update:content="handleContentUpdate"
+                    @active-heading="handleSourceActiveHeading" />
                 <div v-if="!isDocumentOpen"
                     class="editor-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-8 select-none"
                     @dragover.prevent="handleWelcomeDragOver" @drop.prevent="handleWelcomeDrop">
@@ -128,6 +131,7 @@ import SettingsModal from '../components/SettingsModal.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import { useDocument } from '../composables/useDocument'
 import { buildExportDocx, buildExportHtml, buildExportText, buildExportZip } from '../composables/useExport'
+import { resolvePdfPrintOptions } from '../utils/pdfOptions'
 import type { ExportProgressReporter } from '../composables/useExport'
 import { useFindReplace } from '../composables/useFindReplace'
 import { useRecentFiles } from '../composables/useRecentFiles'
@@ -425,6 +429,9 @@ const toggleSourceMode = async (): Promise<void> => {
 
     // 等待目标视图完成显示和布局后，再恢复切换前的阅读位置。
     await nextTick()
+    // 切换后先让新视图上报光标所在的标题，大纲高亮才不会停留在另一个视图的位置。
+    if (isSourceMode.value) sourceEditorRef.value?.refreshActiveHeading()
+    else editorRef.value?.refreshActiveHeading()
     if (blockRanges.length === 0) return
     if (isSourceMode.value) {
         if (renderedAnchor === null) return
@@ -624,6 +631,16 @@ const handleScrollToHeading = (headingIndex: number): void => {
     editorRef.value?.scrollToHeading(headingIndex)
 }
 
+// 大纲高亮：哪个编辑器在用就由谁上报光标所在的标题下标（-1 表示在第一个标题之前）。
+// 两个编辑器都常驻内存（切模式只是隐藏），因此只接受当前模式的上报。
+const activeHeadingIndex = ref(-1)
+const handlePreviewActiveHeading = (headingIndex: number): void => {
+    if (!isSourceMode.value) activeHeadingIndex.value = headingIndex
+}
+const handleSourceActiveHeading = (headingIndex: number): void => {
+    if (isSourceMode.value) activeHeadingIndex.value = headingIndex
+}
+
 // 从文档路径提取不带扩展名的文件名，用于导出保存对话框的默认文件名。
 const getSuggestedName = (): string => {
     const filePath = currentFilePath.value
@@ -670,17 +687,20 @@ const handleExport = async (type: ExportType): Promise<void> => {
             exportProgressMessage.value = '请选择保存位置并完成导出'
             result = await exportService.exportDocx(docxData, suggestedName)
         } else {
+            const printOptions = resolvePdfPrintOptions(settings)
             const html = await buildExportHtml(
                 currentContent.value,
                 currentFilePath.value,
                 suggestedName,
                 reportBuildProgress,
+                // 一级标题前分页只在 PDF 里生效，HTML/图片导出保持连续排版。
+                { breakBetweenH1: type === 'pdf' && settings.pdfBreakBetweenH1 },
             )
             exportProgressPercent.value = 80
             exportProgressMessage.value = '请选择保存位置并完成导出'
             if (type === 'html') result = await exportService.exportHtml(html, suggestedName)
             else if (type === 'image') result = await exportService.exportImage(html, suggestedName)
-            else result = await exportService.exportPdf(html, suggestedName)
+            else result = await exportService.exportPdf(html, suggestedName, printOptions)
         }
 
         if (!result.canceled) {

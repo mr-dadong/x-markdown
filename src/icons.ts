@@ -5,7 +5,6 @@ import circleIcon from '@iconify-icons/lucide/circle'
 import chevronDownIcon from '@iconify-icons/lucide/chevron-down'
 import chevronRightIcon from '@iconify-icons/lucide/chevron-right'
 import code2Icon from '@iconify-icons/lucide/code-2'
-import fileCode2Icon from '@iconify-icons/lucide/file-code-2'
 import copyIcon from '@iconify-icons/lucide/copy'
 import fileTextIcon from '@iconify-icons/lucide/file-text'
 import filePlus2Icon from '@iconify-icons/lucide/file-plus-2'
@@ -115,7 +114,6 @@ addIcon('lucide:circle', circleIcon)
 addIcon('lucide:chevron-down', chevronDownIcon)
 addIcon('lucide:chevron-right', chevronRightIcon)
 addIcon('lucide:code-2', code2Icon)
-addIcon('lucide:file-code-2', fileCode2Icon)
 addIcon('lucide:copy', copyIcon)
 addIcon('lucide:file-text', fileTextIcon)
 addIcon('lucide:file-plus-2', filePlus2Icon)

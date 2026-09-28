@@ -109,6 +109,36 @@
             </SettingGroup>
           </template>
 
+          <template v-else-if="activeSection === 'export'">
+            <SectionTitle title="导出" description="导出 PDF 时使用的纸张、页边距与页眉页脚；HTML 与图片导出不受影响。" />
+            <SettingGroup title="纸张大小" description="自定义尺寸按英寸填写，1 英寸约 2.54 厘米。">
+              <ChoiceControl v-model="settings.pdfPageSize" :options="pdfPageSizeOptions" />
+              <div v-if="settings.pdfPageSize === 'custom'" class="mt-3 flex items-center gap-2">
+                <input v-model.number="settings.pdfPageWidth" type="number" min="1" max="200" step="0.01"
+                  class="h-8 w-24 rounded-md border border-line bg-paper px-2 text-[13px] text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+                <span class="text-[12px] text-muted">×</span>
+                <input v-model.number="settings.pdfPageHeight" type="number" min="1" max="200" step="0.01"
+                  class="h-8 w-24 rounded-md border border-line bg-paper px-2 text-[13px] text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+                <span class="text-[12px] text-muted">英寸（宽 × 高）</span>
+              </div>
+            </SettingGroup>
+            <SettingGroup title="页边距" description="四边统一使用同一个边距，单位英寸。">
+              <input v-model.number="settings.pdfMargin" type="number" min="0" max="20" step="0.05"
+                class="h-8 w-24 rounded-md border border-line bg-paper px-2 text-[13px] text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+            </SettingGroup>
+            <SettingGroup title="页眉与页脚" description="留空表示不打印。可用 ${pageNo}、${pageCount}、${title}、${date} 占位符。">
+              <div class="flex flex-col gap-2">
+                <input v-model="settings.pdfHeaderText" type="text" placeholder="页眉（例如：${title}）"
+                  class="h-8 w-full rounded-md border border-line bg-paper px-2 text-[13px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+                <input v-model="settings.pdfFooterText" type="text" placeholder="页脚（例如：第 ${pageNo} / ${pageCount} 页）"
+                  class="h-8 w-full rounded-md border border-line bg-paper px-2 text-[13px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+              </div>
+            </SettingGroup>
+            <SettingGroup title="一级标题前分页" description="每个一级标题都从新的一页开始，文档开头的标题不分页。">
+              <ToggleSwitch v-model="settings.pdfBreakBetweenH1" />
+            </SettingGroup>
+          </template>
+
           <template v-else-if="activeSection === 'shortcuts'">
             <!-- 下方列表已有完整边框，关闭标题分隔线，避免顶部出现重叠的细横线。 -->
             <SectionTitle title="快捷键" description="点击右侧按键组合，再直接按下新的组合键；退格或删除可清除。" :show-divider="false" />
@@ -237,6 +267,7 @@ import ToggleSwitch from './settings/ToggleSwitch.vue'
 import appIcon from '../../build/icons/256x256.png'
 import packageInfo from '../../package.json'
 import { updateService } from '../services/updateService'
+import type { PdfPageSize } from '../utils/pdfOptions'
 import { overlayState } from '../modules/overlayState'
 
 const settingsOpen = overlayState.settingsOpen
@@ -303,6 +334,8 @@ const navigationItems = [
   { id: 'general' as const, label: '通用', icon: 'lucide:sliders-horizontal' },
   { id: 'typography' as const, label: '排版', icon: 'lucide:type' },
   { id: 'theme' as const, label: '主题', icon: 'lucide:palette' },
+  // 图标必须是 src/icons.ts 里注册过的离线图标，否则 Icon 会退化成匿名组件并告警。
+  { id: 'export' as const, label: '导出', icon: 'lucide:download' },
   { id: 'shortcuts' as const, label: '快捷键', icon: 'lucide:keyboard' },
   { id: 'ai' as const, label: 'AI', icon: 'lucide:sparkles' },
   { id: 'changelog' as const, label: '更新日志', icon: 'lucide:history' },
@@ -380,6 +413,14 @@ const previewZoomOptions = [
   { value: 'standard', label: '标准' },
   { value: 'large', label: '大' },
   { value: 'xlarge', label: '特大' },
+]
+// 纸张按打印常见规格给出，其余尺寸走「自定义」。
+const pdfPageSizeOptions: { value: PdfPageSize; label: string }[] = [
+  { value: 'A4', label: 'A4' },
+  { value: 'A3', label: 'A3' },
+  { value: 'Letter', label: 'Letter' },
+  { value: 'Legal', label: 'Legal' },
+  { value: 'custom', label: '自定义' },
 ]
 // ChoiceControl 只接受字符串值，设置内部仍以数字保存间隔，便于直接换算成毫秒。
 const autoSaveIntervalModel = computed({

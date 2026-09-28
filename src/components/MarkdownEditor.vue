@@ -233,6 +233,24 @@
         </div>
       </div>
     </div>
+
+    <!--
+      图片右键菜单：整理本地图片文件，并同步改写文档里的引用。
+      必须留在根节点内部：本组件被外层用 v-show 控制显隐，一旦多出同级根节点，
+      组件会变成多根片段，外层那个运行时指令就会失效（切源码模式时预览不隐藏）。
+    -->
+    <div v-if="imageMenu" class="fixed inset-0 z-50 flex" @click.stop="imageMenu = null"
+      @contextmenu.prevent="imageMenu = null">
+      <div class="fixed flex w-52 flex-col rounded-md border border-line bg-paper p-1 text-[12px] text-secondary"
+        :style="{ left: `${imageMenu.x}px`, top: `${imageMenu.y}px` }" @click.stop>
+        <button v-for="item in imageMenuItems" :key="item.action" type="button"
+          class="flex h-8 items-center rounded px-2 text-left hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent"
+          :class="item.danger ? 'text-danger' : ''" :disabled="item.disabled"
+          @click="runImageMenuAction(item.action)">
+          {{ item.label }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -243,9 +261,14 @@ import type { BubbleMenuPluginProps } from '@tiptap/extension-bubble-menu'
 import { NodeSelection, PluginKey } from '@tiptap/pm/state'
 import { blockMarqueeKey } from '../extensions/BlockMarquee'
 import { isTableSelection } from '../modules/tableInteraction'
+import {
+  isLocalImageSource,
+  removeImageReferences,
+  rewriteImageSource,
+} from '../modules/imageFileActions'
 import { normalizeAiMarkdown } from '../utils/aiMarkdown'
 import { clampPanelLeft, scrollOffsetToMakeRoomBelow } from '../modules/panelPosition'
-import { buildWriterContext } from '../modules/writerContext'
+import { buildWriterContext, collectHeadings, findActiveHeadingIndex } from '../modules/writerContext'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useMarkdownEditor } from '../composables/useEditor'
@@ -318,6 +341,8 @@ const emit = defineEmits<{
   'add-to-selection': [text: string]
   // 链接指向本地 Markdown 文档时，交给外层按普通文档打开（复用标签页流程）
   'open-local-markdown': [filePath: string]
+  // 光标所在的标题下标，用于大纲面板高亮（-1 表示在第一个标题之前）
+  'active-heading': [headingIndex: number]
 }>()
 
 // AI 实时编写输入框状态
@@ -396,6 +421,117 @@ const {
 const bindSlashMenu = (el: unknown): void => {
   // 函数式 ref 的参数也可能是组件实例，斜杠面板只会绑定到 div，因此只接受 HTMLElement。
   slashMenu.value = el instanceof HTMLElement ? el : null
+}
+
+/*
+ * 大纲高亮：把光标所在的标题下标上报给外层（-1 表示光标停在第一个标题之前）。
+ * 标题顺序取自文档节点，与大纲面板扫描源码得到的顺序一致。
+ */
+const activeHeadingIndex = ref(-1)
+const refreshActiveHeading = (): void => {
+  const instance = editor.value
+  if (!instance) {
+    activeHeadingIndex.value = -1
+    return
+  }
+  activeHeadingIndex.value = findActiveHeadingIndex(
+    collectHeadings(instance.state.doc),
+    instance.state.selection.from,
+  )
+}
+
+watch(
+  editor,
+  (instance) => {
+    if (!instance) return
+    refreshActiveHeading()
+    // 编辑器实例销毁时监听随实例一起释放，无需手动解绑。
+    instance.on('selectionUpdate', refreshActiveHeading)
+    // 图片右键：节点视图抛出事件，这里接管菜单（见 runImageMenuAction）。
+    instance.view.dom.addEventListener('xmd-image-contextmenu', openImageMenu)
+  },
+  { immediate: true },
+)
+
+watch(activeHeadingIndex, (index) => emit('active-heading', index))
+
+/*
+ * 图片右键菜单：文件操作全部交给主进程（授权与路径解析都在那边），
+ * 这里负责菜单展示、二次确认，以及把文档里的引用改写成新地址。
+ */
+type ImageMenuAction = 'rename' | 'move' | 'delete-reference' | 'delete-file'
+const imageMenu = ref<{ src: string; x: number; y: number } | null>(null)
+const imageMenuItems = computed<
+  { action: ImageMenuAction; label: string; danger: boolean; disabled: boolean }[]
+>(() => {
+  const local = imageMenu.value ? isLocalImageSource(imageMenu.value.src) : false
+  return [
+    { action: 'rename', label: '重命名图片', danger: false, disabled: !local },
+    { action: 'move', label: '移动图片到…', danger: false, disabled: !local },
+    { action: 'delete-reference', label: '删除引用', danger: false, disabled: false },
+    { action: 'delete-file', label: '删除图片文件', danger: true, disabled: !local },
+  ]
+})
+
+const openImageMenu = (event: Event): void => {
+  const detail = (event as CustomEvent<{ src: string; x: number; y: number }>).detail
+  if (!detail?.src) return
+  // 菜单靠近窗口边缘时向内收，保证所有操作都能点到。
+  imageMenu.value = {
+    src: detail.src,
+    x: Math.min(detail.x, window.innerWidth - 216),
+    y: Math.min(detail.y, window.innerHeight - 152),
+  }
+}
+
+const fileNameOfImageSource = (src: string): string => {
+  const lastSegment = src.split('/').pop() ?? src
+  return decodeURIComponent(lastSegment)
+}
+
+const runImageMenuAction = async (action: ImageMenuAction): Promise<void> => {
+  const menu = imageMenu.value
+  const instance = editor.value
+  imageMenu.value = null
+  if (!menu || !instance) return
+
+  try {
+    if (action === 'delete-reference') {
+      removeImageReferences(instance, menu.src)
+      return
+    }
+
+    const request = {
+      url: menu.src,
+      currentDocumentPath: props.currentFilePath ?? null,
+      action: action === 'delete-file' ? ('delete-file' as const) : action,
+    }
+
+    if (action === 'rename') {
+      const newName = window.prompt('请输入新的文件名', fileNameOfImageSource(menu.src))
+      if (newName === null) return
+      const result = await mediaService.editImage({ ...request, action: 'rename', newName })
+      if (result.url) rewriteImageSource(instance, menu.src, result.url)
+      return
+    }
+
+    if (action === 'delete-file') {
+      // 删除磁盘文件不可撤销，必须让用户明确确认。
+      const confirmed = window.confirm(`确认删除磁盘上的图片文件？\n\n${menu.src}\n\n文件将被永久删除，无法撤销。`)
+      if (!confirmed) return
+      await mediaService.editImage({ ...request, action: 'delete-file' })
+      removeImageReferences(instance, menu.src)
+      return
+    }
+
+    const result = await mediaService.editImage({ ...request, action: 'move' })
+    if (result.url) rewriteImageSource(instance, menu.src, result.url)
+  } catch (error) {
+    void windowService.showErrorMessage(
+      '图片整理失败',
+      error instanceof Error ? error.message : String(error),
+    )
+  }
 }
 
 // 内联 AI 处理
@@ -1141,6 +1277,7 @@ const getCursorOffset = (): number | null => {
 // 暴露方法给父组件
 defineExpose<EditorHandle>({
   scrollToHeading,
+  refreshActiveHeading,
   getViewportAnchor,
   getBlockCount,
   scrollToBlockFraction,
@@ -1714,15 +1851,18 @@ defineExpose<EditorHandle>({
   outline-offset: 0px;
 }
 
-/* ===== 代码块选中匹配高亮 ===== */
-/* 选中代码块内某个词时，其他相同文本用浅色底色标记，类似 VS Code 的匹配高亮。 */
-.xmd-occurrence-match {
+/* ===== 代码块选中匹配高亮 =====
+ * 选中代码块内某个词时，其他相同文本用浅色底色标记，类似 VS Code 的匹配高亮。
+ * 由 CSS Custom Highlight API 绘制（登记 Range 见 CodeOccurrenceHighlight.ts），
+ * 高亮完全由浏览器合成、不改写代码块 DOM，因此不会干扰拖拽选区。
+ * 这里是 AGENTS.md「禁止伪元素」的一处豁免：::highlight() 是登记自定义高亮的唯一途径，
+ * 它只影响绘制、不参与布局，与规则想禁掉的 ::before/::after 布局用法性质不同。
+ * 该伪元素支持属性有限，不支持 border-radius，因此没有圆角。 */
+::highlight(xmd-occurrence-match) {
   background-color: rgba(51, 112, 255, 0.30);
-  border-radius: 2px;
-  box-decoration-break: clone;
 }
 
-:root.dark .xmd-occurrence-match {
+:root.dark ::highlight(xmd-occurrence-match) {
   background-color: rgba(90, 140, 255, 0.34);
 }
 

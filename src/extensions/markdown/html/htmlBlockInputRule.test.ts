@@ -155,12 +155,14 @@ describe("转换结果与重新解析一致", () => {
    * 这是「切换视图若干次才变」那个问题的回归测试：转换后发出的源码，
    * 重新解析必须得到同样的文档结构，否则每次视图往返都会再变一次。
    *
-   * 注意行内 HTML 的源码形态会变：`<em>sss</em>` 变成斜体标记后，
-   * Markdown 的规范写法是 `*sss*`（HTML 块则原样保留源码，因为节点存了原文）。
+   * 行内 HTML 的源码形态保持不变：标签被 schema 认领成标记（预览照常渲染成粗体、
+   * 下划线等），标记同时记住用户写的那个标签，序列化时按原样输出，
+   * 因此 `<em>sss</em>` 存盘仍是 `<em>sss</em>`（见 editor/inlineHtmlSourceForm.ts）。
    */
   const cases: Array<[string, string, string]> = [
     ["普通 HTML 保持可编辑", "<p>ddd</p>", "<p>ddd</p>"],
-    ["行内 HTML", "<em>sss</em>", "*sss*"],
+    ["行内 HTML", "<em>sss</em>", "<em>sss</em>"],
+    ["带属性的行内 HTML", '<span style="color:red">红</span>', '<span style="color:red">红</span>'],
     ["认不出的标签", "<span>sss</span>", "<span>sss</span>"],
   ];
 

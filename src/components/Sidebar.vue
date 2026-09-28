@@ -54,11 +54,19 @@
         <div class="flex h-9 shrink-0 items-center justify-between px-4">
           <span class="text-[10px] font-semibold tracking-[0.14em] text-muted">文档结构</span>
           <span v-if="headings.length" class="font-mono text-[10px] text-muted">
-            {{ headings.length }} 节
+            {{ visibleHeadings.length === headings.length
+              ? `${headings.length} 节`
+              : `${visibleHeadings.length} / ${headings.length} 节` }}
           </span>
         </div>
 
-        <div class="outline-list flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+        <!-- 标题多了以后靠滚动查找很慢，这里按标题文字过滤，大小写不敏感。 -->
+        <div v-if="headings.length" class="shrink-0 px-3 pb-2">
+          <input v-model="headingQuery" type="text" placeholder="过滤标题" spellcheck="false"
+            class="h-7 w-full rounded-md border border-line/60 bg-paper px-2 text-[12px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
+        </div>
+
+        <div ref="outlineList" class="outline-list flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
           <div v-if="headings.length === 0"
             class="flex h-full flex-col items-center justify-center gap-2 px-7 text-center">
             <div class="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-paper text-muted">
@@ -68,10 +76,18 @@
             <p class="text-[11px] leading-5 text-muted">添加 Markdown 标题后，可从这里快速跳转。</p>
           </div>
 
+          <div v-else-if="visibleHeadings.length === 0"
+            class="flex h-full flex-col items-center justify-center gap-2 px-7 text-center">
+            <p class="text-[13px] font-medium text-secondary">没有匹配的标题</p>
+            <p class="text-[11px] leading-5 text-muted">换一个更短的关键词试试。</p>
+          </div>
+
           <div v-else class="flex flex-col gap-0.5">
-            <button v-for="heading in headings" :key="heading.id" type="button"
+            <button v-for="heading in visibleHeadings" :key="heading.id" type="button"
               class="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-md border border-transparent py-2 pr-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
-              :class="`level-${heading.level}`" @click="scrollToHeading(heading.id)">
+              :class="[`level-${heading.level}`, heading.index === activeHeadingIndex ? 'bg-control-active text-ink' : '']"
+              :data-active-heading="heading.index === activeHeadingIndex ? 'true' : null"
+              @click="scrollToHeading(heading.id)">
               <span class="font-mono text-[9px] text-muted">H{{ heading.level }}</span>
               <span class="heading-text min-w-0 flex-1 truncate text-[13px] leading-5">
                 {{ heading.text }}
@@ -98,18 +114,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
-import MarkdownIt from 'markdown-it'
 import FileTreeItem from './FileTreeItem.vue'
 import type { FileItem, Heading, SidebarTab } from '../types'
 import { SIDEBAR_CONFIG } from '../constants'
 import { getDirectoryName, isMarkdownFile } from '../utils/file'
+import { scanOutlineHeadings } from '../utils/outlineHeadings'
 import { fileSystemService } from '../services/fileSystemService'
 
 const props = defineProps<{
   currentFilePath: string | null
   content: string
+  /** 光标所在的标题下标，-1 表示光标在第一个标题之前。 */
+  activeHeadingIndex?: number
 }>()
 
 const emit = defineEmits<{
@@ -122,25 +140,45 @@ const activeTab = ref<SidebarTab>('outline')
 const currentDir = ref<string | null>(null)
 const files = ref<FileItem[]>([])
 const headings = ref<Heading[]>([])
+/** 大纲过滤关键词，只影响展示，不改动解析结果。 */
+const headingQuery = ref('')
+/** 大纲滚动容器，用于把当前标题拉回视野。 */
+const outlineList = ref<HTMLElement | null>(null)
 const contextMenu = ref<{ node: FileItem; x: number; y: number; isRoot: boolean } | null>(null)
 let headingParseTimer: ReturnType<typeof setTimeout> | null = null
 let workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let stopWorkspaceListener: (() => void) | null = null
 
 const tabs = SIDEBAR_CONFIG.tabs
-const inlineMarkdownParser = new MarkdownIt({ html: false, linkify: false, typographer: false })
 
-const getHeadingPlainText = (source: string): string => {
-  const inlineToken = inlineMarkdownParser.parseInline(source, {})[0]
-  if (!inlineToken?.children) return source.trim()
-
-  // 大纲只展示标题的可见文字，粗体、链接、行内代码等 Markdown 定界符不应出现。
-  return inlineToken.children
-    .filter((token) => token.type === 'text' || token.type === 'code_inline' || token.type === 'image')
-    .map((token) => token.content)
-    .join('')
-    .trim()
+// 标题扫描规则放在 utils/outlineHeadings.ts：源码模式的大纲高亮要用同一套顺序。
+const parseHeadings = (): void => {
+  headings.value = scanOutlineHeadings(props.content).map((heading, index) => ({
+    // id 里带上源码行号，同一标题在不同位置出现时也能稳定区分。
+    id: `heading-${heading.line}-${heading.text.replace(/\s+/g, '-').toLowerCase()}`,
+    text: heading.text,
+    level: heading.level,
+    index,
+  }))
 }
+
+// 过滤只按标题可见文字做包含匹配，大小写不敏感；关键词为空时保持原有顺序。
+const visibleHeadings = computed(() => {
+  const keyword = headingQuery.value.trim().toLowerCase()
+  if (!keyword) return headings.value
+  return headings.value.filter((heading) => heading.text.toLowerCase().includes(keyword))
+})
+
+const activeHeadingIndex = computed(() => props.activeHeadingIndex ?? -1)
+
+// 高亮项跟着光标走；滚出可视区时拉回视野（已在视野内则保持不动，避免列表自己跳动）。
+watch(activeHeadingIndex, async (index) => {
+  if (index < 0) return
+  await nextTick()
+  outlineList.value
+    ?.querySelector<HTMLElement>('[data-active-heading="true"]')
+    ?.scrollIntoView({ block: 'nearest' })
+})
 
 // Windows 与 macOS 路径都从最后一个分隔符取项目名。
 const projectName = computed(() => getDirectoryName(currentDir.value))
@@ -275,47 +313,6 @@ const toggleFolder = async (folder: FileItem): Promise<void> => {
   } finally {
     folder.isLoading = false
   }
-}
-
-const parseHeadings = (): void => {
-  if (!props.content) {
-    headings.value = []
-    return
-  }
-
-  const newHeadings: Heading[] = []
-  let codeFence: { marker: string; length: number } | null = null
-
-  // 先将 CRLF 统一转换为 LF，防止 \r 残留在行尾导致标题匹配失败
-  props.content.replace(/\r\n/g, '\n').split('\n').forEach((line, lineIndex) => {
-    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/)
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0]
-      const length = fenceMatch[1].length
-
-      // 代码块里的“# 注释”不是文档标题，必须排除，否则后续标题会与右侧节点错位。
-      if (!codeFence) {
-        codeFence = { marker, length }
-      } else if (codeFence.marker === marker && length >= codeFence.length) {
-        codeFence = null
-      }
-      return
-    }
-
-    if (codeFence) return
-
-    const match = line.match(/^ {0,3}(#{1,6})\s+(.+)$/)
-    if (!match) return
-
-    const level = match[1].length
-    // ATX 标题末尾允许使用一组 # 作为闭合标记，这组字符也不是标题正文。
-    const headingSource = match[2].replace(/\s+#+\s*$/, '').trim()
-    const text = getHeadingPlainText(headingSource)
-    const index = newHeadings.length
-    const id = `heading-${lineIndex}-${text.replace(/\s+/g, '-').toLowerCase()}`
-    newHeadings.push({ id, text, level, index })
-  })
-  headings.value = newHeadings
 }
 
 const scrollToHeading = (headingId: string): void => {

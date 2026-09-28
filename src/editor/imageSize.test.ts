@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import type { Window } from "happy-dom";
 import { installDomEnvironment } from "../test/domEnvironment";
+import { readStylePixels, readStyleZoom, stripStyleSizes } from "./imageStyle";
 
 // 图片尺寸（width/height）必须被完整接收、渲染并写回。
 //
@@ -172,5 +173,104 @@ describe("图片尺寸属性", () => {
     );
     assert.match(saved, /width="240"/u);
     assert.ok(!saved.includes("height="), "调整宽度后不应再保留固定高度");
+  });
+});
+
+describe("图片 style 属性", () => {
+  // Typora 用 style 表达尺寸与 retina 缩放（style="zoom:50%"）；
+  // 编辑器只让尺寸类声明生效，但整段 style 必须原样写回，不能静默丢失。
+  test("style 原文在存盘后保留（此前会被整条丢弃）", () => {
+    const saved = withEditor(
+      inlineImage('style="zoom:50%"'),
+      (editor) => editor.getMarkdown(),
+    );
+    assert.match(saved, /style="zoom:50%"/u, `style 必须写回，实际输出：${saved}`);
+  });
+
+  test("style 里的 zoom 在编辑器里生效", () => {
+    const style = withEditor(
+      inlineImage('style="zoom:50%"'),
+      (editor) => editor.view.dom.querySelector("img")?.getAttribute("style") ?? "",
+    );
+    assert.match(style, /zoom:\s*50%/u, `zoom 应作用到图片上，实际样式：${style}`);
+  });
+
+  test("style 里的宽度用于显示，写回时不会重复生成 width 属性", () => {
+    const result = withEditor(inlineImage('style="width:320px"'), (editor) => ({
+      style: editor.view.dom.querySelector("img")?.getAttribute("style") ?? "",
+      markdown: editor.getMarkdown(),
+    }));
+
+    assert.match(result.style, /width:\s*320px/u);
+    assert.ok(
+      !result.markdown.includes("width="),
+      `尺寸已由 style 表达，不应再写 width 属性：${result.markdown}`,
+    );
+  });
+
+  test("width 属性与 style 同时存在时都保留，属性优先显示", () => {
+    const result = withEditor(
+      inlineImage('width="100" style="zoom:50%"'),
+      (editor) => ({
+        style: editor.view.dom.querySelector("img")?.getAttribute("style") ?? "",
+        markdown: editor.getMarkdown(),
+      }),
+    );
+
+    assert.match(result.style, /width:\s*100px/u);
+    assert.match(result.markdown, /width="100"/u);
+    assert.match(result.markdown, /style="zoom:50%"/u);
+  });
+
+  test("调整宽度后 style 里的固定宽高被去掉，zoom 等其它声明保留", () => {
+    // 与拖动控制点提交时的处理保持一致：宽高声明交给 width 属性表达。
+    const strippedStyle = stripStyleSizes("width:320px; height:100px; zoom:50%");
+    const saved = withEditor(
+      inlineImage('style="width:320px; height:100px; zoom:50%"'),
+      (editor) => {
+        let imagePosition = -1;
+        editor.state.doc.descendants((node, position) => {
+          if (node.type.name !== "image") return true;
+          imagePosition = position;
+          return false;
+        });
+        assert.ok(imagePosition >= 0, "应能找到图片节点");
+        const attrs = editor.state.doc.nodeAt(imagePosition)?.attrs ?? {};
+        editor.view.dispatch(
+          editor.view.state.tr.setNodeMarkup(imagePosition, undefined, {
+            ...attrs,
+            width: 240,
+            height: null,
+            styleSource: strippedStyle,
+          }),
+        );
+        return editor.getMarkdown();
+      },
+    );
+
+    assert.match(saved, /width="240"/u);
+    assert.match(saved, /style="zoom:50%"/u);
+    assert.ok(!/height/iu.test(saved), `固定高度必须去掉，实际输出：${saved}`);
+  });
+});
+
+describe("style 解析规则", () => {
+  test("宽高只认 px，zoom 只认百分比", () => {
+    assert.equal(readStylePixels("width:320px", "width"), 320);
+    assert.equal(readStylePixels(" width : 12.6px ", "width"), 13);
+    assert.equal(readStylePixels("width:auto", "width"), null);
+    assert.equal(readStylePixels("width:100%", "width"), null);
+    assert.equal(readStylePixels(null, "height"), null);
+
+    assert.equal(readStyleZoom("zoom:50%"), 50);
+    assert.equal(readStyleZoom("zoom:1.5"), null);
+    assert.equal(readStyleZoom(null), null);
+  });
+
+  test("去掉宽高声明时保留其它声明", () => {
+    assert.equal(stripStyleSizes("width:320px; height:100px; zoom:50%"), "zoom:50%");
+    assert.equal(stripStyleSizes("zoom:50%;width:320px"), "zoom:50%");
+    assert.equal(stripStyleSizes("width:320px"), null);
+    assert.equal(stripStyleSizes(null), null);
   });
 });

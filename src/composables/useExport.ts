@@ -7,6 +7,7 @@ import { buildDocx } from "../utils/htmlToDocx";
 import { decodeDataUrl } from "../utils/dataUrl";
 import { useSettings } from "./useSettings";
 import { getCodeBlockStyle } from "../modules/codeBlockStyles";
+import { PDF_BREAK_BETWEEN_H1_CSS } from "../utils/pdfOptions";
 
 // 导出构建阶段统一用百分比和中文说明向界面报告真实进度节点。
 export interface ExportBuildProgress {
@@ -226,6 +227,7 @@ export const buildExportHtml = async (
   documentPath: string | null,
   title: string,
   reportProgress?: ExportProgressReporter,
+  options: { breakBetweenH1?: boolean } = {},
 ): Promise<string> => {
   const { content, cleanup } = await renderExportContent(markdown, documentPath, reportProgress);
   try {
@@ -250,6 +252,8 @@ export const buildExportHtml = async (
       `<title>${escapedTitle}</title>`,
       `<style>${collectDocumentStyles()}</style>`,
       `<style>${EXPORT_PAGE_STYLES}</style>`,
+      // 一级标题之间的自动分页只在导出 PDF 时按设置注入。
+      options.breakBetweenH1 ? `<style>${PDF_BREAK_BETWEEN_H1_CSS}</style>` : "",
       "</head>",
       "<body>",
       // ProseMirror 的 white-space: break-spaces 只服务于编辑光标；导出时保留会把
@@ -257,7 +261,9 @@ export const buildExportHtml = async (
       `<div class="tiptap prose-editor">${contentHtml}</div>`,
       "</body>",
       "</html>",
-    ].join("\n");
+    ]
+      .filter((line) => line !== "")
+      .join("\n");
     reportProgress?.({ percent: 100, message: "HTML 内容生成完成" });
     return html;
   } finally {

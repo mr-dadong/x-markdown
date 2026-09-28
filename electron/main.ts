@@ -20,6 +20,7 @@ import {
   assertAuthorizedPath,
   authorizeDocument,
   authorizeFile,
+  isPathInside,
 } from "./services/pathAccess";
 import {
   findZipWorkspaceForFile,
@@ -58,11 +59,12 @@ import type {
   ExportDocxData,
   ExportHtmlData,
   ExportImageData,
-  ExportPngData,
+  ExportPdfData,
   ExportResult,
   ExportTextData,
   ExportZipData,
   RendererDiagnosticEvent,
+  WritePngFilesData,
 } from "../src/types/electron";
 
 let mainWindow: BrowserWindow | null = null;
@@ -826,12 +828,51 @@ const withTimeout = <T>(
     );
   });
 
+// 允许的纸张名称：与设置面板给出的规格保持一致，其余值一律拒绝，避免静默回退到 A4。
+const PDF_PAGE_SIZES = new Set(["A4", "A3", "Letter", "Legal", "Tabloid"]);
+
+/** 校验纸张：字符串必须是已知规格，对象必须是合理范围内的英寸尺寸。 */
+const resolvePdfPageSize = (
+  value: unknown,
+): "A4" | "A3" | "Letter" | "Legal" | "Tabloid" | { width: number; height: number } => {
+  if (typeof value === "string") {
+    if (!PDF_PAGE_SIZES.has(value)) throw new Error(`不支持的纸张大小：${value}`);
+    return value as "A4" | "A3" | "Letter" | "Legal" | "Tabloid";
+  }
+  const size = value as { width?: unknown; height?: unknown } | null;
+  const width = Number(size?.width);
+  const height = Number(size?.height);
+  // 1 英寸到 200 英寸足够覆盖所有真实纸张，越界说明设置被改坏了。
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1 || width > 200 || height > 200) {
+    throw new Error("自定义纸张尺寸必须是 1 到 200 英寸之间的数值");
+  }
+  return { width, height };
+};
+
+/** 校验页边距：四边都必须是 0 到 20 英寸之间的数值。 */
+const resolvePdfMargins = (
+  value: unknown,
+): { top: number; right: number; bottom: number; left: number } => {
+  const margins = value as Record<string, unknown> | null;
+  const read = (side: string): number => {
+    const number = Number(margins?.[side]);
+    if (!Number.isFinite(number) || number < 0 || number > 20) {
+      throw new Error(`页边距（${side}）必须是 0 到 20 英寸之间的数值`);
+    }
+    return number;
+  };
+  return { top: read("top"), right: read("right"), bottom: read("bottom"), left: read("left") };
+};
+
 // 导出为 PDF：用隐藏窗口加载导出的 HTML 后调用系统打印能力生成 PDF，
 // 不影响当前编辑窗口；窗口在结束后无论成败都会销毁。
 ipcMain.handle(
   IPC_CHANNELS.exportPdf,
-  async (_event, { html, suggestedName }: ExportHtmlData) => {
+  async (_event, { html, suggestedName, printOptions }: ExportPdfData) => {
     if (!mainWindow) return { canceled: true };
+    if (!printOptions) throw new Error("缺少 PDF 打印选项");
+    const pageSize = resolvePdfPageSize(printOptions.pageSize);
+    const margins = resolvePdfMargins(printOptions.margins);
     const result = await dialog.showSaveDialog(mainWindow, {
       defaultPath: `${suggestedName}.pdf`,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
@@ -859,13 +900,12 @@ ipcMain.handle(
       const pdfBuffer = await withTimeout(
         printWindow.webContents.printToPDF({
           printBackground: true,
-          pageSize: "A4",
-          margins: {
-            top: 0.5,
-            bottom: 0.5,
-            left: 0.5,
-            right: 0.5,
-          },
+          pageSize,
+          margins,
+          // 页眉页脚内容为空时关闭该开关，否则 Chromium 会打印默认的标题与网址。
+          displayHeaderFooter: printOptions.displayHeaderFooter === true,
+          headerTemplate: String(printOptions.headerTemplate ?? ""),
+          footerTemplate: String(printOptions.footerTemplate ?? ""),
         }),
         "PDF 生成超时（30 秒）",
         30000,
@@ -879,8 +919,30 @@ ipcMain.handle(
 );
 
 /*
+ * 只弹保存对话框、不写内容：返回用户选定的路径，取消或无窗口时返回 null。
+ * 代码块导出图片需要先拿到路径，再让渲染进程慢慢生成体积较大的 PNG，
+ * 这样点击按钮后立刻有反馈，不会卡住几秒才弹出对话框。
+ */
+const chooseSavePath = async (
+  suggestedName: string,
+  extension: string,
+  filterName: string,
+): Promise<string | null> => {
+  if (!mainWindow) return null;
+  // suggestedName 来自渲染层（如代码块语言标签 "HTML / XML"），可能含路径分隔符
+  // 或 Windows 非法文件名字符，先替换成连字符再拼默认文件名，避免对话框路径错乱。
+  const safeName = suggestedName.replace(/[\\/:*?"<>|]/g, "-");
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: `${safeName}.${extension}`,
+    filters: [{ name: filterName, extensions: [extension] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  return result.filePath;
+};
+
+/*
  * 二进制导出的通用落盘流程：弹出保存对话框，把数据写入用户选择的路径。
- * ZIP / DOCX / PNG 三种导出只差扩展名与筛选器文案，收敛到这里，
+ * ZIP / DOCX 两种导出只差扩展名与筛选器文案，收敛到这里，
  * 新增导出目标时只需传入扩展名与筛选器名称，对话框选项统一维护。
  */
 const saveBinaryWithDialog = async (
@@ -889,17 +951,10 @@ const saveBinaryWithDialog = async (
   extension: string,
   filterName: string,
 ): Promise<ExportResult> => {
-  if (!mainWindow) return { canceled: true };
-  // suggestedName 来自渲染层（如代码块语言标签 "HTML / XML"），可能含路径分隔符
-  // 或 Windows 非法文件名字符，先替换成连字符再拼默认文件名，避免对话框路径错乱。
-  const safeName = suggestedName.replace(/[\\/:*?"<>|]/g, "-");
-  const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: `${safeName}.${extension}`,
-    filters: [{ name: filterName, extensions: [extension] }],
-  });
-  if (result.canceled || !result.filePath) return { canceled: true };
-  await fs.promises.writeFile(result.filePath, data);
-  return { canceled: false, filePath: result.filePath };
+  const filePath = await chooseSavePath(suggestedName, extension, filterName);
+  if (!filePath) return { canceled: true };
+  await fs.promises.writeFile(filePath, data);
+  return { canceled: false, filePath };
 };
 
 // 导出为 ZIP 包：渲染进程已经完成 Markdown 与图片的打包，这里只负责落盘。
@@ -1020,12 +1075,33 @@ ipcMain.handle(
   },
 );
 
-// 保存 PNG 图片：渲染进程已用 html-to-image 生成 PNG 二进制，
-// 复用二进制导出的通用落盘流程，不再经过隐藏窗口栅格化。
+// 代码块导出图片第一步：只弹保存对话框，把用户选定的路径交回渲染进程。
 ipcMain.handle(
-  IPC_CHANNELS.exportPng,
-  async (_event, { pngData, suggestedName }: ExportPngData) =>
-    saveBinaryWithDialog(Buffer.from(pngData), suggestedName, "png", "PNG 图片"),
+  IPC_CHANNELS.choosePngSavePath,
+  async (_event, suggestedName: string) =>
+    chooseSavePath(suggestedName, "png", "PNG 图片"),
+);
+
+// 代码块导出图片第二步：渲染进程已经生成好 PNG 分片，这里负责写盘。
+// 只有一张时直接用用户选定的文件名；多张时按「原名-1.png、原名-2.png…」编号落盘，
+// 序号与代码块从上到下的顺序一致。
+ipcMain.handle(
+  IPC_CHANNELS.writePngFiles,
+  async (_event, { filePath, slices }: WritePngFilesData) => {
+    const [firstSlice] = slices;
+    if (!firstSlice) throw new Error("没有可写入的图片数据");
+    if (slices.length === 1) {
+      await fs.promises.writeFile(filePath, Buffer.from(firstSlice));
+      return;
+    }
+    // 用户可能自己敲了别的扩展名，按实际扩展名保留，缺省补 .png。
+    const extension = path.extname(filePath);
+    const baseName = extension ? filePath.slice(0, filePath.length - extension.length) : filePath;
+    const targetExtension = extension || ".png";
+    for (const [index, slice] of slices.entries()) {
+      await fs.promises.writeFile(`${baseName}-${index + 1}${targetExtension}`, Buffer.from(slice));
+    }
+  },
 );
 
 ipcMain.handle(IPC_CHANNELS.openFile, async () => {
@@ -1743,6 +1819,95 @@ ipcMain.handle(
         if (error.code === "ENOENT") return { exists: false, size: 0 };
         throw error;
       });
+  },
+);
+
+/*
+ * 图片文件整理：重命名、移动到其它目录、删除磁盘文件。
+ * 地址解析与授权都走既有链路（resolveEditorFilePath），因此只可能操作
+ * 已打开文档目录内的本地文件；远程地址与 data URL 直接拒绝。
+ */
+ipcMain.handle(
+  IPC_CHANNELS.editEditorImage,
+  async (
+    _event,
+    {
+      url,
+      currentDocumentPath,
+      action,
+      newName,
+    }: {
+      url: string;
+      currentDocumentPath: string | null;
+      action: "rename" | "move" | "delete-file";
+      newName?: string;
+    }): Promise<{ url: string | null }> => {
+    if (!mainWindow) return { url: null };
+    if (/^https?:/i.test(url) || /^data:/i.test(url)) {
+      throw new Error("只能整理本地图片文件");
+    }
+    if (!currentDocumentPath) {
+      await dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "请先保存文档",
+        message: "整理图片前需要先保存当前文档",
+        detail: "图片路径是相对文档所在目录记录的，未保存的文档没有可用的目录。",
+      });
+      return { url: null };
+    }
+
+    const documentDirectory = path.dirname(
+      assertAuthorizedPath(currentDocumentPath),
+    );
+    const sourcePath = resolveEditorFilePath(url, currentDocumentPath);
+
+    if (action === "delete-file") {
+      await fs.promises.unlink(sourcePath);
+      return { url: null };
+    }
+
+    let targetDirectory = path.dirname(sourcePath);
+    let targetName = path.basename(sourcePath);
+
+    if (action === "rename") {
+      const trimmedName = (newName ?? "").trim();
+      if (!trimmedName) throw new Error("请输入新的文件名");
+      if (/[\\/:*?"<>|]/u.test(trimmedName)) {
+        throw new Error('文件名不能包含 \\ / : * ? " < > |');
+      }
+      // 只写主名时沿用原扩展名，避免把 a.png 改成没有扩展名的文件。
+      targetName =
+        path.extname(trimmedName) === ""
+          ? `${trimmedName}${path.extname(sourcePath)}`
+          : trimmedName;
+    } else {
+      const pickedDirectory = await dialog.showOpenDialog(mainWindow, {
+        title: "选择图片存放目录",
+        defaultPath: documentDirectory,
+        properties: ["openDirectory"],
+      });
+      if (pickedDirectory.canceled || pickedDirectory.filePaths.length === 0) {
+        return { url: null };
+      }
+      targetDirectory = pickedDirectory.filePaths[0];
+      // 文档目录是授权边界：放到边界之外，下次启动就读不到这张图了。
+      if (!isPathInside(targetDirectory, documentDirectory)) {
+        throw new Error("只能移动到当前文档所在目录内的文件夹");
+      }
+    }
+
+    const targetPath = path.join(targetDirectory, targetName);
+    if (targetPath === sourcePath) return { url };
+    const targetExists = await fs.promises
+      .access(targetPath)
+      .then(() => true)
+      .catch(() => false);
+    if (targetExists) throw new Error(`目标位置已有同名文件：${targetName}`);
+
+    await fs.promises.mkdir(targetDirectory, { recursive: true });
+    await fs.promises.rename(sourcePath, targetPath);
+    authorizeFile(targetPath);
+    return { url: createEditorFileUrl(targetPath, currentDocumentPath) };
   },
 );
 
