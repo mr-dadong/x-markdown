@@ -2,6 +2,7 @@ import type { Editor, MarkdownToken } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { MarkdownManager } from "@tiptap/markdown";
 import { lcsMatches } from "../utils/longestCommonSubsequence";
+import { chunkIdOfNode, groupDocChildren, type DocNodeRun } from "./docNodeRuns";
 
 /**
  * 块级源码映射增量保存（方案 B）核心。
@@ -135,17 +136,56 @@ export const serializeSingleBlock = (
     });
 
 /**
- * 解析器为「连续空行」补出的空段落。
+ * 序列化一个源码块对应的全部节点。
+ *
+ * 一个源码块通常只有一个节点，直接走单块序列化；块级 HTML 认领来的块可能有多个
+ * 节点（居中的 div + `<hr>` + 第二个 div），逐块序列化后用空行拼成一个 Markdown 块。
+ * 空块（例如块间临时空段落）不产出内容。
+ */
+const serializeDocNodeRun = (
+    editor: Editor,
+    doc: ProseMirrorNode,
+    run: DocNodeRun,
+): string => {
+    if (run.end - run.start === 1) return serializeSingleBlock(editor, doc.child(run.start));
+
+    const parts: string[] = [];
+    for (let index = run.start; index < run.end; index += 1) {
+        const text = serializeSingleBlock(editor, doc.child(index));
+        if (text.trim() === "") continue;
+        parts.push(text);
+    }
+    return parts.join("\n\n");
+};
+
+/**
+ * 某个分组是不是解析器为「连续空行」补出的空段落。
  *
  * 源码里空行只是块之间的分隔符，不构成块；Markdown 管理器为了让用户能点到那段
  * 空白里继续输入，会给它补一个空段落节点。它没有对应的源码块，配对时必须跳过，
  * 否则后面的源码块会整体错位一格：指纹配到错的节点上，增量保存会把内容重复一遍。
  *
- * 顶层真正的块永远有内容（空标题、空引用里的空段落都嵌套在容器内），
- * 因此「顶层空段落」只可能是这种补出来的占位段落。
+ * 判据除了「顶层空段落」，还必须没有源码块分组编号：块级 HTML 认领出的节点带着编号，
+ * 属于真实的源码块（用户在居中段落里回车、再把内容删空也会留下带编号的空段落），
+ * 一旦被误当成占位段落跳过，后面的块同样会整体错位。
  */
-const isEmptyPlaceholderParagraph = (node: ProseMirrorNode): boolean =>
-    node.type.name === "paragraph" && node.content.size === 0;
+const isPlaceholderRun = (doc: ProseMirrorNode, run: DocNodeRun): boolean => {
+    const node = doc.child(run.start);
+    return node.type.name === "paragraph" && node.content.size === 0 && chunkIdOfNode(node) === null;
+};
+
+/**
+ * 一个源码块的文档指纹：单节点块沿用节点指纹缓存，多节点块把成员 JSON 拼起来。
+ * 任何成员被增删改都会让整块指纹变化，从而整块重新序列化。
+ */
+const fingerprintOfRun = (doc: ProseMirrorNode, run: DocNodeRun): string => {
+    if (run.end - run.start === 1) return fingerprint(doc.child(run.start));
+    const members: unknown[] = [];
+    for (let index = run.start; index < run.end; index += 1) {
+        members.push(doc.child(index).toJSON());
+    }
+    return JSON.stringify(members);
+};
 
 /**
  * 以 `text` 为原文、`editor.state.doc` 为对应文档，捕获一份 baseline。
@@ -163,9 +203,11 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
     const lineStart = (line: number): number => lineStarts[line] ?? text.length;
 
     const doc = editor.state.doc;
+    // 按源码块给顶层节点分组：块级 HTML 可能一个块产出多个节点。
+    const runs = groupDocChildren(doc, doc.childCount);
     const segments: BaselineSegment[] = [];
     let previousCoreEnd = 0;
-    let childIndex = 0;
+    let runIndex = 0;
     for (let index = 0; index < ranges.length; index += 1) {
         const start = lineStart(ranges[index].startLine);
         const rawEnd = lineStart(ranges[index].endLine);
@@ -174,10 +216,10 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
         // 这样替换某块时不会因为源码尾部换行与 gap 叠加而错乱分隔。
         const core = text.slice(start, rawEnd).replace(/\n+$/, "");
 
-        while (childIndex < doc.childCount && isEmptyPlaceholderParagraph(doc.child(childIndex))) {
-            childIndex += 1;
+        while (runIndex < runs.length && isPlaceholderRun(doc, runs[runIndex])) {
+            runIndex += 1;
         }
-        if (childIndex >= doc.childCount) {
+        if (runIndex >= runs.length) {
             // 源码块在文档里没有对应节点，说明解析器把它丢掉了（不是空段落那种占位，
             // 也不能靠猜默认值兜底）：直接报错，避免发出内容缺失或重复的源码。
             throw new Error(
@@ -188,10 +230,10 @@ export const captureBaseline = (editor: Editor, text: string): Baseline => {
         segments.push({
             gap: text.slice(previousCoreEnd, start),
             source: core,
-            fingerprint: fingerprint(doc.child(childIndex)),
+            fingerprint: fingerprintOfRun(doc, runs[runIndex]),
         });
         previousCoreEnd = start + core.length;
-        childIndex += 1;
+        runIndex += 1;
     }
 
     return { text, segments, trailing: text.slice(previousCoreEnd) };
@@ -213,18 +255,18 @@ export const serializePreservingSource = (editor: Editor, baseline: Baseline): s
     // 编辑器会在末尾维护空段落（TrailingParagraph / 点击块间空隙产生），它们不在原文里、
     // 序列化也为空。对齐前从尾部剥除，既避免它们产出多余空白，也防止破坏后缀裁剪
     // 把 LCS 拖成 O(n^2)。
-    let currentCount = doc.childCount;
-    while (currentCount > 0) {
-        const last = doc.child(currentCount - 1);
+    let contentNodeCount = doc.childCount;
+    while (contentNodeCount > 0) {
+        const last = doc.child(contentNodeCount - 1);
         if (last.type.name !== "paragraph" || last.content.size !== 0) break;
-        currentCount -= 1;
+        contentNodeCount -= 1;
     }
 
     const baseFingerprints = baseline.segments.map((segment) => segment.fingerprint);
-    const currentFingerprints: string[] = [];
-    for (let index = 0; index < currentCount; index += 1) {
-        currentFingerprints.push(fingerprint(doc.child(index)));
-    }
+    // 当前文档同样按源码块分组后比较：块级 HTML 一个块产出的多个节点算一项。
+    const currentRuns = groupDocChildren(doc, contentNodeCount);
+    const currentCount = currentRuns.length;
+    const currentFingerprints = currentRuns.map((run) => fingerprintOfRun(doc, run));
 
     // 编辑通常是局部的：先按指纹相等裁掉公共前缀/后缀，仅对中间残差做 LCS。
     let prefix = 0;
@@ -250,7 +292,7 @@ export const serializePreservingSource = (editor: Editor, baseline: Baseline): s
         entries.push({ text: baseline.segments[baseIndex].source, baseIndex });
     };
     const insert = (currentIndex: number): void => {
-        const text = serializeSingleBlock(editor, doc.child(currentIndex));
+        const text = serializeDocNodeRun(editor, doc, currentRuns[currentIndex]);
         if (text.trim() === "") return;
         entries.push({ text, baseIndex: null });
     };

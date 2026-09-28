@@ -87,7 +87,11 @@ import {
 } from "./inlineHtmlSourceForm";
 import { installMinimalTextEscaping } from "./markdownTextEscaping";
 import { LiteralHardBreak } from "./hardBreakSerialization";
-import { readStylePixels, readStyleZoom, stripStyleSizes } from "./imageStyle";
+import { readImageSizeAttribute, readStylePixels, readStyleZoom, stripStyleSizes, toCssLength } from "./imageStyle";
+import {
+  HtmlBlockSourceForm,
+  installHtmlBlockSourceFormSerialization,
+} from "./htmlBlockSourceForm";
 import { mediaService } from "../services/mediaService";
 import { openImagePreview } from "../modules/imagePreviewOverlay";
 import {
@@ -288,23 +292,19 @@ const SerializableTable = Table.extend({
 const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
   Image.extend({
     addAttributes() {
-      // 只接受正整数像素值；解析不到合法数值时返回 null，交由默认样式处理。
-      const parsePixelAttribute = (name: string) => (element: HTMLElement): number | null => {
-        const raw = Number.parseInt(element.getAttribute(name) ?? "", 10);
-        return Number.isFinite(raw) && raw > 0 ? raw : null;
-      };
-
       return {
         ...this.parent?.(),
+        // 尺寸属性交给 imageStyle.readImageSizeAttribute：像素返回数字，`width="60%"`
+        // 这类百分比原样保留成字符串（README 里很常见），其它写法一律视为没写。
         width: {
           default: null,
-          parseHTML: parsePixelAttribute("width"),
+          parseHTML: (element) => readImageSizeAttribute(element.getAttribute("width")),
           renderHTML: (attributes) =>
             attributes.width ? { width: String(attributes.width) } : {},
         },
         height: {
           default: null,
-          parseHTML: parsePixelAttribute("height"),
+          parseHTML: (element) => readImageSizeAttribute(element.getAttribute("height")),
           renderHTML: (attributes) =>
             attributes.height ? { height: String(attributes.height) } : {},
         },
@@ -406,11 +406,12 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           image.title = title ?? "";
           // 用户通过 HTML 属性指定的尺寸优先；属性没写时退回 style 里的尺寸，
           // 都没有就清空内联样式，交回全局图片样式（max-width:100%、height:auto）按自然比例显示。
+          // 属性可能是像素数字，也可能是 `width="60%"` 这样的百分比字符串（README 常见写法）。
           const styleSource = (currentNode.attrs.styleSource as string | null) ?? null;
-          const width = (currentNode.attrs.width as number | null) ?? readStylePixels(styleSource, "width");
-          const height = (currentNode.attrs.height as number | null) ?? readStylePixels(styleSource, "height");
-          image.style.width = width ? `${width}px` : "";
-          image.style.height = height ? `${height}px` : "";
+          const width = currentNode.attrs.width ?? readStylePixels(styleSource, "width");
+          const height = currentNode.attrs.height ?? readStylePixels(styleSource, "height");
+          image.style.width = toCssLength(width as number | string | null);
+          image.style.height = toCssLength(height as number | string | null);
           // zoom 同样来自 style，直接作用在 DOM 上，存盘仍写原始 style 文本。
           const zoom = readStyleZoom(styleSource);
           image.style.zoom = zoom ? `${zoom}%` : "";
@@ -540,6 +541,8 @@ export const createEditorExtensions = (options: {
   installLiteralInlineHtmlParsing();
   installInlineHtmlSourceFormSerialization();
   installHtmlEntityDecoding();
+  // 块级 HTML 认领来的节点（居中的 div、<hr>）按用户写的标签写回，见 htmlBlockSourceForm.ts。
+  installHtmlBlockSourceFormSerialization();
 
   return [
     StarterKit.configure({
@@ -572,6 +575,7 @@ export const createEditorExtensions = (options: {
     // 链接引用定义按原样保存，避免 baseline 对账失败与定义行丢失。
     LinkReferenceDefinition,
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
+    HtmlBlockSourceForm,
     HtmlBlock.configure({ getCurrentDocumentPath: getCurrentDocumentPath ?? (() => null) }),
     // 分页符：编辑区显示可见标记，导出/打印时输出真正的分页元素。
     PageBreak,

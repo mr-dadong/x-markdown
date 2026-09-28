@@ -3,12 +3,9 @@ import type { JSONContent, MarkdownToken } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
+import { renderBlockHtmlSubset } from "./htmlBlockRender";
 import { stripTrailingNewlines } from "../shared/officialMarkdown";
 import { readPageBreakStyle } from "./PageBreak";
-
-// 独占一行的单个 img 属于图片内容，不需要套用通用 HTML iframe 预览。
-const isStandaloneImageHtml = (source: string): boolean =>
-  /^\s*<img\b[^>]*>\s*$/iu.test(source);
 
 /**
  * 普通 HTML 文本/标记应保持可编辑，只有带 style 的复杂 HTML 才隔离预览。
@@ -42,49 +39,6 @@ const isLiteralText = (nodes: readonly JSONContent[], source: string): boolean =
     && (only.marks ?? []).length === 0
     && String(only.text ?? "") === source
   );
-};
-
-/** 读取 HTML 标签上的属性（双引号或单引号写法都支持）。 */
-const readHtmlAttributes = (source: string): Record<string, string> => {
-  const attributes: Record<string, string> = {};
-  for (const match of source.matchAll(/([a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gu)) {
-    attributes[match[1].toLowerCase()] = match[2] ?? match[3] ?? "";
-  }
-  return attributes;
-};
-
-/** 只接受正整数像素值，解析不到合法数值时返回 null。 */
-const parsePixelValue = (raw: string | undefined): number | null => {
-  const value = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(value) && value > 0 ? value : null;
-};
-
-/**
- * 把独占一行的 `<img>` 还原成图片节点。
- * 旧实现靠 markdown-it 输出 `<p><img ...></p>` 再交给图片扩展解析，
- * 官方管线里块级 HTML 直接进本 handler，因此这里显式构造图片节点，
- * 保证 width / height 等属性不会丢失。
- */
-const imageNodeFromHtml = (source: string): MarkdownToken | undefined => {
-  const attributes = readHtmlAttributes(source);
-  const src = attributes.src ?? "";
-  if (!src) return undefined;
-
-  return {
-    type: "paragraph",
-    content: [
-      {
-        type: "image",
-        attrs: {
-          src,
-          alt: attributes.alt ?? null,
-          title: attributes.title ?? null,
-          width: parsePixelValue(attributes.width),
-          height: parsePixelValue(attributes.height),
-        },
-      },
-    ],
-  } as unknown as MarkdownToken;
 };
 
 // TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
@@ -214,13 +168,8 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
    */
   markdownTokenName: "html",
 
-  parseMarkdown: (token) => {
+  parseMarkdown: (token, helpers) => {
     const source = String(token.text ?? token.raw ?? "");
-    // 独占一行的图片走图片节点。
-    if (isStandaloneImageHtml(source)) {
-      const image = imageNodeFromHtml(source);
-      if (image) return image;
-    }
     // 分页符走专用节点：编辑区显示可见的虚线标记，导出时输出真正的分页元素。
     const pageBreakStyle = readPageBreakStyle(source);
     if (pageBreakStyle) {
@@ -229,15 +178,30 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
         attrs: { source: stripTrailingNewlines(source), style: pageBreakStyle },
       } as unknown as MarkdownToken;
     }
-    // 普通 HTML 不进隔离块，直接落成可编辑的段落文本。
-    if (!needsIsolatedHtmlPreview(source)) {
-      return {
-        type: "paragraph",
-        content: [{ type: "text", text: source }],
-      } as unknown as MarkdownToken;
+    // 只有带 style 的复杂 HTML 才原样保存为隔离预览块，不在正文里执行。
+    if (needsIsolatedHtmlPreview(source)) {
+      return { type: "htmlBlock", attrs: { source } };
     }
-    // 只有带 style 的复杂 HTML 才原样保存为隔离预览块。
-    return { type: "htmlBlock", attrs: { source } };
+
+    /*
+     * 普通块级 HTML：能被 schema 认领的排版子集（居中的 div、<hr>、<img>）转成真正的
+     * 编辑器节点，README 这类文件在预览视图里才能和网页渲染一致。
+     * 认领不了的部分整体交回下面的字面文本分支，内容一字不丢。
+     *
+     * 行内片段复用官方的行内 HTML 解析（它带上了本项目的字面文本补丁）：
+     * 官方把 tokenizeInline 标成可选，但管理器一定提供（见 MarkdownManager.createParseHelpers）。
+     */
+    const tokenizeInline = helpers.tokenizeInline as (src: string) => MarkdownToken[];
+    const rendered = renderBlockHtmlSubset(source, {
+      parseInline: (html) => helpers.parseInline(tokenizeInline(html)),
+    });
+    if (rendered) return rendered as unknown as MarkdownToken;
+
+    // 认领不了或本来就不是排版 HTML：落成可编辑的段落文本。
+    return {
+      type: "paragraph",
+      content: [{ type: "text", text: source }],
+    } as unknown as MarkdownToken;
   },
 
   // 原始 HTML 不做格式化，避免所见即所得视图改写用户的标签和属性。

@@ -285,6 +285,7 @@ import EmojiPicker from './editor/EmojiPicker.vue'
 import type { EditorHandle, ViewportAnchor } from '../types/editor'
 import { mediaService } from '../services/mediaService'
 import { windowService } from '../services/windowService'
+import { groupDocChildren, runIndexOfChild } from '../editor/docNodeRuns'
 
 const { settings } = useSettings()
 
@@ -1155,12 +1156,16 @@ const getEditorScroller = (): HTMLElement | null =>
 // 返回视口顶部所在顶层块的锚点：块序号 + 视口顶部切入该块的深度比例。
 // 保留比例才能在往返切换时回到块内同一相对位置，而不是跳回块顶。
 // 滚动越过全部内容、落在底部留白区时，锚定到最后一个块的底部。
+//
+// 这里的「块序号」按源码块计（见 editor/docNodeRuns.ts）：块级 HTML 可能一个源码块
+// 占用多个顶层节点（居中的 div + <hr> + 第二个 div），不换算的话视图切换会整体错位。
 const getViewportAnchor = (): ViewportAnchor | null => {
   const tipTapEditor = editor.value
   const scroller = getEditorScroller()
   if (!tipTapEditor || !scroller) return null
   const blocks = Array.from(tipTapEditor.view.dom.children)
   if (blocks.length === 0) return null
+  const runs = groupDocChildren(tipTapEditor.state.doc, blocks.length)
 
   const viewportTop = scroller.getBoundingClientRect().top
   for (let index = 0; index < blocks.length; index += 1) {
@@ -1170,13 +1175,17 @@ const getViewportAnchor = (): ViewportAnchor | null => {
       const fraction = blockRect.height > 0
         ? Math.min(1, Math.max(0, (viewportTop - blockRect.top) / blockRect.height))
         : 0
-      return { index, fraction }
+      return { index: runIndexOfChild(runs, index), fraction }
     }
   }
-  return { index: blocks.length - 1, fraction: 1 }
+  return { index: Math.max(0, runs.length - 1), fraction: 1 }
 }
 
-const getBlockCount = (): number => editor.value?.state.doc.childCount ?? 0
+const getBlockCount = (): number => {
+  const doc = editor.value?.state.doc
+  if (!doc) return 0
+  return groupDocChildren(doc, doc.childCount).length
+}
 
 /*
  * 滚动时按「视口垂直中间那一行属于哪一节」更新大纲高亮。
@@ -1225,12 +1234,16 @@ const scheduleActiveHeadingFromScroll = (): void => {
 // 把视口顶部滚动到目标块的指定比例位置。
 // 用增量方式写 scrollTop：getBoundingClientRect 与 scrollTop 都在同一坐标系下，
 // 预览缩放（CSS zoom）时增量依然正确；比例由源码行范围换算而来，往返不漂移。
+// 目标块序号按源码块计：一个源码块可能由多个顶层节点组成，取它的第一个节点做定位。
 const scrollToBlockFraction = (index: number, fraction: number): void => {
   const tipTapEditor = editor.value
   const scroller = getEditorScroller()
   if (!tipTapEditor || !scroller) return
   const blocks = Array.from(tipTapEditor.view.dom.children)
-  const block = blocks[Math.max(0, Math.min(index, blocks.length - 1))]
+  if (blocks.length === 0) return
+  const runs = groupDocChildren(tipTapEditor.state.doc, blocks.length)
+  const run = runs[Math.max(0, Math.min(index, runs.length - 1))]
+  const block = blocks[run.start]
   if (!block) return
 
   const scrollerRect = scroller.getBoundingClientRect()
