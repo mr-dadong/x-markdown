@@ -87,8 +87,24 @@ describe("排版替换不作用在 HTML 标签内部", () => {
     }
   });
 
-  test("没有闭合标签的元素与注释保持字面文字", () => {
-    const cases = ['<img src="a.png" alt="图">', "<!-- 注释 -->", '<!-- 说 "你好" -->'];
+  /*
+   * 单独一行的 `<img …>` 写完就会被认领成图片节点（与打开文件时的解析一致），
+   * 因此这里断言的是属性值原样带进了节点：引号一旦被排版规则换成弯引号，src / alt 就废了。
+   */
+  test("没有闭合标签的元素：属性值逐字带进认领出的图片节点", () => {
+    const editor = typeIntoEditor('<img src="a.png" alt="图">');
+    try {
+      const image = editor.state.doc.firstChild?.firstChild;
+      assert.equal(image?.type.name, "image");
+      assert.equal(image?.attrs.src, "a.png");
+      assert.equal(image?.attrs.alt, "图");
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  test("注释保持字面文字", () => {
+    const cases = ["<!-- 注释 -->", '<!-- 说 "你好" -->'];
     for (const typed of cases) {
       assert.equal(typeAndRead(typed), typed, "HTML 标签内部应逐字保真");
     }

@@ -1475,6 +1475,20 @@ defineExpose<EditorHandle>({
   margin-bottom: 0.6em;
 }
 
+/*
+ * HTML 注释（整段就是一个或多个 <!-- ... -->）照 Typora 的做法处理：
+ * 保留可见、可编辑的段落形态，只用次要文字色 + 略小字号弱化，
+ * 一眼区分「写给作者自己的备注」与正文。装饰类由 HtmlComment 扩展按内容实时挂上，
+ * 用户把注释改写成正文后样式立刻消失。
+ *
+ * 选择器限定在 .typography-pane（编辑区）内：导出容器没有这个类，
+ * 导出的 HTML/PDF 里注释文字的显示因此保持原样。
+ */
+.typography-pane .tiptap p.xmd-html-comment {
+  color: var(--color-muted);
+  font-size: 0.92em;
+}
+
 /* ===== 标题 ===== */
 /*
  * 首块必须去掉上边距。文档首行常以 `# 标题` 开头，而 h1 的 margin-top 是相对
@@ -1686,6 +1700,19 @@ defineExpose<EditorHandle>({
   padding: 0;
   color: var(--color-ink);
   font-size: inherit;
+}
+
+/*
+ * 原文块（YAML 前置、链接引用定义、`:::` 扩展块）按源码原样换行显示。
+ *
+ * ProseMirror 会给「没有 contentDOM 的节点」自动加 contenteditable="false"，而
+ * @tiptap/core 注入的 `.ProseMirror [contenteditable="false"] { white-space: normal }`
+ * 会把 <pre> 里的换行折叠成空格：多行 YAML 前置因此在编辑器里被压成一行，与源码模式对不上。
+ * 这条规则必须写在无 layer 的这一层 —— Tailwind 工具类位于 @layer utilities，
+ * 会被无 layer 的注入样式静默压制；权重上「类 + 元素 + 属性」也压过那条「类 + 属性」。
+ */
+.tiptap pre[data-xmd-raw-markdown] {
+  white-space: pre-wrap;
 }
 
 /*

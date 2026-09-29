@@ -213,8 +213,12 @@ describe("块级 HTML 子集渲染", () => {
     const editor = await createEditor(markdown);
     try {
       assert.deepEqual(topLevelTypes(editor), ["paragraph", "table", "paragraph"]);
-      // 字面文本按块原文整段保留（含块尾空行），与改动前一致。
-      assert.match(editor.state.doc.child(0).textContent, /^<div align="center">\n\n$/u);
+      /*
+       * 字面文本按块原文整段保留，但块尾换行必须剥掉：marked 的 html token 带着它们，
+       * 而 ProseMirror 的 white-space: break-spaces 会把它渲染成段落末尾的一个空行
+       * （连续几行 HTML 注释看起来被空行隔开就是这么来的）。
+       */
+      assert.equal(editor.state.doc.child(0).textContent, '<div align="center">');
     } finally {
       editor.destroy();
     }

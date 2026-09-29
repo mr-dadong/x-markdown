@@ -1,0 +1,81 @@
+{
+  "latest": "1.3.9",
+  "releases": [
+    {
+      "version": "1.3.9",
+      "date": "2026-09-29",
+      "channel": "stable",
+      "title": "版本更新",
+      "content": [
+        "新增：在编辑视图里手写或粘贴的块级 HTML，标签一闭合就立即渲染成实际内容，多行写法同样生效，不再停留在源码文字",
+        "新增：README 风格的块级 HTML 渲染成真正的排版内容，居中的 div、hr 与一排徽章图片都按网页效果显示，不再整段显示源码",
+        "优化：这些 HTML 保存时按你写的标签原样写回，居中的 div、hr 不会被改写成 Markdown 语法",
+        "优化：HTML 注释改用次要文字色弱化显示，一眼区分「写给作者自己的备注」与正文",
+        "修复：HTML 注释在编辑器里不再被空行隔开（注释块尾的换行被当成了正文换行显示）",
+        "修复：文件开头的 YAML 前置（--- 之间的配置）在编辑视图里被压成一行的问题，现在按源码逐行显示",
+        "修复：图片的百分比宽度（如 width=\"60%\"）按百分比显示，不再被当成像素值",
+        "修复：在居中 HTML 容器里粘贴内容后光标停在容器中间、回车继续居中的问题，现在光标落在内容下方的普通段落"
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.3.9-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Windows-x64.exe",
+              "sha256": null
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.9-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-macOS-arm64.dmg",
+              "sha256": null
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.9-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-macOS-x64.dmg",
+              "sha256": null
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.9-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Linux-x86_64.AppImage",
+              "sha256": null
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.9-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Linux-arm64.AppImage",
+              "sha256": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

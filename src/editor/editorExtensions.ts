@@ -57,6 +57,7 @@ import {
   FootnoteDefinition,
   FootnoteReference,
   HtmlBlock,
+  HtmlComment,
   HtmlTextTag,
   MathBlock,
   MathInline,
@@ -577,6 +578,8 @@ export const createEditorExtensions = (options: {
     // 扩展模块各自管理 Markdown 解析、可视化和序列化，便于独立维护或替换。
     HtmlBlockSourceForm,
     HtmlBlock.configure({ getCurrentDocumentPath: getCurrentDocumentPath ?? (() => null) }),
+    // HTML 注释保留可编辑的段落形态，只在显示上弱化（样式见 MarkdownEditor.vue）。
+    HtmlComment,
     // 分页符：编辑区显示可见标记，导出/打印时输出真正的分页元素。
     PageBreak,
     // 行内 HTML 保留用户写法：预览照常渲染成粗体/下划线等，源码与存盘文件按原标签输出。
