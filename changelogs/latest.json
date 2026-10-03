@@ -1,20 +1,17 @@
 {
-  "latest": "1.3.9",
+  "latest": "1.3.10",
   "releases": [
     {
-      "version": "1.3.9",
-      "date": "2026-09-29",
+      "version": "1.3.10",
+      "date": "2026-10-03",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：在编辑视图里手写或粘贴的块级 HTML，标签一闭合就立即渲染成实际内容，多行写法同样生效，不再停留在源码文字",
-        "新增：README 风格的块级 HTML 渲染成真正的排版内容，居中的 div、hr 与一排徽章图片都按网页效果显示，不再整段显示源码",
-        "优化：这些 HTML 保存时按你写的标签原样写回，居中的 div、hr 不会被改写成 Markdown 语法",
-        "优化：HTML 注释改用次要文字色弱化显示，一眼区分「写给作者自己的备注」与正文",
-        "修复：HTML 注释在编辑器里不再被空行隔开（注释块尾的换行被当成了正文换行显示）",
-        "修复：文件开头的 YAML 前置（--- 之间的配置）在编辑视图里被压成一行的问题，现在按源码逐行显示",
-        "修复：图片的百分比宽度（如 width=\"60%\"）按百分比显示，不再被当成像素值",
-        "修复：在居中 HTML 容器里粘贴内容后光标停在容器中间、回车继续居中的问题，现在光标落在内容下方的普通段落"
+        "新增：AI 设置页支持添加多个模型连接，同一厂商可配置多个账号或服务地址，自定义连接名称，列表化管理",
+        "优化：AI 聊天上下文检索，短文档直接给模型全文，长文档先提供标题目录再按相关性取片段，概述类问题均匀采样全文片段",
+        "优化：HTML 隔离预览中的网络图片由主进程下载后转成数据加载，不再被 CSP 拦截导致图片无法显示",
+        "优化：包含嵌套容器、表格或列表的完整 HTML 块作为整体进入隔离预览，不再被拆成多段源码文字",
+        "修复：百分比宽度的图片（如 width=\"48%\"）在编辑视图里按百分比显示，拖动调整大小后自动切换为像素宽度"
       ],
       "downloads": {
         "windows": {
@@ -25,9 +22,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.3.9-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Windows-x64.exe",
-              "sha256": "ca2e75614dac52071902f1e8bbc390f06897972e50de57be52d9b3a2da959aaf"
+              "filename": "XMD-1.3.10-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Windows-x64.exe",
+              "sha256": "69c2f6c36d46b9d056bd041d0a871f9b79b332589a90500b28007d5114c98bbd"
             }
           ]
         },
@@ -39,17 +36,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.9-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-macOS-arm64.dmg",
-              "sha256": "0b6b581579829f61294322ed7ba7fca583aba88a09cfd8532150e7cb76e79d2d"
+              "filename": "XMD-1.3.10-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-macOS-arm64.dmg",
+              "sha256": "6d7fca1d35a6152c59dfc45c3b2ca952ace8c2f17d40d14c183e0c4dd8571a04"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.9-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-macOS-x64.dmg",
-              "sha256": "143ae2a589696968b579a2021c4ecc2b76bda2bc37f60980b0c46a253a4cce17"
+              "filename": "XMD-1.3.10-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-macOS-x64.dmg",
+              "sha256": "4fe397feebee840a5e17a9469523b816442f1e18263d2897088e496fa160fb92"
             }
           ]
         },
@@ -61,17 +58,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.9-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Linux-x86_64.AppImage",
-              "sha256": "06f82c84ca9cbd8ed72eabf21c79930bc4336a53cc7e816ef64a86537673a943"
+              "filename": "XMD-1.3.10-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Linux-x86_64.AppImage",
+              "sha256": "e0a451793bd1a6747a9be53eae6f214c18a9cb9b338db3163c2b3f73b1f6b01e"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.9-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.9/XMD-1.3.9-Linux-arm64.AppImage",
-              "sha256": "a837d91348941919d334dee49351169a8483ae4decaeb51153ce739df7b3fb9c"
+              "filename": "XMD-1.3.10-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Linux-arm64.AppImage",
+              "sha256": "aa12352403670f17d92db550571ec5519ee041796a5214da004bd3428105c604"
             }
           ]
         }
