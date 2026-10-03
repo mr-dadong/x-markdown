@@ -411,7 +411,13 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
           const styleSource = (currentNode.attrs.styleSource as string | null) ?? null;
           const width = currentNode.attrs.width ?? readStylePixels(styleSource, "width");
           const height = currentNode.attrs.height ?? readStylePixels(styleSource, "height");
-          image.style.width = toCssLength(width as number | string | null);
+          // 百分比宽度放在外层容器上，才能按正文宽度计算；图片填满容器，避免再次缩小。
+          const percentageWidth = typeof width === "string" && width.endsWith("%");
+          // 标记明确设置百分比的插图，避免被全局行内图标样式限制高度或改成块级布局。
+          wrapper.toggleAttribute("data-xmd-image-percent", percentageWidth);
+          wrapper.style.width = percentageWidth ? width : "";
+          image.classList.toggle("w-full", percentageWidth);
+          image.style.width = percentageWidth ? "" : toCssLength(width as number | string | null);
           image.style.height = toCssLength(height as number | string | null);
           // zoom 同样来自 style，直接作用在 DOM 上，存盘仍写原始 style 文本。
           const zoom = readStyleZoom(styleSource);
@@ -437,6 +443,10 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
             const nextWidth = Math.round(
               Math.min(editorWidth, Math.max(48, startWidth + moveEvent.clientX - startX)),
             );
+            // 手动拖动切换为像素宽度，同时解除外层的百分比限制。
+            wrapper.style.width = "";
+            wrapper.removeAttribute("data-xmd-image-percent");
+            image.classList.remove("w-full");
             image.style.width = `${nextWidth}px`;
             // 拉伸过程中同步解除固定高度，否则宽高比被锁死会把图片拉变形。
             image.style.height = "";

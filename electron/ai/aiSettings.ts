@@ -1,3 +1,4 @@
+import { aiProviderTemplate, type AiProviderTemplate } from "../../src/types/ai";
 import { app, safeStorage } from "electron";
 import fs from "fs";
 import path from "path";
@@ -21,7 +22,7 @@ const defaultProviderConfig = (): AiProviderConfig => ({
 });
 
 const defaultAiSettings = (): AiSettings => ({
-  enabled: false,
+  enabled: true,
   provider: "openai",
   providers: {
     openai: {
@@ -93,8 +94,8 @@ export function normalizeSettings(
     ? input.provider
     : fallback.provider;
   return {
-    enabled:
-      typeof input.enabled === "boolean" ? input.enabled : fallback.enabled,
+    // 保留 enabled 字段兼容已有接口，AI 是否可用由连接配置决定。
+    enabled: true,
     provider,
     providers: normalizeProviders(
       input.providers,
@@ -137,8 +138,9 @@ function normalizeProviders(
     const p = input[key];
     if (!p) continue;
     result[key] = {
+      name: p.name ?? fallback[key]?.name,
       model:
-        typeof p.model === "string" && p.model.trim()
+        typeof p.model === "string"
           ? p.model.trim()
           : (fallback[key]?.model ?? ""),
       baseUrl:
@@ -166,7 +168,8 @@ export function isAiProvider(value: unknown): value is AiProvider {
     value === "deepseek" ||
     value === "minimax" ||
     value === "ollama" ||
-    value === "custom"
+    value === "custom" ||
+    (typeof value === "string" && /^(openai|anthropic|deepseek|minimax|ollama|custom):[a-zA-Z0-9-]+$/.test(value))
   );
 }
 
@@ -196,7 +199,7 @@ function encryptApiKey(apiKey: string): string {
 }
 
 function envApiKey(provider: AiProvider): string | undefined {
-  const envNames: Record<AiProvider, string[]> = {
+  const envNames: Record<AiProviderTemplate, string[]> = {
     openai: ["XMD_AI_API_KEY", "OPENAI_API_KEY"],
     anthropic: ["XMD_AI_API_KEY", "ANTHROPIC_API_KEY"],
     deepseek: ["XMD_AI_API_KEY", "DEEPSEEK_API_KEY"],
@@ -204,7 +207,7 @@ function envApiKey(provider: AiProvider): string | undefined {
     ollama: ["XMD_AI_API_KEY", "OLLAMA_API_KEY"],
     custom: ["XMD_AI_API_KEY"],
   };
-  for (const name of envNames[provider]) {
+  for (const name of envNames[aiProviderTemplate(provider)]) {
     const value = process.env[name];
     if (value?.trim()) return value.trim();
   }
@@ -297,8 +300,10 @@ async function readStoredSettings(): Promise<StoredAiSettings | null> {
     }
 
     return parsed as StoredAiSettings;
-  } catch {
-    return null;
+  } catch (error) {
+    // 初次使用没有文件属于正常情况；损坏或读取失败必须报告，不能清空配置。
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
 }
 
@@ -332,10 +337,11 @@ export async function getAiSettings(): Promise<AiSettings> {
   }
   const { config, encryptedApiKeys } = stored;
   const providers: Record<string, AiProviderConfig> = {};
-  const defaultProviders = defaultAiSettings().providers;
-  for (const key of Object.keys(defaultProviders)) {
+  // 仅加载磁盘中存在的连接，已删除的旧厂商不能在重启后重新出现。
+  for (const key of Object.keys(config.providers)) {
     const storedConfig = config.providers[key];
     providers[key] = {
+      name: storedConfig?.name,
       model: storedConfig?.model ?? "",
       baseUrl: storedConfig?.baseUrl,
       // 密钥加密存放在 encryptedApiKeys，加载进内存时必须解密还原，
@@ -345,7 +351,8 @@ export async function getAiSettings(): Promise<AiSettings> {
     };
   }
   cachedSettings = {
-    enabled: config.enabled,
+    // 旧配置即使关闭过开关，升级后也按实际连接配置判断可用性。
+    enabled: true,
     provider: isAiProvider(config.provider)
       ? config.provider
       : defaultAiSettings().provider,
@@ -371,10 +378,16 @@ export async function saveAiSettings(
 ): Promise<AiPublicSettings> {
   const current = cachedSettings ?? (await getAiSettings());
   const merged = normalizeSettings(input, current);
+  // 删除连接必须同时删除加密密钥，防止遗留无主凭据。
+  for (const id of input.removedProviders ?? []) {
+    if (id === merged.provider) throw new Error("不能删除当前使用的连接");
+    delete merged.providers[id];
+  }
   const stored = await readStoredSettings();
   const encryptedApiKeys: Record<string, string> = {
     ...(stored?.encryptedApiKeys ?? {}),
   };
+  for (const id of input.removedProviders ?? []) delete encryptedApiKeys[id];
   const providers: Record<
     string,
     Omit<AiProviderConfig, "apiKey"> & { apiKey?: undefined }
@@ -385,6 +398,7 @@ export async function saveAiSettings(
       encryptedApiKeys[key] = encryptApiKey(p.apiKey);
     }
     providers[key] = {
+      name: p.name,
       model: p.model,
       baseUrl: p.baseUrl,
       customModels: p.customModels,
@@ -422,7 +436,6 @@ export async function getAiStatus(): Promise<AiStatus> {
   return {
     initialized: true,
     configured:
-      settings.enabled &&
       Boolean(config.model) &&
       (Boolean(apiKey) || settings.allowLocalRequests),
     provider: settings.provider,
@@ -451,6 +464,7 @@ export function toPublicSettings(settings: AiSettings): AiPublicSettings {
   for (const key of Object.keys(settings.providers)) {
     const p = settings.providers[key];
     providers[key] = {
+      name: p.name,
       model: p.model,
       baseUrl: p.baseUrl,
       hasApiKey: Boolean(p.apiKey) || Boolean(envApiKey(key as AiProvider)),
@@ -502,6 +516,7 @@ function mergeDraftApiKeys(
     const resolvedKey =
       key === targetProvider && draftKey ? draftKey : fallback.apiKey;
     merged[key] = {
+      name: draftCfg.name ?? baseCfg?.name,
       model:
         typeof draftCfg.model === "string" && draftCfg.model.trim()
           ? draftCfg.model.trim()
@@ -547,27 +562,20 @@ export async function testAiConnection(
     : base;
   const config = currentProviderConfig(settings);
   const provider = settings.provider;
+  const protocol = aiProviderTemplate(provider);
   const model = config.model;
 
-  if (!settings.enabled) {
-    return {
-      ok: false,
-      provider,
-      model,
-      error: "AI 未启用，请先打开「启用 AI」开关。",
-    };
-  }
   if (!model.trim()) {
     return { ok: false, provider, model, error: "未选择模型名称。" };
   }
-  const apiKey = config.apiKey ?? resolveApiKey(settings, provider);
-  if (!apiKey && provider !== "ollama") {
+  const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
+  if (!apiKey && protocol !== "ollama") {
     return { ok: false, provider, model, error: "API Key 未配置。" };
   }
 
   const baseUrl = ((): string => {
     if (config.baseUrl) return config.baseUrl.replace(/\/+$/, "");
-    switch (provider) {
+    switch (protocol) {
       case "openai":
         return "https://api.openai.com/v1";
       case "anthropic":
@@ -589,7 +597,7 @@ export async function testAiConnection(
     headers: Record<string, string>;
     body: unknown;
   } => {
-    if (provider === "anthropic") {
+    if (protocol === "anthropic") {
       return {
         url: baseUrl.replace(/\/v1\/?$/, "") + "/v1/messages",
         headers: {
@@ -608,7 +616,7 @@ export async function testAiConnection(
 
     // Ollama、OpenAI 兼容家族、custom：都走 /chat/completions。
     const url =
-      provider === "ollama"
+      protocol === "ollama"
         ? baseUrl.replace(/\/v1\/?$/, "") + "/v1/chat/completions"
         : `${baseUrl}/chat/completions`;
     const headers: Record<string, string> = {

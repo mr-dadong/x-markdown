@@ -124,7 +124,9 @@ describe("块级 HTML 子集渲染", () => {
     try {
       const paragraph = editor.view.dom.children[0] as HTMLElement;
       assert.equal(paragraph.getAttribute("style"), "text-align: center;");
-      assert.equal(paragraph.querySelector("img")?.style.width, "60%");
+      // 百分比由图片容器按正文宽度计算，图片本身填满容器。
+      assert.equal(paragraph.querySelector<HTMLElement>("[data-xmd-image]")?.style.width, "60%");
+      assert.ok(paragraph.querySelector("img")?.classList.contains("w-full"));
       assert.equal(editor.view.dom.children[1]?.tagName.toLowerCase(), "hr");
     } finally {
       editor.destroy();
@@ -159,8 +161,6 @@ describe("块级 HTML 子集渲染", () => {
     const cases = [
       "<!-- markdownlint-disable html -->",
       '<div style="display: flex">横排</div>',
-      '<div align="center"><p>容器里是块级标签</p></div>',
-      "<table><tr><td>x</td></tr></table>",
       '<p align="center">文字 <span>认不出的标签</span></p>',
     ];
     for (const source of cases) {
@@ -189,6 +189,26 @@ describe("块级 HTML 子集渲染", () => {
     }
   });
 
+  test("嵌套段落和 HTML 表格使用完整预览并保留源码", async () => {
+    // README 中的空行属于 HTML 容器内部，不应把图片和段落拆开。
+    const cases = [
+      '<div align="center">\n  <p style="font-size: 18px"><strong>介绍</strong></p>\n\n  <p><img src="https://example.com/hero.png" width="820" /></p>\n\n  <p><a href="https://example.com"><img src="https://example.com/badge.svg?a=1&amp;b=2" /></a></p>\n</div>',
+      '<table>\n<tr><td>第一行</td></tr>\n\n<tr><td>第二行</td></tr>\n</table>',
+    ];
+    for (const source of cases) {
+      const editor = await createEditor(`${source}\n\n## 后续正文\n`);
+      try {
+        assert.deepEqual(topLevelTypes(editor), ["htmlBlock", "heading"]);
+        assert.equal(editor.state.doc.child(0).attrs.source.trimEnd(), source);
+        const { captureBaseline, serializePreservingSource } = await import("../../../editor/sourcePreservingSerializer");
+        const markdown = `${source}\n\n## 后续正文\n`;
+        assert.equal(serializePreservingSource(editor, captureBaseline(editor, markdown)), markdown);
+      } finally {
+        editor.destroy();
+      }
+    }
+  });
+
   test("独立一行写百分比宽度的 img 也按百分比渲染", async () => {
     const editor = await createEditor('<img src="https://example.com/a.svg" width="60%" alt="x">');
     try {
@@ -196,7 +216,9 @@ describe("块级 HTML 子集渲染", () => {
       assert.equal(image.type.name, "image");
       assert.equal(image.attrs.width, "60%");
       const rendered = editor.view.dom.querySelector("img");
-      assert.equal(rendered?.style.width, "60%");
+      // 独立图片同样使用容器承接百分比，避免行内容器收缩后图片变小。
+      assert.equal(rendered?.parentElement?.style.width, "60%");
+      assert.ok(rendered?.classList.contains("w-full"));
     } finally {
       editor.destroy();
     }

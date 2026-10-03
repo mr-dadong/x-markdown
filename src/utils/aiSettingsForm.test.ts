@@ -31,14 +31,21 @@ describe("prefillBaseUrls", () => {
     assert.equal(result.openai.baseUrl, "https://proxy.example.com/v1");
   });
 
-  test("anthropic 即使默认表里有地址也不预填", () => {
+  test("Anthropic 连接预填官方地址", () => {
     const result = prefillBaseUrls({ anthropic: makeConfig() }, defaults);
-    assert.equal(result.anthropic.baseUrl, undefined);
+    assert.equal(result.anthropic.baseUrl, "https://api.anthropic.com/v1");
   });
 
   test("默认表里没有的厂商保持为空", () => {
     const result = prefillBaseUrls({ custom: makeConfig() }, defaults);
     assert.equal(result.custom.baseUrl, undefined);
+  });
+
+  // 多连接加载时按模板填地址，独立配置的地址不会被覆盖。
+  test("多个同厂商连接按模板填地址", () => {
+    const result = prefillBaseUrls({ "deepseek:one": makeConfig(), "deepseek:two": makeConfig({ baseUrl: "https://proxy.example/v1" }) }, defaults);
+    assert.equal(result["deepseek:one"].baseUrl, defaults.deepseek);
+    assert.equal(result["deepseek:two"].baseUrl, "https://proxy.example/v1");
   });
 
   test("不修改传入的原对象", () => {

@@ -340,8 +340,9 @@ const electronAPI: ElectronAPI = {
   ): Promise<{ fileName: string; fileSize: number; fileType: string; url: string } | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.saveEditorImage, { bytes, mimeType, currentDocumentPath }),
 
-  readEditorImage: (url: string, currentDocumentPath: string | null): Promise<string> =>
-    ipcRenderer.invoke(IPC_CHANNELS.readEditorImage, { url, currentDocumentPath }),
+  // 按需下载网络图片，原有两参数调用的行为保持不变。
+  readEditorImage: (url: string, currentDocumentPath: string | null, downloadRemote?: boolean): Promise<string> =>
+    ipcRenderer.invoke(IPC_CHANNELS.readEditorImage, { url, currentDocumentPath, downloadRemote }),
 
   readEditorFileBytes: (url: string, currentDocumentPath: string | null): Promise<Uint8Array> =>
     ipcRenderer.invoke(IPC_CHANNELS.readEditorFileBytes, { url, currentDocumentPath }),

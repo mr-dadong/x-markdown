@@ -42,6 +42,10 @@ export interface DocumentIndex {
 
 /** 检索结果：预算内最相关的文档块 + 选区 + 光标上下文 */
 export interface RetrievedContext {
+  /** 预算允许时传入完整原文，避免普通提问漏掉文档内容。 */
+  fullDocument?: string;
+  /** 长文档的标题目录，用于说明全文结构；不代表已读取全部正文。 */
+  documentOutline?: string;
   /** 命中的块（已按相关性排序，已截断到预算内） */
   chunks: DocumentChunk[];
   /** 当前选区文本（始终包含，不受检索影响） */

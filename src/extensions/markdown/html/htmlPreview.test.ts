@@ -62,6 +62,24 @@ describe('HTML 隔离预览', () => {
     assert.doesNotMatch(document, /src="\.\/images\/demo\.png"/)
   })
 
+  test('网络截图和徽章也通过图片读取接口转成 data URL', async () => {
+    const urls: string[] = []
+    // 包含协议相对地址和查询参数，验证图片地址没有在 HTML 解析时丢失。
+    const document = await createResolvedHtmlPreviewDocument(
+      '<div align="center"><p><img src="https://example.com/hero.png"></p><p><img src="//example.com/badge.svg?a=1&amp;b=2"></p></div>',
+      async url => { urls.push(url); return 'data:image/png;base64,AQID' },
+    )
+    assert.deepEqual(urls, ['https://example.com/hero.png', 'https://example.com/badge.svg?a=1&b=2'])
+    assert.equal((document.match(/src="data:image\/png;base64,AQID"/g) ?? []).length, 2)
+    assert.match(document, /img-src data: blob:/)
+  })
+
+  test('图片读取失败时明确报告错误，不生成残缺预览', async () => {
+    await assert.rejects(createResolvedHtmlPreviewDocument('<img src="https://example.com/a.png">', async () => {
+      throw new Error('下载图片超时')
+    }), /下载图片超时/)
+  })
+
   test('不再以 flex 强制压缩内容宽度，保留横向滚动而非裁掉内容', () => {
     const document = createHtmlPreviewDocument('<div style="width: 900px">宽内容</div>')
 

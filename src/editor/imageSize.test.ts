@@ -58,6 +58,34 @@ const findImageNode = (editor: InstanceType<typeof EditorConstructor>) => {
 };
 
 describe("图片尺寸属性", () => {
+  // 两张百分比图片应各自占正文的指定比例，保存和重新调整尺寸时也要保留正确行为。
+  test("并排图片的百分比宽度作用于容器，切换像素尺寸后解除百分比限制", () => {
+    const content = '<div align="center">\n<img src="https://example.com/a.png" width="48%">\n<img src="https://example.com/b.png" width="48%">\n</div>';
+    withEditor(content, (editor) => {
+      const wrappers = editor.view.dom.querySelectorAll<HTMLElement>("[data-xmd-image]");
+      assert.equal(wrappers.length, 2);
+      for (const wrapper of wrappers) {
+        assert.equal(wrapper.style.width, "48%");
+        assert.ok(wrapper.hasAttribute("data-xmd-image-percent"), "百分比插图不应被当成行内小图标");
+        assert.ok(wrapper.querySelector("img")?.classList.contains("w-full"));
+        assert.equal(wrapper.querySelector("img")?.style.width, "");
+      }
+      assert.match(editor.getMarkdown(), /width="48%"/u);
+
+      let position = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (position === -1 && node.type.name === "image") position = pos;
+      });
+      const image = editor.state.doc.nodeAt(position)!;
+      editor.view.dispatch(editor.state.tr.setNodeMarkup(position, undefined, { ...image.attrs, width: 320 }));
+      assert.equal(wrappers[0].style.width, "");
+      assert.equal(wrappers[0].hasAttribute("data-xmd-image-percent"), false);
+      assert.equal(wrappers[0].querySelector("img")?.style.width, "320px");
+      assert.equal(wrappers[0].querySelector("img")?.classList.contains("w-full"), false);
+      assert.equal(wrappers[1].style.width, "48%");
+    });
+  });
+
   test("HTML 的 width 与 height 都会被节点接收", () => {
     const image = withEditor(inlineImage('width="16" height="16"'), findImageNode);
     assert.equal(image?.attrs.width, 16);

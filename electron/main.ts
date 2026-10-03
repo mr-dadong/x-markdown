@@ -1734,8 +1734,18 @@ ipcMain.handle(
     {
       url,
       currentDocumentPath,
-    }: { url: string; currentDocumentPath: string | null },
+      downloadRemote,
+    }: { url: string; currentDocumentPath: string | null; downloadRemote?: boolean },
   ) => {
+    // HTML 预览只接收图片数据，下载超时或失败时明确报告错误。
+    if (downloadRemote && /^https?:/i.test(url)) {
+      const response = await net.fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!response.ok) throw new Error(`下载 HTML 预览图片失败：${response.status}（${url}）`);
+      const mimeType = (response.headers.get("content-type") ?? "").split(";")[0].trim();
+      if (!mimeType.startsWith("image/")) throw new Error(`HTML 预览资源不是图片：${url}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      return `data:${mimeType};base64,${bytes.toString("base64")}`;
+    }
     if (/^https?:/i.test(url) || /^data:/i.test(url)) return url;
 
     const resolvedPath = resolveEditorFilePath(url, currentDocumentPath);

@@ -1726,6 +1726,17 @@ defineExpose<EditorHandle>({
 }
 
 /* ===== 图片 ===== */
+/* 百分比插图保留 inline-flex，居中段落才能按整张图片的宽度居中。
+ * 图片填满容器且不限制高度，不能套用行内小图标的 1.5em 高度。
+ */
+.tiptap [data-xmd-image-percent] {
+  @apply inline-flex align-middle;
+}
+
+.tiptap [data-xmd-image-percent] img {
+  @apply w-full max-h-none;
+}
+
 .tiptap img {
   max-width: 100%;
   height: auto;
@@ -1750,16 +1761,16 @@ defineExpose<EditorHandle>({
  *   因此改用负偏移 `-0.3em` 把图标上提，实测中心偏差收敛到 0.25px；
  * - `margin-right: 0.25em`：图标与后面文字留出约 4px 间隙，避免贴着字。
  */
-.tiptap a [data-xmd-image] img,
-.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image] img {
+.tiptap a [data-xmd-image]:not([data-xmd-image-percent]) img,
+.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image]:not([data-xmd-image-percent]) img {
   display: inline-block;
   margin: 0;
   max-height: 1.5em;
   width: auto;
 }
 
-.tiptap a [data-xmd-image],
-.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image] {
+.tiptap a [data-xmd-image]:not([data-xmd-image-percent]),
+.tiptap p:not(:has(> [data-xmd-image]:only-child)) [data-xmd-image]:not([data-xmd-image-percent]) {
   vertical-align: -0.3em;
   margin-right: 0.25em;
 }
@@ -1777,17 +1788,17 @@ defineExpose<EditorHandle>({
  * 不会误伤「图标+文字」这类段落（图片不在首位或后面跟着文字）。
  * 小于列宽的图片不会放大（包装层宽度取内容自然宽度），避免低分辨率图变糊。
  */
-.typography-pane .tiptap p>[data-xmd-image]:only-child,
-.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br),
-.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) {
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):only-child,
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(2):has(+ br),
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) {
   @apply my-6 flex rounded-lg;
   vertical-align: baseline;
   margin-right: 0;
 }
 
-.typography-pane .tiptap p>[data-xmd-image]:only-child img,
-.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(2):has(+ br) img,
-.typography-pane .tiptap p>[data-xmd-image]:first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) img {
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):only-child img,
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(2):has(+ br) img,
+.typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) img {
   @apply rounded-lg;
   width: 100%;
   height: auto;

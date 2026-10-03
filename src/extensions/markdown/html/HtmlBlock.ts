@@ -3,16 +3,37 @@ import type { JSONContent, MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
 import { renderBlockHtmlSubset } from "./htmlBlockRender";
-import { createHtmlBlockClaimPlugin } from "./htmlBlockClaim";
-import { stripTrailingNewlines } from "../shared/officialMarkdown";
+import { createHtmlBlockClaimPlugin, scanLineDepths } from "./htmlBlockClaim";
+import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "../shared/officialMarkdown";
 import { readPageBreakStyle } from "./PageBreak";
 
 /**
- * 普通 HTML 文本/标记应保持可编辑，只有带 style 的复杂 HTML 才隔离预览。
- * 这样 <p>、<div>、表格等标签仍在正文流里，用户可以直接继续输入和修改。
+ * 简单 HTML 沿用正文编辑，嵌套容器、表格和样式块使用完整隔离预览。
+ * 复杂排版的源码保存在节点属性中，用户在源码模式修改。
  */
-const needsIsolatedHtmlPreview = (source: string): boolean =>
-  /<style\b/iu.test(source);
+const needsIsolatedHtmlPreview = (source: string): boolean => {
+  if (/<style\b/iu.test(source)) return true;
+  // 嵌套段落、表格和列表需要完整 HTML 排版，不能压成一个编辑器段落。
+  const document = new DOMParser().parseFromString(source, "text/html");
+  return document.body.querySelector("div p, div div, table, ul, ol, section, article") !== null;
+};
+
+/** 完整 HTML 容器跨空行读取，避免 README 的图片和徽章被拆成源码段落。 */
+const tokenizeCompleteHtml = (source: string): MarkdownToken | undefined => {
+  if (!/^ {0,3}<(?:div|p|center|table|ul|ol|section|article)\b/iu.test(source)) return undefined;
+  const lines = source.split("\n");
+  const depths = scanLineDepths(source);
+  const end = depths.findIndex((depth) => depth === 0);
+  if (end < 0) return undefined;
+  const raw = takeBlockRaw(lines, end + 1);
+  if (!needsIsolatedHtmlPreview(raw)) return undefined;
+  const document = new DOMParser().parseFromString(raw, "text/html");
+  // 容器直接夹着 Markdown 正文时仍按 Markdown 分块，避免吞掉表格、标题等语法。
+  for (const container of document.body.querySelectorAll("div, center, section, article")) {
+    if (Array.from(container.childNodes).some((child) => child.nodeType === 3 && child.textContent?.trim())) return undefined;
+  }
+  return { type: "html", raw, text: raw };
+};
 
 // TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
 // 的导出类型因此需要能具名引用它，必须显式导出。
@@ -95,6 +116,14 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
    */
   markdownTokenName: "html",
 
+  // 与普通 HTML 共用解析入口，仅提前认领需要完整预览的闭合容器。
+  markdownTokenizer: {
+    name: "html",
+    level: "block",
+    start: neverInterruptParagraph,
+    tokenize: tokenizeCompleteHtml,
+  },
+
   parseMarkdown: (token, helpers) => {
     const source = String(token.text ?? token.raw ?? "");
     // 分页符走专用节点：编辑区显示可见的虚线标记，导出时输出真正的分页元素。
@@ -105,7 +134,7 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
         attrs: { source: stripTrailingNewlines(source), style: pageBreakStyle },
       } as unknown as MarkdownToken;
     }
-    // 只有带 style 的复杂 HTML 才原样保存为隔离预览块，不在正文里执行。
+    // 复杂 HTML 原样保存为隔离预览块，保留嵌套结构、属性与块内空行。
     if (needsIsolatedHtmlPreview(source)) {
       return { type: "htmlBlock", attrs: { source } };
     }

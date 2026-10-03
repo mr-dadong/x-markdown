@@ -42,7 +42,8 @@ const refreshPreviewDocument = async (value: string): Promise<void> => {
   try {
     const document = await createResolvedHtmlPreviewDocument(
       value,
-      url => mediaService.readImage(url, getCurrentDocumentPath()),
+      // 网络图片由主进程限时下载后转成 data URL，iframe 无需开放网络权限。
+      url => mediaService.readImage(url, getCurrentDocumentPath(), true),
     )
     if (requestId === previewRequestId) previewDocument.value = document
   } catch (error) {

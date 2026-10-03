@@ -289,11 +289,10 @@ describe("手写 HTML 的认领", () => {
     }
   });
 
-  test("认不了的保持字面文本：注释、认不出的容器、表格", async () => {
+  test("认不了的保持字面文本：注释、认不出的容器", async () => {
     const cases = [
       "<!-- markdownlint-disable html -->",
       "<div>dadong</div>",
-      "<table><tr><td>x</td></tr></table>",
     ];
     for (const source of cases) {
       const editor = await createEditor("");

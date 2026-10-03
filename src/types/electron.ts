@@ -271,6 +271,8 @@ export interface ElectronAPI {
   readEditorImage: (
     url: string,
     currentDocumentPath: string | null,
+    // HTML 隔离预览需要图片数据，普通图片继续使用原有 URL。
+    downloadRemote?: boolean,
   ) => Promise<string>;
   readEditorFileBytes: (
     url: string,

@@ -73,7 +73,8 @@ describe("HTML 键入即变活", () => {
   const blockCases: Array<[string, string, string]> = [
     ["p 标签", "<p>ddd</p>", "paragraph"],
     ["div 标签", "<div>dadong</div>", "paragraph"],
-    ["table 标签", "<table><tr><td>x</td></tr></table>", "paragraph"],
+    // HTML 表格保持完整结构，在闭合后进入隔离预览。
+    ["table 标签", "<table><tr><td>x</td></tr></table>", "htmlBlock"],
   ];
 
   for (const [name, typed, expectedNodeType] of blockCases) {
@@ -81,7 +82,11 @@ describe("HTML 键入即变活", () => {
       const editor = await typeIntoEmptyEditor(typed);
       try {
         assert.equal(nodeTypes(editor), expectedNodeType);
-        assert.equal(editor.state.doc.textContent, typed);
+        if (expectedNodeType === "htmlBlock") {
+          assert.equal(editor.state.doc.child(0).attrs.source, typed);
+        } else {
+          assert.equal(editor.state.doc.textContent, typed);
+        }
       } finally {
         editor.destroy();
       }

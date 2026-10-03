@@ -1,3 +1,4 @@
+import { aiProviderTemplate } from "../../src/types/ai";
 import { Agent } from "@mastra/core/agent";
 import { getAiSettings, currentProviderConfig, resolveApiKey, getAiStatus } from "./aiSettings";
 import type { AiSettings, AiStatus } from "../../src/types/ai";
@@ -16,13 +17,13 @@ export function buildModelConfig(settings: AiSettings, modelOverride?: string): 
   const config = currentProviderConfig(settings);
   // 侧栏选择的模型覆盖值优先；为空时回退设置页当前厂商的模型
   const model = modelOverride?.trim() || config.model;
-  const id = `${settings.provider}/${model}`;
+  const id = `${aiProviderTemplate(settings.provider)}/${model}`;
   const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
 
   // 为每个已知厂商提供默认 API 地址
   let url = config.baseUrl;
   if (!url) {
-    switch (settings.provider) {
+    switch (aiProviderTemplate(settings.provider)) {
       case "openai": url = "https://api.openai.com/v1"; break;
       case "anthropic": url = "https://api.anthropic.com/v1"; break;
       case "deepseek": url = "https://api.deepseek.com/v1"; break;
@@ -32,7 +33,7 @@ export function buildModelConfig(settings: AiSettings, modelOverride?: string): 
   }
 
   // Ollama 需要确保末尾带 /v1
-  if (settings.provider === "ollama" && url && !/\/v1\/?$/.test(url)) {
+  if (aiProviderTemplate(settings.provider) === "ollama" && url && !/\/v1\/?$/.test(url)) {
     url = url.replace(/\/+$/, "") + "/v1";
   }
 

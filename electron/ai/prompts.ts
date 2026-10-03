@@ -84,6 +84,13 @@ export function buildChatSystemPrompt(
   ];
 
   // 检索命中的文档块：带标题路径标注，让模型知道片段在文档中的位置
+  // 明确区分全文和片段，避免把局部内容当成整篇文档下结论。
+  if (retrieved.fullDocument) {
+    parts.push("以下是用户当前文档的完整内容：", retrieved.fullDocument);
+  } else {
+    parts.push("当前提供的是文档目录和部分正文，不是全文。回答时说明依据的范围；缺少所需内容时明确说明，不要猜测未提供的正文。");
+    if (retrieved.documentOutline) parts.push("当前文档标题目录：", retrieved.documentOutline);
+  }
   if (retrieved.chunks.length > 0) {
     parts.push(
       `以下是文档中与你问题最相关的片段（共 ${retrieved.chunks.length} 块，已按相关性排序）：`,

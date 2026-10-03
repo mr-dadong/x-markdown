@@ -1,3 +1,4 @@
+import { aiProviderTemplate } from "../../../src/types/ai";
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent, type IpcMainEvent } from "electron";
 import { IPC_CHANNELS } from "../../../src/constants/ipcChannels";
 import type {
@@ -175,10 +176,10 @@ async function fetchModels(settingsInput?: AiSettingsInput): Promise<AiFetchMode
     const config = currentProviderConfig(settings);
     // config.apiKey 已含草稿 Key 或解密后的已存 Key；这里只是兜底再解析环境变量。
     const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
-    const baseUrl = resolveBaseUrl(settings.provider, config.baseUrl);
+    const baseUrl = resolveBaseUrl(aiProviderTemplate(settings.provider), config.baseUrl);
 
     let models: AiModelInfo[];
-    switch (settings.provider) {
+    switch (aiProviderTemplate(settings.provider)) {
       case "ollama":
         models = await fetchOllamaModels(baseUrl);
         break;
@@ -231,6 +232,7 @@ function mergeDraftApiKeys(
     const resolvedKey =
       key === targetProvider && draftKey ? draftKey : fallback.apiKey;
     merged[key] = {
+      name: draftCfg.name ?? baseCfg?.name,
       model:
         typeof draftCfg.model === "string" && draftCfg.model.trim()
           ? draftCfg.model.trim()

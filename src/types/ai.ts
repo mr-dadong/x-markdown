@@ -1,4 +1,11 @@
-export type AiProvider = "openai" | "anthropic" | "deepseek" | "minimax" | "ollama" | "custom";
+export type AiProviderTemplate = "openai" | "anthropic" | "deepseek" | "minimax" | "ollama" | "custom";
+/** 旧 ID 保留，新连接按厂商模板生成独立 ID。 */
+export type AiProvider = AiProviderTemplate | `${AiProviderTemplate}:${string}`;
+/** 读取连接对应的厂商协议。 */
+export function aiProviderTemplate(provider: AiProvider): AiProviderTemplate {
+  return provider.split(':')[0] as AiProviderTemplate;
+}
+
 
 export type AiEditAction =
   | "polish"
@@ -18,6 +25,8 @@ export type AiEditAction =
 
 /** 每个厂商独立的配置（完整版，含 apiKey，仅主进程使用） */
 export interface AiProviderConfig {
+  /** 用户设置的连接名称。 */
+  name?: string;
   model: string;
   baseUrl?: string;
   apiKey?: string;
@@ -26,6 +35,8 @@ export interface AiProviderConfig {
 
 /** 展现在渲染进程的厂商配置（不含 apiKey，仅含 hasApiKey 标记） */
 export interface AiProviderPublicConfig {
+  /** 连接名称不含密钥。 */
+  name?: string;
   model: string;
   baseUrl?: string;
   hasApiKey: boolean;
@@ -49,6 +60,8 @@ export interface AiSettings {
 }
 
 export interface AiSettingsInput {
+  /** 明确删除的连接 ID，其他未提交的连接保持原值。 */
+  removedProviders?: AiProvider[];
   enabled?: boolean;
   provider?: AiProvider;
   providers?: Record<string, AiProviderConfig>;

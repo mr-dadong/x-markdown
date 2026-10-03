@@ -36,10 +36,17 @@ function findChunkAtOffset(chunks: DocumentChunk[], offset: number): DocumentChu
 /** 按 token 预算截断文本，末尾加省略提示（用于选区/光标上下文超预算时） */
 function truncateToBudget(text: string, budget: number): string {
   if (estimateTokens(text) <= budget) return text;
-  // 粗略按字符截断：中文约 1.5 字/token，英文约 4 字符/token，取保守的 3 字符/token 折算
-  const maxChars = Math.floor(budget * 3);
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n…（内容过长已按预算截断）";
+  // 用同一套 token 估算寻找可容纳的前缀，中文不能按英文字符比例截断。
+  const suffix = "\n…（内容过长已按预算截断）";
+  if (budget < estimateTokens(suffix)) return "";
+  let start = 0;
+  let end = text.length;
+  while (start < end) {
+    const middle = Math.ceil((start + end) / 2);
+    if (estimateTokens(text.slice(0, middle) + suffix) <= budget) start = middle;
+    else end = middle - 1;
+  }
+  return text.slice(0, start) + suffix;
 }
 
 /** 主入口：给定用户消息、文档全文、选区与光标位置，返回预算内最相关的上下文 */
@@ -58,8 +65,38 @@ export function retrieve(opts: RetrievalOptions): RetrievedContext {
   // 2. 预算分配
   const budget = allocateBudget(opts);
 
+  // 短文档直接给模型原文，是否读到正文不再取决于问题中的关键词。
+  const fullDocumentTokens = estimateTokens(documentText);
+  if (documentText.trim() && fullDocumentTokens <= budget.retrievedChunks) {
+    const selectionText = truncateToBudget(selection.trim(), budget.selection);
+    return {
+      fullDocument: documentText,
+      chunks: [],
+      selection: selectionText,
+      cursorContext: "",
+      totalTokens: fullDocumentTokens + estimateTokens(selectionText),
+      query,
+    };
+  }
+
+  // 长文档先给标题目录，模型可以区分全文结构和实际读取到的正文片段。
+  const headings = [...new Set(index.chunks.flatMap((chunk) => chunk.headingPath))];
+  const documentOutline = truncateToBudget(headings.join("\n"), Math.min(400, budget.retrievedChunks * 0.2));
+  const chunkBudget = budget.retrievedChunks - estimateTokens(documentOutline);
+
   // 3. BM25 排序
   const ranked = bm25Search(index, query);
+  // 全局问题按原文顺序取分布在全文中的片段，避免只看到关键词集中的章节。
+  const isOverview = /总结|概括|概述|全文|整篇|文档.*(?:讲|内容|主题)|summary|summarize|overview/i.test(query);
+  const sampleCount = Math.min(8, index.chunks.length);
+  const overviewChunks = isOverview ? Array.from({ length: sampleCount }, (_, position) => {
+    const indexPosition = sampleCount === 1 ? 0 : Math.round(position * (index.chunks.length - 1) / (sampleCount - 1));
+    const chunk = index.chunks[indexPosition];
+    // 每个样本分配相同预算，让文档末尾也有机会进入模型上下文。
+    const text = truncateToBudget(chunk.text, chunkBudget / sampleCount);
+    return { chunk: { ...chunk, text, tokenCount: estimateTokens(text) }, score: 0 };
+  }).filter(({ chunk }) => chunk.text.trim()) : [];
+  const candidates = isOverview ? overviewChunks : ranked;
 
   // 4. 强制包含：选区所在块 + 光标邻接块（不计入 Top-K 配额）
   const forcedChunks: DocumentChunk[] = [];
@@ -87,16 +124,16 @@ export function retrieve(opts: RetrievalOptions): RetrievedContext {
     }
   }
   // 再按相关性从高到低补块，直到预算用完
-  for (const { chunk } of ranked) {
+  for (const { chunk } of candidates) {
     if (forcedIds.has(chunk.id)) continue;
-    if (usedTokens + chunk.tokenCount > budget.retrievedChunks) break;
+    if (usedTokens + chunk.tokenCount > chunkBudget) continue;
     selected.push(chunk);
     usedTokens += chunk.tokenCount;
   }
   // 超预算时从最低分的块开始丢弃（保留强制块）
-  if (usedTokens > budget.retrievedChunks) {
+  if (usedTokens > chunkBudget) {
     // selected 前段是强制块，后段是按分数降序加入的；从尾部丢弃非强制块
-    for (let i = selected.length - 1; i >= 0 && usedTokens > budget.retrievedChunks; i -= 1) {
+    for (let i = selected.length - 1; i >= 0 && usedTokens > chunkBudget; i -= 1) {
       const chunk = selected[i];
       if (forcedIds.has(chunk.id)) continue;
       selected.splice(i, 1);
@@ -116,10 +153,11 @@ export function retrieve(opts: RetrievalOptions): RetrievedContext {
   const cursorContext = cursorChunk ? truncateToBudget(cursorChunk.text, budget.cursor) : "";
 
   return {
+    documentOutline,
     chunks: selected,
     selection: selectionText,
     cursorContext,
-    totalTokens: usedTokens + estimateTokens(selectionText) + estimateTokens(cursorContext),
+    totalTokens: usedTokens + estimateTokens(documentOutline) + estimateTokens(selectionText) + estimateTokens(cursorContext),
     query,
   };
 }

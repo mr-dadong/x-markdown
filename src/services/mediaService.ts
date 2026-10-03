@@ -58,8 +58,9 @@ export const mediaService = {
       mimeType,
       currentDocumentPath,
     ),
-  readImage: (url: string, currentDocumentPath: string | null) =>
-    window.electronAPI.readEditorImage(url, currentDocumentPath),
+  // HTML 预览可要求返回网络图片数据，其他图片调用保持原有行为。
+  readImage: (url: string, currentDocumentPath: string | null, downloadRemote?: boolean) =>
+    window.electronAPI.readEditorImage(url, currentDocumentPath, downloadRemote),
   readFileBytes: (url: string, currentDocumentPath: string | null) =>
     window.electronAPI.readEditorFileBytes(url, currentDocumentPath),
   copyImage: (url: string, currentDocumentPath: string | null) =>

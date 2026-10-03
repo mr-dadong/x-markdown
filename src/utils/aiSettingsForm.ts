@@ -1,8 +1,8 @@
+import { aiProviderTemplate, type AiProvider } from "../types/ai";
 import type { AiProviderPublicConfig } from "../types/ai";
 
 /**
  * 为所有未配置 API 地址的厂商预填官方默认地址。
- * - anthropic 走独立协议、界面上不显示地址输入框，跳过不填。
  * - 已配置过的地址一律不覆盖。
  * - 返回全新对象，不修改传入的 providers。
  */
@@ -13,9 +13,8 @@ export function prefillBaseUrls(
   const result: Record<string, AiProviderPublicConfig> = {};
   for (const key of Object.keys(providers)) {
     const cfg = providers[key];
-    // 空地址时才预填默认值；anthropic 和默认表里没有的厂商保持为空
-    const baseUrl =
-      cfg.baseUrl || (key !== "anthropic" ? defaults[key] : undefined);
+    // 用连接对应的模板查官方地址，自定义连接没有预设地址。
+    const baseUrl = cfg.baseUrl || defaults[aiProviderTemplate(key as AiProvider)];
     result[key] = { ...cfg, baseUrl };
   }
   return result;
