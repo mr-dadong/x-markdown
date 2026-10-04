@@ -697,6 +697,31 @@ ul { list-style: none; }
 .platform-card__version { font-family: var(--font-mono); font-size: 13px; color: var(--mist); margin-bottom: 1.2rem; }
 .platform-card__req { font-size: 13px; color: var(--stone); margin-bottom: 1.5rem; line-height: 1.5; }
 
+/* ---- 下载页安装说明 ---- */
+.install-guide { padding: 4.5rem 0 6rem; }
+.install-guide-intro { max-width: 52ch; margin-inline: auto; }
+.install-grid { display: flex; gap: 1.2rem; align-items: stretch; }
+.install-card {
+  display: flex; flex: 1; flex-direction: column; min-width: 0;
+  padding: 1.8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg);
+}
+.install-card h3 { margin-bottom: .5rem; }
+.install-card-note { margin-bottom: 1rem; font-size: 13px; color: var(--stone); line-height: 1.6; }
+.install-steps {
+  display: flex; flex-direction: column; gap: .8rem;
+  padding-left: 1.2rem; list-style: decimal; font-size: 14px; color: var(--graphite); line-height: 1.65;
+}
+.install-code {
+  margin-top: .6rem; padding: .7rem .9rem;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-alt);
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; color: var(--graphite);
+  white-space: pre; overflow-x: auto;
+}
+@media (max-width: 768px) {
+  .install-guide { padding: 3rem 0 4rem; }
+  .install-grid { flex-direction: column; }
+}
+
 /* ---- 更新日志 ---- */
 .changelog-hero { padding: 5.5rem 0 4.5rem; text-align: left; border-bottom: 1px solid var(--line); }
 .changelog-hero-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 5rem; }

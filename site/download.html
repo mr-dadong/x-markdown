@@ -55,7 +55,7 @@
     <div class="container reveal">
       <p class="eyebrow">Download / <span data-latest-version>正在读取版本</span></p>
       <h1 class="h1">选择你的系统，<br/>开始安静写作。</h1>
-      <p>XMD 免费使用，文档始终保存在你的电脑上。当前已提供 Windows 版本。</p>
+      <p>XMD 免费使用，文档始终保存在你的电脑上。已提供 Windows、macOS 与 Linux 版本。</p>
     </div>
   </section>
 
@@ -96,6 +96,49 @@
         <!-- flex-col 让多个下载按钮从上到下纵向排列。 -->
         <div class="flex flex-col gap-2" data-platform-actions></div>
       </article>
+    </div>
+  </section>
+
+  <!-- ============================ 安装说明 ============================ -->
+  <section class="section install-guide" id="install">
+    <div class="container">
+      <div class="text-center mb-4 reveal">
+        <p class="eyebrow mb-1">安装说明</p>
+        <h2 class="h2">macOS 与 Linux 安装步骤</h2>
+        <p class="text-muted mt-2 install-guide-intro">Windows 下载 exe 后按向导安装即可，macOS 与 Linux 需要额外几步，下面分别说明。</p>
+      </div>
+
+      <!-- flex 让两张平台卡片并排，窄屏时改成上下排列。 -->
+      <div class="install-grid reveal">
+        <article class="install-card">
+          <h3 class="h3">macOS</h3>
+          <p class="install-card-note">Apple 芯片（M 系列）下载 arm64，Intel 芯片下载 x64，系统要求 macOS 12 或更高版本。</p>
+          <ol class="install-steps">
+            <li>双击下载好的 DMG，把 XMD 图标拖进「应用程序」文件夹。</li>
+            <li>首次启动会被 Gatekeeper 拦截，因为安装包没有代码签名：在「应用程序」中按住 Control 点击 XMD 图标，选择「打开」，再在弹窗里确认一次。</li>
+            <li>没有「打开」菜单时，到「系统设置 → 隐私与安全性」中点击「仍要打开」。</li>
+            <li>提示「XMD 已损坏」说明应用被系统加上了隔离属性，在终端执行下面的命令解除隔离，然后重新打开。
+              <pre class="install-code">xattr -dr com.apple.quarantine /Applications/XMD.app</pre>
+            </li>
+          </ol>
+        </article>
+
+        <article class="install-card">
+          <h3 class="h3">Linux</h3>
+          <p class="install-card-note">按机器架构下载 AppImage（x86_64 或 arm64），系统要求主流 64 位 Linux 发行版。</p>
+          <ol class="install-steps">
+            <li>在终端进入 AppImage 所在目录，赋予执行权限并运行。
+              <pre class="install-code">chmod +x XMD-*-Linux-x86_64.AppImage
+./XMD-*-Linux-x86_64.AppImage</pre>
+            </li>
+            <li>提示缺少 FUSE 时（Ubuntu 22.04 及更新的系统默认不带 libfuse2），安装依赖，或用免 FUSE 方式启动。
+              <pre class="install-code">sudo apt install libfuse2
+./XMD-*-Linux-x86_64.AppImage --appimage-extract-and-run</pre>
+            </li>
+            <li>需要开始菜单图标和 .md 文件关联时，把 AppImage 移到 ~/.local/bin 等固定目录，再用 AppImageLauncher 完成桌面集成。</li>
+          </ol>
+        </article>
+      </div>
     </div>
   </section>
 </main>

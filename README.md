@@ -74,6 +74,42 @@ bun run lint:fix
 bun run build
 ```
 
+## 安装
+
+安装包在[官网下载页](https://www.x-markdown.com/download)和 [GitHub Releases](https://github.com/mr-dadong/x-markdown/releases) 发布，按系统和芯片选择对应文件。Windows 下载 exe 后按向导安装即可，下面是 macOS 和 Linux 的安装步骤。
+
+### macOS
+
+Apple 芯片（M 系列）下载 `XMD-<版本>-macOS-arm64.dmg`，Intel 芯片下载 `XMD-<版本>-macOS-x64.dmg`。要求 macOS 12 或更高版本。
+
+1. 双击 DMG，把 XMD 图标拖进「应用程序」文件夹。
+2. 首次启动会被 Gatekeeper 拦截，因为安装包没有代码签名。在「应用程序」中按住 Control 点击 XMD 图标，选择「打开」，再在弹窗里确认一次；没有「打开」菜单时，到「系统设置 → 隐私与安全性」中点击「仍要打开」。
+3. 提示「XMD 已损坏」说明应用被系统加上了隔离属性，在终端执行下面的命令解除隔离，然后重新打开：
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/XMD.app
+   ```
+
+### Linux
+
+x86_64 机器下载 `XMD-<版本>-Linux-x86_64.AppImage`，arm64 机器下载 `XMD-<版本>-Linux-arm64.AppImage`。要求主流 64 位 Linux 发行版。
+
+1. 打开终端进入 AppImage 所在目录，赋予执行权限并运行：
+
+   ```bash
+   chmod +x XMD-<版本>-Linux-x86_64.AppImage
+   ./XMD-<版本>-Linux-x86_64.AppImage
+   ```
+
+2. 提示缺少 FUSE 时（Ubuntu 22.04 及更新的系统默认不带 libfuse2），安装依赖，或用免 FUSE 方式启动：
+
+   ```bash
+   sudo apt install libfuse2
+   ./XMD-<版本>-Linux-x86_64.AppImage --appimage-extract-and-run
+   ```
+
+3. 需要开始菜单图标和 `.md` 文件关联时，把 AppImage 移到 `~/.local/bin` 等固定目录，再用 AppImageLauncher 完成桌面集成。
+
 ## 使用
 
 - `Ctrl+N`：新建文档
