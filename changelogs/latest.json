@@ -1,17 +1,15 @@
 {
-  "latest": "1.3.10",
+  "latest": "1.3.11",
   "releases": [
     {
-      "version": "1.3.10",
-      "date": "2026-10-03",
+      "version": "1.3.11",
+      "date": "2026-10-15",
       "channel": "stable",
       "title": "版本更新",
       "content": [
-        "新增：AI 设置页支持添加多个模型连接，同一厂商可配置多个账号或服务地址，自定义连接名称，列表化管理",
-        "优化：AI 聊天上下文检索，短文档直接给模型全文，长文档先提供标题目录再按相关性取片段，概述类问题均匀采样全文片段",
-        "优化：HTML 隔离预览中的网络图片由主进程下载后转成数据加载，不再被 CSP 拦截导致图片无法显示",
-        "优化：包含嵌套容器、表格或列表的完整 HTML 块作为整体进入隔离预览，不再被拆成多段源码文字",
-        "修复：百分比宽度的图片（如 width=\"48%\"）在编辑视图里按百分比显示，拖动调整大小后自动切换为像素宽度"
+        "修复：复制列表时产生多余空行的问题，粘贴到纯文本软件不再出现大量空行",
+        "修复：通过块菜单复制或拖拽列表时，列表项粘成一行的问题",
+        "修复：复制包含段内换行（Shift+Enter）的选区时，换行被跳过导致文字粘连的问题"
       ],
       "downloads": {
         "windows": {
@@ -22,9 +20,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.3.10-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Windows-x64.exe",
-              "sha256": "69c2f6c36d46b9d056bd041d0a871f9b79b332589a90500b28007d5114c98bbd"
+              "filename": "XMD-1.3.11-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.11/XMD-1.3.11-Windows-x64.exe",
+              "sha256": "a589f1d7aeec54f36dcc5c53d1ef58d8603ea5db34f614d99387d708816c9da5"
             }
           ]
         },
@@ -36,17 +34,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.10-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-macOS-arm64.dmg",
-              "sha256": "6d7fca1d35a6152c59dfc45c3b2ca952ace8c2f17d40d14c183e0c4dd8571a04"
+              "filename": "XMD-1.3.11-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.11/XMD-1.3.11-macOS-arm64.dmg",
+              "sha256": "c9580e736075b300e401d3454a9f1158aa00a9c482556427539639f20e71e7a7"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.10-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-macOS-x64.dmg",
-              "sha256": "4fe397feebee840a5e17a9469523b816442f1e18263d2897088e496fa160fb92"
+              "filename": "XMD-1.3.11-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.11/XMD-1.3.11-macOS-x64.dmg",
+              "sha256": "94c95d51ed53d268f5c19212a7f3788798bbd45de77d3402f42dd192dede4cb0"
             }
           ]
         },
@@ -58,17 +56,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.10-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Linux-x86_64.AppImage",
-              "sha256": "e0a451793bd1a6747a9be53eae6f214c18a9cb9b338db3163c2b3f73b1f6b01e"
+              "filename": "XMD-1.3.11-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.11/XMD-1.3.11-Linux-x86_64.AppImage",
+              "sha256": "a915a41f042baa807c8185782b30aad48244e3b983e91a0702a5bad43abe84dd"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.10-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.10/XMD-1.3.10-Linux-arm64.AppImage",
-              "sha256": "aa12352403670f17d92db550571ec5519ee041796a5214da004bd3428105c604"
+              "filename": "XMD-1.3.11-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.11/XMD-1.3.11-Linux-arm64.AppImage",
+              "sha256": "ef0041b919d91d09ea277c5e9c07c5505bc1b74625e8f6cde3d2b2a66c4b8944"
             }
           ]
         }
