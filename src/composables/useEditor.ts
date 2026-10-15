@@ -28,6 +28,7 @@ import {
 } from "../modules/headingKeyboard";
 import { sectionCollapseKey } from "../extensions/SectionCollapse";
 import { blockMarqueeKey, copyBlocks, handleBlockMarqueeKey } from "../extensions/BlockMarquee";
+import { blockPlainText, clipboardTextSerializer, rangePlainText } from "../editor/clipboardText";
 import { createEditorExtensions } from "../editor/editorExtensions";
 import { shouldEmitMarkdownUpdate } from "../editor/documentStructureExtensions";
 import {
@@ -854,7 +855,8 @@ export const useMarkdownEditor = (
     if (!editor.value || !activeBlock.value) return;
     const node = editor.value.state.doc.nodeAt(activeBlock.value.position);
     if (!node) return;
-    await navigator.clipboard.writeText(node.textContent);
+    // 用 blockPlainText 而不是 textContent：后者不插块分隔符，列表和表格会粘成一行。
+    await navigator.clipboard.writeText(blockPlainText(node));
     closeBlockMenu();
   };
 
@@ -906,10 +908,11 @@ export const useMarkdownEditor = (
       "text/x-xmd-block-position",
       String(activeBlock.value.position),
     );
+    const draggedNode = editor.value.state.doc.nodeAt(activeBlock.value.position);
     event.dataTransfer.setData(
       "text/plain",
-      editor.value.state.doc.nodeAt(activeBlock.value.position)?.textContent ??
-      "",
+      // 拖到外部软件时同样按块保留换行，避免列表、表格粘成一行。
+      draggedNode ? blockPlainText(draggedNode) : "",
     );
   };
 
@@ -1129,6 +1132,12 @@ export const useMarkdownEditor = (
         spellcheck: "false",
       },
       handleKeyDown: (view, event) => handleEditorKeyDown(view, event),
+      /*
+       * 覆盖 Tiptap 默认的纯文本剪贴板序列化：默认对每个块级节点都拼接 "\n\n"，
+       * 列表的 listItem + paragraph 两层会让每项之间多出空行。改用一块一行，
+       * 详见 clipboardText.ts。富文本 text/html 不受影响。
+       */
+      clipboardTextSerializer,
       // 纯文本粘贴时按 Markdown 渲染：`# 标题`、`- 列表`、`**加粗**` 等源码会
       // 直接转成对应的格式节点，而不是作为普通文本塞进段落。
       // 触发条件（其余情况交还 ProseMirror 默认行为，保持现有逻辑不变）：
@@ -1259,7 +1268,8 @@ export const useMarkdownEditor = (
               event.preventDefault();
               event.clipboardData.setData(
                 "text/plain",
-                view.state.doc.textBetween(selection.from, selection.to, "\n"),
+                // rangePlainText 会还原 hardBreak，避免段内换行复制后粘连成一行。
+                rangePlainText(view.state.doc, selection.from, selection.to),
               );
               event.clipboardData.setData("text/html", container.innerHTML);
               return true;
@@ -1316,7 +1326,8 @@ export const useMarkdownEditor = (
               event.preventDefault();
               event.clipboardData.setData(
                 "text/plain",
-                view.state.doc.textBetween(selection.from, selection.to, "\n"),
+                // 与复制分支一致：还原 hardBreak，避免段内换行粘连。
+                rangePlainText(view.state.doc, selection.from, selection.to),
               );
               event.clipboardData.setData("text/html", container.innerHTML);
 
