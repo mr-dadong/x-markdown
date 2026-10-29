@@ -1,90 +1,93 @@
 # XMD
-官网：[https://www.x-markdown.com](https://www.x-markdown.com)
 
-作者：dadong
+[简体中文](README.zh-CN.md)
 
-XMD 是一款基于 Electron、Vue 3、TipTap 和 TypeScript 构建的本地 Markdown 编辑器，提供所见即所得与源码两种编辑方式。
+Website: [https://www.x-markdown.com](https://www.x-markdown.com)
 
-## 界面展示
+Author: dadong
 
-### 欢迎页
+XMD is a local Markdown editor built with Electron, Vue 3, TipTap, and TypeScript. It offers both a what-you-see-is-what-you-get experience and a source editing mode.
 
-![XMD 欢迎页](docs/images/welcome-screen.jpg)
+## Screenshots
 
-### Markdown 预览
+### Welcome screen
 
-![Markdown 文档预览](docs/images/markdown-preview.jpg)
+![XMD welcome screen](docs/images/welcome-screen.jpg)
 
-### 工作区与文档大纲
+### Markdown preview
 
-![工作区与文档大纲](docs/images/workspace-outline.jpg)
+![Markdown document preview](docs/images/markdown-preview.jpg)
 
-### 通用设置
+### Workspace and document outline
 
-![XMD 通用设置](docs/images/general-settings.jpg)
+![Workspace and document outline](docs/images/workspace-outline.jpg)
 
-### 图片预览
+### General settings
 
-![Markdown 图片预览](docs/images/image-preview.jpg)
+![XMD general settings](docs/images/general-settings.jpg)
 
-### 附件与视频
+### Image preview
 
-![Markdown 附件与视频展示](docs/images/attachments-and-video.jpg)
+![Markdown image preview](docs/images/image-preview.jpg)
 
-## 功能
+### Attachments and video
 
-- 所见即所得和 Markdown 源码模式，可保留每个标签页的编辑模式
-- 多标签文档，新建、批量打开、保存、另存为和标签排序
-- 最近打开文件列表：欢迎页和文件菜单可快速回到最近编辑过的文档，失效条目自动清理
-- 表格、任务列表、代码高亮、链接、图片、视频与附件
-- 独立文件夹工作区、按需展开目录和外部文件变化自动刷新
-- 文档大纲、行数/词数/字符数统计、浅色与深色主题
-- 磁盘修改冲突检测和原子写入，避免静默覆盖外部修改
-- 退出时保存全部、放弃修改或取消退出
-- 未保存草稿自动恢复；正常保存或明确放弃后自动清理
-- 可配置的自动保存：停止输入一段时间后自动写入磁盘，未命名文档仍需手动保存
-- Windows、macOS、Linux 安装包和应用内更新检查
-- 文件关联：安装后双击 .md / .markdown / .txt 直接用 XMD 打开；Windows 右键菜单提供「使用 XMD 打开」
+![XMD attachments and video](docs/images/attachments-and-video.jpg)
 
-## 开发
+## Features
 
-项目使用 Bun 1.3.14，版本与 CI 保持一致。
+- WYSIWYG and Markdown source modes; each tab remembers its editing mode
+- Multi-tab documents: create, batch open, save, save as, and reorder tabs
+- Recent files list on the welcome screen and in the File menu; stale entries are cleaned up automatically
+- Tables, task lists, syntax highlighting, links, images, video, and attachments
+- Standalone folder workspaces with lazy directory expansion and automatic refresh on external changes
+- Document outline, line/word/character counts, light and dark themes
+- Disk conflict detection and atomic writes, so external changes are never silently overwritten
+- Save all, discard changes, or cancel when quitting
+- Automatic recovery of unsaved drafts; drafts are cleaned up after saving or explicitly discarding
+- Configurable auto save after you stop typing; unnamed documents still need to be saved manually
+- Installers for Windows, macOS, and Linux, plus in-app update checks
+- File associations: after installation, double-click .md / .markdown / .txt files to open them with XMD; Windows also provides an "Open with XMD" context menu entry
+
+## Development
+
+The project uses Bun 1.3.14, matching CI.
 
 ```powershell
 bun install --frozen-lockfile
 bun run dev
 ```
 
-常用检查命令：
+Common checks:
 
 ```powershell
-# 渲染进程类型检查
+# Renderer type check
 bun run typecheck
 
-# Electron 主进程和 preload 类型检查
+# Electron main process and preload type check
 bunx tsc --noEmit -p tsconfig.node.json
 
-# 只检查，不修改文件
+# Check without modifying files
 bun run lint
 
-# 自动修复可修复的 lint 问题
+# Automatically fix fixable lint issues
 bun run lint:fix
 
-# 生产构建
+# Production build
 bun run build
 ```
 
-## 安装
+## Installation
 
-安装包在[官网下载页](https://www.x-markdown.com/download)和 [GitHub Releases](https://github.com/mr-dadong/x-markdown/releases) 发布，按系统和芯片选择对应文件。Windows 下载 exe 后按向导安装即可，下面是 macOS 和 Linux 的安装步骤。
+Installers are published on the [download page](https://www.x-markdown.com/download) and [GitHub Releases](https://github.com/mr-dadong/x-markdown/releases). Choose the file for your system and chip. On Windows, download the exe and follow the wizard. The macOS and Linux steps are below.
 
 ### macOS
 
-Apple 芯片（M 系列）下载 `XMD-<版本>-macOS-arm64.dmg`，Intel 芯片下载 `XMD-<版本>-macOS-x64.dmg`。要求 macOS 12 或更高版本。
+Apple Silicon (M series) users should download `XMD-<version>-macOS-arm64.dmg`; Intel users should download `XMD-<version>-macOS-x64.dmg`. macOS 12 or later is required.
 
-1. 双击 DMG，把 XMD 图标拖进「应用程序」文件夹。
-2. 首次启动会被 Gatekeeper 拦截，因为安装包没有代码签名。在「应用程序」中按住 Control 点击 XMD 图标，选择「打开」，再在弹窗里确认一次；没有「打开」菜单时，到「系统设置 → 隐私与安全性」中点击「仍要打开」。
-3. 提示「XMD 已损坏」说明应用被系统加上了隔离属性，在终端执行下面的命令解除隔离，然后重新打开：
+1. Open the DMG and drag the XMD icon into the Applications folder.
+2. The first launch is blocked by Gatekeeper because the package is not code-signed. In Applications, Control-click the XMD icon, choose Open, and confirm in the dialog. If there is no Open item, go to System Settings → Privacy & Security and click Open Anyway.
+3. A message saying "XMD is damaged" means the system applied a quarantine attribute. Remove it in Terminal and open the app again:
 
    ```bash
    xattr -dr com.apple.quarantine /Applications/XMD.app
@@ -92,40 +95,40 @@ Apple 芯片（M 系列）下载 `XMD-<版本>-macOS-arm64.dmg`，Intel 芯片�
 
 ### Linux
 
-x86_64 机器下载 `XMD-<版本>-Linux-x86_64.AppImage`，arm64 机器下载 `XMD-<版本>-Linux-arm64.AppImage`。要求主流 64 位 Linux 发行版。
+On x86_64 machines, download `XMD-<version>-Linux-x86_64.AppImage`; on arm64, download `XMD-<version>-Linux-arm64.AppImage`. A mainstream 64-bit Linux distribution is required.
 
-1. 打开终端进入 AppImage 所在目录，赋予执行权限并运行：
+1. Open a terminal in the folder containing the AppImage, make it executable, and run it:
 
    ```bash
-   chmod +x XMD-<版本>-Linux-x86_64.AppImage
-   ./XMD-<版本>-Linux-x86_64.AppImage
+   chmod +x XMD-<version>-Linux-x86_64.AppImage
+   ./XMD-<version>-Linux-x86_64.AppImage
    ```
 
-2. 提示缺少 FUSE 时（Ubuntu 22.04 及更新的系统默认不带 libfuse2），安装依赖，或用免 FUSE 方式启动：
+2. If FUSE is missing (Ubuntu 22.04 and newer do not include libfuse2 by default), install the dependency or start in FUSE-free mode:
 
    ```bash
    sudo apt install libfuse2
-   ./XMD-<版本>-Linux-x86_64.AppImage --appimage-extract-and-run
+   ./XMD-<version>-Linux-x86_64.AppImage --appimage-extract-and-run
    ```
 
-3. 需要开始菜单图标和 `.md` 文件关联时，把 AppImage 移到 `~/.local/bin` 等固定目录，再用 AppImageLauncher 完成桌面集成。
+3. To get a menu icon and .md file associations, move the AppImage to a stable directory such as `~/.local/bin` and use AppImageLauncher for desktop integration.
 
-## 使用
+## Usage
 
-- `Ctrl+N`：新建文档
-- `Ctrl+O`：打开一个或多个文档
-- `Ctrl+S`：保存
-- `Ctrl+Shift+S`：另存为
-- `Ctrl+B`：显示或隐藏侧栏
-- `Ctrl+,`：打开设置
+- `Ctrl+N`: new document
+- `Ctrl+O`: open one or more documents
+- `Ctrl+S`: save
+- `Ctrl+Shift+S`: save as
+- `Ctrl+B`: show or hide the sidebar
+- `Ctrl+,`: open settings
 
-侧栏中的“打开文件夹”用于建立独立工作区。工作区路径会保存在 Electron 用户数据目录，下次启动时自动恢复；工作区内新增、删除或重命名文件后，文件树会自动刷新。
+"Open Folder" in the sidebar creates a standalone workspace. The workspace path is stored in the Electron user data directory and restored on the next launch. The file tree refreshes automatically when files inside the workspace are added, deleted, or renamed.
 
-编辑中的未保存内容会写入 Electron 用户数据目录。应用异常退出后，下次启动会恢复这些标签页。正常保存、关闭并放弃或退出并放弃时，对应草稿会被清理。
+Unsaved content is written to the Electron user data directory. After an abnormal exit, these tabs are restored on the next launch. Drafts are cleaned up after a normal save, closing and discarding, or quitting and discarding.
 
-安装应用后，双击 `.md`、`.markdown` 或 `.txt` 文件即可直接用 XMD 打开；Windows 资源管理器中还可以通过右键菜单选择“使用 XMD 打开”。若应用已在运行，新打开的文件会进入现有窗口的新标签页。
+After installation, double-click a `.md`, `.markdown`, or `.txt` file to open it directly with XMD. In Windows Explorer you can also choose "Open with XMD" from the context menu. If the app is already running, newly opened files appear as new tabs in the existing window.
 
-## 构建安装包
+## Building installers
 
 ```powershell
 bun run dist:win
@@ -133,15 +136,15 @@ bun run dist:mac
 bun run dist:linux
 ```
 
-构建产物写入 `release/`。Windows 使用 NSIS，macOS 使用 DMG，Linux 使用 AppImage。当前安装包未配置代码签名，操作系统可能显示未知发布者提示。
+Artifacts are written to `release/`. Windows uses NSIS, macOS uses DMG, and Linux uses AppImage. Packages are not code-signed, so the operating system may show an unknown publisher warning.
 
-## 自动发布
+## Automated releases
 
-`.github/workflows/build.yml` 支持手动构建，也会在推送 `v*` 标签时构建三个平台并创建 GitHub Release。发布前需保证 `package.json` 中的版本与标签一致：
+`.github/workflows/build.yml` supports manual builds and also builds all three platforms and creates a GitHub Release when a `v*` tag is pushed. The version in `package.json` must match the tag before releasing:
 
 ```powershell
 git tag v1.0.3
-git push github v1.0.3
+git push origin v1.0.3
 ```
 
 ## Code signing policy
@@ -151,21 +154,21 @@ certificate issued by the [SignPath Foundation](https://signpath.org/).
 
 - Committer and reviewer: [mr-dadong](https://github.com/mr-dadong)
 - Approver: [mr-dadong](https://github.com/mr-dadong)
-- 完整政策：[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
-- 隐私政策：[PRIVACY.md](PRIVACY.md)
+- Full policy: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
+- Privacy policy: [PRIVACY.md](PRIVACY.md)
 
-## 目录
+## Directory layout
 
 ```text
-electron/   Electron 主进程、preload、IPC 与路径权限
-src/        Vue 界面、编辑器扩展、组合式状态和服务
+electron/   Electron main process, preload, IPC, and path permissions
+src/        Vue UI, editor extensions, composable state, and services
 functions/  Cloudflare Pages Functions
 worker/     Cloudflare Worker
-site/       项目发布站点
-build/      安装包资源
-changelogs/ 应用更新清单与版本说明
+site/       Project website
+build/      Installer resources
+changelogs/ App update manifests and release notes
 ```
 
-## 许可证
+## License
 
 [GNU General Public License v3.0](LICENSE)
