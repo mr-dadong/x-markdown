@@ -4,8 +4,6 @@ import { INLINE_HTML_OPEN_ATTRIBUTE } from "./inlineHtmlSourceForm";
 
 /** 行尾两空格硬换行的标记（仅存在于解析内存，不进入编辑器 DOM）。 */
 const SPACE_BREAK_ATTRIBUTE = "data-xmd-space-break";
-/** 普通软换行的标记（breaks 模式下渲染为 <br>，保存时还原为普通换行）。 */
-const SOFT_BREAK_ATTRIBUTE = "data-xmd-soft-break";
 
 /** 行尾两个及以上空格 + 换行：CommonMark 的两空格硬换行写法。 */
 const SPACE_BREAK_PATTERN = /^ {2,}\n$/u;
@@ -15,26 +13,29 @@ const BACKSLASH_BREAK_PATTERN = /^\\\n$/u;
 /**
  * 从 marked 的 br token 反推源码写法。
  *
- * marked 把「行尾两空格」「反斜杠」「breaks 模式下的软换行」都产出同一个 br token，
- * 只有 token.raw 保留着原始写法，因此按 raw 区分：
- * - `  \n`  → space（两空格硬换行）
- * - `\\\n`  → null（反斜杠硬换行，与用户手动插入的换行同形）
- * - `\n`    → soft（breaks 模式下的普通换行）
+ * `breaks: true` 让 marked 把「行尾两空格」「反斜杠」「段落内单个换行」都产出同一个
+ * br token，只有 token.raw 保留着原始写法。单个换行属于软换行，按 CommonMark
+ * 渲染为空格（见 parseMarkdown）；这里只负责区分两种真正的硬换行写法：
+ * - `  \n` → space（两空格硬换行）
+ * - `\\\n` → null（反斜杠硬换行，与用户手动插入的换行同形）
  *
  * 刻意**不注册**自定义 br 行内 tokenizer：marked 会先试行内扩展再试内置 link，
  * 自定义 tokenizer 的 start 会参与行内文本切分，导致 `![图片](地址)` 在段落开头
  * 被拆成 `!` + 换行 + 链接。只消费既有 token 就不会干扰分词。
  */
-const resolveBreakLiteral = (token: MarkdownToken): string | null => {
+const resolveBreakLiteral = (token: MarkdownToken): "space" | null =>
+  SPACE_BREAK_PATTERN.test(String(token.raw ?? "")) ? "space" : null;
+
+/** 段落内的单个换行：既不是行尾两空格，也不是反斜杠写法。 */
+const isSoftBreak = (token: MarkdownToken): boolean => {
   const raw = String(token.raw ?? "");
-  if (BACKSLASH_BREAK_PATTERN.test(raw)) return null;
-  if (SPACE_BREAK_PATTERN.test(raw)) return "space";
-  return "soft";
+  return raw.endsWith("\n") && !SPACE_BREAK_PATTERN.test(raw) && !BACKSLASH_BREAK_PATTERN.test(raw);
 };
 
 /**
  * 保留硬换行源码写法的 HardBreak 扩展：
- * 解析时记录「两空格 / 反斜杠 / 软换行」写法，序列化时按原文还原。
+ * 解析时记录「两空格 / 反斜杠」写法，序列化时按原文还原；
+ * 段落内的软换行按 CommonMark 转成一个空格，与 GitHub 的渲染一致。
  * 用户手动插入（Shift-Enter）的换行按 CommonMark 反斜杠写法保存。
  */
 export const LiteralHardBreak = HardBreak.extend({
@@ -44,12 +45,7 @@ export const LiteralHardBreak = HardBreak.extend({
       literal: {
         default: null,
         // 标记属性只用于解析传输，不渲染到编辑器和导出的 DOM。
-        parseHTML: (element) =>
-          element.hasAttribute(SPACE_BREAK_ATTRIBUTE)
-            ? "space"
-            : element.hasAttribute(SOFT_BREAK_ATTRIBUTE)
-              ? "soft"
-              : null,
+        parseHTML: (element) => (element.hasAttribute(SPACE_BREAK_ATTRIBUTE) ? "space" : null),
         renderHTML: () => ({}),
       },
     };
@@ -57,10 +53,11 @@ export const LiteralHardBreak = HardBreak.extend({
 
   markdownTokenName: "br",
 
-  parseMarkdown: (token) => ({
-    type: "hardBreak",
-    attrs: { literal: resolveBreakLiteral(token) },
-  }),
+  parseMarkdown: (token) => {
+    // 软换行是段落内的普通换行：按 CommonMark 渲染为空格，不产生换行节点。
+    if (isSoftBreak(token)) return { type: "text", text: " " };
+    return { type: "hardBreak", attrs: { literal: resolveBreakLiteral(token) } };
+  },
 
   renderMarkdown: (node, helpers, ctx) => {
     // 用户写的行内 `<br>` 按原样输出，不改写成反斜杠换行写法。
@@ -77,7 +74,7 @@ export const LiteralHardBreak = HardBreak.extend({
      * 再统一缩进，所以补一级就够，不会重复。
      */
     const indent = (ctx?.level ?? 0) > 0 ? helpers.indent("") : "";
-    const marker = literal === "space" ? "  " : literal === "soft" ? "" : "\\";
+    const marker = literal === "space" ? "  " : "\\";
     return `${marker}\n${indent}`;
   },
 });

@@ -1778,7 +1778,7 @@ defineExpose<EditorHandle>({
 }
 
 /*
- * 独占一段的图片（真正的插图）：明确按正文列宽铺满显示。
+ * 独占一段的图片（真正的插图）：按图片原始尺寸显示，超出正文列宽时等比缩到列宽。
  * 根因：ProseMirror 会给「以图片等原子行内节点结尾」的段落自动补占位节点，
  * 上面小图标规则里的 :only-child 排除条件因此永远不成立，
  * 插图会被 max-height:1.5em 压成图标大小。
@@ -1788,12 +1788,13 @@ defineExpose<EditorHandle>({
  * 这里把三种真实结构（含理论上仅有的 [图片]）全部正向匹配并覆盖，
  * 用 first-child + nth-last-child + 后邻占位节点确认，
  * 不会误伤「图标+文字」这类段落（图片不在首位或后面跟着文字）。
- * 小于列宽的图片不会放大（包装层宽度取内容自然宽度），避免低分辨率图变糊。
+ * 用 inline-flex 而不是 flex：图片在 GitHub 上按原始尺寸参与排版，
+ * 居中交给段落的 text-align 继承；收缩到内容宽度也保证了「不放大」。
  */
 .typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):only-child,
 .typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(2):has(+ br),
 .typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) {
-  @apply my-6 flex rounded-lg;
+  @apply my-6 inline-flex max-w-full rounded-lg;
   vertical-align: baseline;
   margin-right: 0;
 }
@@ -1802,8 +1803,9 @@ defineExpose<EditorHandle>({
 .typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(2):has(+ br) img,
 .typography-pane .tiptap p>[data-xmd-image]:not([data-xmd-image-percent]):first-child:nth-last-child(3):has(+ img.ProseMirror-separator + br) img {
   @apply rounded-lg;
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
   max-height: none;
 }
 

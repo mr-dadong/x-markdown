@@ -575,7 +575,9 @@ export const createEditorExtensions = (options: {
     SafeInlineCode,
     InlineCodeOpeningBacktick,
     // 官方 Markdown 扩展通过 markedOptions 透传给 marked。
-    // breaks 让普通文本中的单个换行也显示为换行，符合所见即所得的使用习惯。
+    // breaks 让 marked 把段落内的单个换行产出为可识别的软换行 token，
+    // 解析阶段按 CommonMark 渲染为空格（见 hardBreakSerialization.ts），与 GitHub 一致；
+    // 行尾两空格与反斜杠仍然是硬换行。
     // 官方扩展不接管粘贴/复制（源码中无 paste/clipboard 处理），旧包的
     // transformPastedText / transformCopiedText 选项在官方 API 中不存在。
     Markdown.configure({

@@ -135,7 +135,8 @@ describe("整块取文本保留块边界（块菜单复制 / 块拖拽）", () =
   });
 
   test("块内硬换行不会被吞掉", () => {
-    assert.equal(topLevelText("> 第一行\n> 第二行"), "第一行\n第二行");
+    // 引用块里的换行写成两空格硬换行：单个换行现在是软换行，会合并成空格。
+    assert.equal(topLevelText("> 第一行  \n> 第二行"), "第一行\n第二行");
     assert.equal(topLevelText("第一行  \n第二行"), "第一行\n第二行");
   });
 
@@ -168,6 +169,6 @@ describe("按选区取文本还原硬换行（局部复制 / 剪切）", () => {
   });
 
   test("引用块内的硬换行不粘连", () => {
-    assert.equal(selectBlockText("> 第一行\n> 第二行"), "第一行\n第二行");
+    assert.equal(selectBlockText("> 第一行  \n> 第二行"), "第一行\n第二行");
   });
 });

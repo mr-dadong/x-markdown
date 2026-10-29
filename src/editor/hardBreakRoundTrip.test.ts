@@ -42,9 +42,9 @@ describe("硬换行写法往返", () => {
     assert.equal(roundTrip(source), source);
   });
 
-  test("段落内普通换行保存后不引入硬换行标记", () => {
+  test("段落内普通换行按 GitHub 语义合并为空格", () => {
     const source = "第一行\n第二行";
-    assert.equal(roundTrip(source), source);
+    assert.equal(roundTrip(source), "第一行 第二行");
   });
 
   test("用户报告的“其他常用语法”章节保存后不再多出反斜杠", () => {
@@ -55,20 +55,20 @@ describe("硬换行写法往返", () => {
       "",
       "Emoji 表情：😄 🎉 ✅",
       "",
-      "换行（行尾两个空格）：",
+      "换行（行尾两个空格）：  ",
       "这是强制换行后的文字。",
     ].join("\n");
     assert.equal(roundTrip(source), source);
   });
 
-  test("连续硬换行混合写法保存后各自保持原样", () => {
+  test("硬换行保持原写法，软换行合并为空格", () => {
     const source = "两空格  \n反斜杠\\\n普通\n结尾";
-    assert.equal(roundTrip(source), source);
+    assert.equal(roundTrip(source), "两空格  \n反斜杠\\\n普通 结尾");
   });
 
-  test("列表项内的换行保持软换行写法", () => {
+  test("列表项内的软换行合并为空格", () => {
     const source = "- 列表第一行\n  列表第二行";
-    assert.equal(roundTrip(source), source);
+    assert.equal(roundTrip(source), "- 列表第一行 列表第二行");
   });
 
   test("首次规范化后的输出再次往返保持稳定", () => {
