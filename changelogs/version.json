@@ -1,6 +1,81 @@
 {
-  "latest": "1.3.12",
+  "latest": "1.3.13",
   "releases": [
+    {
+      "version": "1.3.13",
+      "date": "2026-10-29",
+      "channel": "stable",
+      "title": "版本更新",
+      "titleEn": "Version Update",
+      "content": [
+        "修复：Linux AppImage 改用 gzip 压缩格式，解决应用目录（AppImageHub）无法挂载检测的问题",
+        "说明：受压缩格式调整影响，Linux AppImage 的下载体积有所增大"
+      ],
+      "contentEn": [
+        "Fixed the Linux AppImage to use gzip-compressed SquashFS so catalogs such as AppImageHub can mount and test it.",
+        "Note: the Linux AppImage download is somewhat larger because of the compression change."
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.3.13-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Windows-x64.exe",
+              "sha256": "f47ee556f14dc05a9371553b234db4dd95191e84fc71b157f28c4e726ef5736b"
+            }
+          ]
+        },
+        "macos": {
+          "available": true,
+          "requirements": "macOS 12 或更高版本",
+          "packages": [
+            {
+              "arch": "arm64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.13-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-arm64.dmg",
+              "sha256": "513ec3a479ca7bedf79017389b5364ac57511afaaf558ba8fd5f8890ab5ce60f"
+            },
+            {
+              "arch": "x64",
+              "format": "dmg",
+              "installer": "DMG",
+              "filename": "XMD-1.3.13-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-x64.dmg",
+              "sha256": "95ecc3fcdfdbeb353ea2dc69376b0257c9fc811a172735afd183bfca4f8b27f1"
+            }
+          ]
+        },
+        "linux": {
+          "available": true,
+          "requirements": "主流 64 位 Linux 发行版",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.13-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-x86_64.AppImage",
+              "sha256": "672a6f25d3ca47d0eea6362c685a83c3fc76421c4ef8e544e1530d03718c6dac"
+            },
+            {
+              "arch": "arm64",
+              "format": "AppImage",
+              "installer": "AppImage",
+              "filename": "XMD-1.3.13-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-arm64.AppImage",
+              "sha256": "aeccf2a8881f934cff558279869bd129cb1c535f3bc3b67a6f2e6f33a0c1ad43"
+            }
+          ]
+        }
+      }
+    },
     {
       "version": "1.3.12",
       "date": "2026-10-29",

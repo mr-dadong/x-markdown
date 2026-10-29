@@ -26,7 +26,7 @@
               "installer": "NSIS",
               "filename": "XMD-1.3.13-Windows-x64.exe",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Windows-x64.exe",
-              "sha256": null
+              "sha256": "f47ee556f14dc05a9371553b234db4dd95191e84fc71b157f28c4e726ef5736b"
             }
           ]
         },
@@ -40,7 +40,7 @@
               "installer": "DMG",
               "filename": "XMD-1.3.13-macOS-arm64.dmg",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-arm64.dmg",
-              "sha256": null
+              "sha256": "513ec3a479ca7bedf79017389b5364ac57511afaaf558ba8fd5f8890ab5ce60f"
             },
             {
               "arch": "x64",
@@ -48,7 +48,7 @@
               "installer": "DMG",
               "filename": "XMD-1.3.13-macOS-x64.dmg",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-x64.dmg",
-              "sha256": null
+              "sha256": "95ecc3fcdfdbeb353ea2dc69376b0257c9fc811a172735afd183bfca4f8b27f1"
             }
           ]
         },
@@ -62,7 +62,7 @@
               "installer": "AppImage",
               "filename": "XMD-1.3.13-Linux-x86_64.AppImage",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-x86_64.AppImage",
-              "sha256": null
+              "sha256": "672a6f25d3ca47d0eea6362c685a83c3fc76421c4ef8e544e1530d03718c6dac"
             },
             {
               "arch": "arm64",
@@ -70,7 +70,7 @@
               "installer": "AppImage",
               "filename": "XMD-1.3.13-Linux-arm64.AppImage",
               "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-arm64.AppImage",
-              "sha256": null
+              "sha256": "aeccf2a8881f934cff558279869bd129cb1c535f3bc3b67a6f2e6f33a0c1ad43"
             }
           ]
         }
