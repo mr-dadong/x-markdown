@@ -6,6 +6,7 @@
       "date": "2026-09-12",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：文档 Agent 执行过程改为时间线展示，思考、工具调用与回复按发生顺序实时呈现，每步可展开查看进展与耗时",
         "新增：修改建议改为差异卡片审阅，红绿对比逐行展示改动，可逐条接受或拒绝，并支持一键全部接受或全部拒绝",
@@ -14,6 +15,15 @@
         "优化：停止任务改为优雅退出，结束后保留已验证的建议；预算用尽等未完成情况给出明确提示，不再显示为失败",
         "优化：上翻查看执行过程时不再被强制拉回底部，新增「回到底部」按钮",
         "修复：向标题行粘贴代码块、列表等块级内容时，标题不再被错误转换为代码块，粘贴内容以纯文本插入"
+      ],
+      "contentEn": [
+        "Document Agent execution now uses a timeline: reasoning, tool calls, and replies appear in order, and each step expands to show progress and timing.",
+        "Change suggestions are reviewed as diff cards with line-by-line red and green comparisons; accept or reject individually or all at once.",
+        "Document Agent reads and edits the full draft directly, so long documents can be changed across paragraphs without batch limits.",
+        "Change previews render Markdown formatting live, and task status stays on a single line at the top.",
+        "Stopping a task exits gracefully and keeps verified suggestions; unfinished cases such as exhausted budgets are reported clearly instead of as failures.",
+        "Scrolling up through execution is no longer forced back to the bottom, and a Back to bottom button was added.",
+        "Fixed block content (code blocks, lists) pasted into a heading line incorrectly turning the heading into a code block; pasted content is inserted as plain text."
       ],
       "downloads": {
         "windows": {

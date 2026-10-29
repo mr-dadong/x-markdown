@@ -17,10 +17,10 @@
     <div v-if="open" class="absolute bottom-full right-0 z-50 mb-2 flex max-h-80 w-[240px] flex-col overflow-hidden rounded-xl border border-line bg-paper">
       <!-- 头部：模型获取统一在设置中管理 -->
       <div class="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-        <span class="text-[11px] font-semibold text-muted">选择模型</span>
+        <span class="text-[11px] font-semibold text-muted">{{ t('ai.model.select') }}</span>
         <button
           type="button"
-          title="在设置中管理模型"
+          :title="t('ai.model.manage')"
           class="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
           :disabled="loading"
           @click="emit('refresh')"
@@ -39,7 +39,7 @@
         <!-- 加载态 -->
         <div v-else-if="loading" class="flex items-center gap-2 px-2 py-2 text-[12px] text-muted">
           <Icon icon="lucide:loader-2" :size="13" class="shrink-0" />
-          <span>正在读取已保存模型…</span>
+          <span>{{ t('ai.model.loading') }}</span>
         </div>
 
         <template v-else>
@@ -52,14 +52,14 @@
           >
             <Icon icon="lucide:settings-2" :size="13" class="shrink-0 text-muted" />
             <span class="min-w-0 flex-1 truncate">
-              默认<template v-if="defaultModel">（{{ defaultModel }}）</template>
+              {{ defaultModel ? t('ai.model.defaultWithName', { model: defaultModel }) : t('ai.model.default') }}
             </span>
             <Icon v-if="current === ''" icon="lucide:check" :size="13" class="shrink-0 text-accent" />
           </button>
 
           <!-- 当前选中的模型不在列表中时置顶显示，避免误清合法模型 -->
           <template v-if="orphanModel">
-            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">当前选择</div>
+            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">{{ t('ai.model.currentSelection') }}</div>
             <button
               type="button"
               class="flex w-full items-center gap-2 rounded-lg bg-selected px-2 py-1.5 text-left text-[12px] text-ink hover:bg-toolbar"
@@ -73,7 +73,7 @@
 
           <!-- 自定义模型 -->
           <template v-if="customModels.length > 0">
-            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">自定义模型</div>
+            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">{{ t('ai.model.custom') }}</div>
             <button
               v-for="m in customModels"
               :key="'custom-' + m"
@@ -90,7 +90,7 @@
 
           <!-- 可用模型 -->
           <template v-if="models.length > 0">
-            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">可用模型</div>
+            <div class="px-2 pb-1 pt-2 text-[10px] font-semibold text-muted">{{ t('ai.model.available') }}</div>
             <button
               v-for="m in models"
               :key="m.id"
@@ -109,7 +109,7 @@
             v-if="!error && models.length === 0 && customModels.length === 0"
             class="px-2 py-3 text-center text-[12px] text-muted"
           >
-            请在设置中获取并管理模型列表
+            {{ t('ai.model.manageHint') }}
           </div>
         </template>
       </div>
@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { AiModelInfo } from '../../types/ai'
@@ -154,10 +155,12 @@ const orphanModel = computed(() => {
   return inCustom || inList ? '' : value
 })
 
-const buttonLabel = computed(() => props.current.trim() || props.defaultModel || '选择模型')
+const buttonLabel = computed(() => props.current.trim() || props.defaultModel || t('ai.model.select'))
 
 const buttonTitle = computed(() =>
-  props.current.trim() ? `当前模型：${props.current}` : `默认模型：${props.defaultModel}`,
+  props.current.trim()
+    ? t('ai.model.currentTooltip', { model: props.current })
+    : t('ai.model.defaultTooltip', { model: props.defaultModel }),
 )
 
 const toggleOpen = (): void => {

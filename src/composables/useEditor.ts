@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useEditor as useTiptapEditor } from "@tiptap/vue-3";
 import { type Editor } from "@tiptap/core";
@@ -190,8 +191,8 @@ export const useMarkdownEditor = (
         }
       } catch (error) {
         console.error(`插入文件“${file.name}”失败:`, error);
-        const message = error instanceof Error ? error.message : "无法读取该文件";
-        await window.electronAPI.showErrorMessage("插入附件失败", `${file.name}\n${message}`);
+        const message = error instanceof Error ? error.message : t('editor.attachment.readFailed');
+        await window.electronAPI.showErrorMessage(t('editor.attachment.insertFailed'), `${file.name}\n${message}`);
       } finally {
         removeProgressListener?.();
       }
@@ -604,7 +605,7 @@ export const useMarkdownEditor = (
     const inputUrl = linkInsertUrl.value.trim();
     const label = linkInsertLabel.value.trim();
     if (!inputUrl || !label) {
-      linkInsertError.value = "请填写链接地址和显示文字";
+      linkInsertError.value = t('editor.link.fillBoth');
       return;
     }
 
@@ -626,11 +627,11 @@ export const useMarkdownEditor = (
     try {
       parsedUrl = new URL(normalizedUrl);
     } catch {
-      linkInsertError.value = "请输入有效的链接地址";
+      linkInsertError.value = t('editor.link.invalid');
       return;
     }
     if (!["http:", "https:", "mailto:"].includes(parsedUrl.protocol)) {
-      linkInsertError.value = "仅支持网页和邮箱链接";
+      linkInsertError.value = t('editor.link.protocol');
       return;
     }
 
@@ -1285,8 +1286,8 @@ export const useMarkdownEditor = (
           void mediaService
             .copyImage(String(selection.node.attrs.src), getCurrentDocumentPath?.() ?? null)
             .catch((error: unknown) => {
-              const message = error instanceof Error ? error.message : "未知错误";
-              void window.electronAPI.showErrorMessage("复制图片失败", message);
+              const message = error instanceof Error ? error.message : t('editor.unknownError');
+              void window.electronAPI.showErrorMessage(t('editor.copyImageFailed'), message);
             });
           return true;
         },

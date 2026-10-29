@@ -6,6 +6,7 @@
       "date": "2026-09-20",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复：打开新文档时内容显示在底部而非顶部的问题，现在新文档从顶部开始显示",
         "修复：悬停链接时中文路径显示为编码形式的问题，现在直接显示中文原文",
@@ -15,6 +16,16 @@
         "优化：粘贴 Markdown 片段时直接按 Markdown 解析，不再经过 HTML 中转，格式识别更准确",
         "优化：表格列对齐改用标准 align 属性，与 HTML 及导出格式保持一致",
         "修复：表格单元格中的行内代码包含竖线时，保存后表格被拆成多列的问题"
+      ],
+      "contentEn": [
+        "Fixed new documents displaying at the bottom instead of the top; they now start at the top.",
+        "Fixed hovered links showing encoded Chinese paths; the original Chinese text is shown.",
+        "Saving now uses minimal escaping: backslashes, underscores, and angle brackets are escaped only when ambiguous, keeping source view and saved files close to what was typed.",
+        "Adjusted heading style sizes for better display.",
+        "Upgraded the editor core to Tiptap 3 and switched Markdown parsing and serialization to the official implementation, adapting highlights, footnotes, math, Mermaid, HTML blocks, and the table of contents.",
+        "Pasting Markdown fragments parses them as Markdown directly without HTML round-tripping, improving format detection.",
+        "Table column alignment uses the standard align attribute, consistent with HTML and export formats.",
+        "Fixed inline code containing pipes in table cells splitting the table into multiple columns after saving."
       ],
       "downloads": {
         "windows": {

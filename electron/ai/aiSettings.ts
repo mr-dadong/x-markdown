@@ -1,3 +1,4 @@
+import { mainT } from "../i18n";
 import { aiProviderTemplate, type AiProviderTemplate } from "../../src/types/ai";
 import { app, safeStorage } from "electron";
 import fs from "fs";
@@ -193,7 +194,7 @@ function storedApiKey(
 
 function encryptApiKey(apiKey: string): string {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error("系统安全存储不可用，无法安全保存 API Key");
+    throw new Error(mainT("error.ai.secureStorageUnavailable"));
   }
   return safeStorage.encryptString(apiKey).toString("base64");
 }
@@ -380,7 +381,7 @@ export async function saveAiSettings(
   const merged = normalizeSettings(input, current);
   // 删除连接必须同时删除加密密钥，防止遗留无主凭据。
   for (const id of input.removedProviders ?? []) {
-    if (id === merged.provider) throw new Error("不能删除当前使用的连接");
+    if (id === merged.provider) throw new Error(mainT("error.ai.cannotRemoveActiveProvider"));
     delete merged.providers[id];
   }
   const stored = await readStoredSettings();
@@ -566,11 +567,11 @@ export async function testAiConnection(
   const model = config.model;
 
   if (!model.trim()) {
-    return { ok: false, provider, model, error: "未选择模型名称。" };
+    return { ok: false, provider, model, error: mainT("error.ai.modelNotSelected") };
   }
   const apiKey = config.apiKey ?? resolveApiKey(settings, settings.provider);
   if (!apiKey && protocol !== "ollama") {
-    return { ok: false, provider, model, error: "API Key 未配置。" };
+    return { ok: false, provider, model, error: mainT("error.ai.apiKeyMissing") };
   }
 
   const baseUrl = ((): string => {
@@ -587,7 +588,7 @@ export async function testAiConnection(
       case "ollama":
         return "http://localhost:11434/v1";
       default:
-        throw new Error("自定义提供方需要填写 API 地址。");
+        throw new Error(mainT("error.ai.customBaseUrlRequired"));
     }
   })();
 
@@ -653,7 +654,7 @@ export async function testAiConnection(
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      let hint = `请求失败 (${response.status})`;
+      let hint = mainT("error.ai.requestFailed", { status: response.status });
       if (text) {
         try {
           const parsed = JSON.parse(text) as {
@@ -668,19 +669,19 @@ export async function testAiConnection(
             typeof (parsed.error as { message?: unknown }).message === "string"
               ? (parsed.error as { message: string }).message
               : null);
-          if (detail) hint += `：${detail}`;
-          else hint += `：${text.slice(0, 200)}`;
+          if (detail) hint += mainT("error.ai.detailSuffix", { detail });
+          else hint += mainT("error.ai.detailSuffix", { detail: text.slice(0, 200) });
         } catch {
-          hint += `：${text.slice(0, 200)}`;
+          hint += mainT("error.ai.detailSuffix", { detail: text.slice(0, 200) });
         }
       } else if (response.statusText) {
-        hint += `：${response.statusText}`;
+        hint += mainT("error.ai.detailSuffix", { detail: response.statusText });
       }
       if (response.status === 401 || response.status === 403)
-        hint += "（通常是 API Key 错误或被吊销）";
+        hint += mainT("error.ai.hintUnauthorized");
       if (response.status === 404)
-        hint += "（通常是 baseUrl 或模型名写错，该端点不存在）";
-      if (response.status === 429) hint += "（触发频率限制）";
+        hint += mainT("error.ai.hintNotFound");
+      if (response.status === 429) hint += mainT("error.ai.hintRateLimited");
       return { ok: false, provider, model, error: hint };
     }
 
@@ -726,13 +727,13 @@ export async function testAiConnection(
   } catch (error) {
     let message = error instanceof Error ? error.message : String(error);
     if ((error as Error | null)?.name === "AbortError") {
-      message = `连接超时（${Math.round(requestTimeoutMs / 1000)}s 内未收到响应）：检查 baseUrl 是否可达或超时设置是否过小。`;
+      message = mainT("error.ai.connectTimeout", { seconds: Math.round(requestTimeoutMs / 1000) });
     } else if (
       /ECONNREFUSED|ENOTFOUND|fetch failed|networkerror|getaddrinfo/i.test(
         message,
       )
     ) {
-      message = `无法连接到 ${baseUrl}：${message}（常见原因：baseUrl 写错、本机未开 Ollama、或需要公司代理）。`;
+      message = mainT("error.ai.connectFailed", { baseUrl, error: message });
     }
     return { ok: false, provider, model, error: message };
   } finally {

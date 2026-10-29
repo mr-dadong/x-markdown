@@ -1,13 +1,13 @@
 <template>
   <NodeViewWrapper class="relative my-5 flex w-full flex-col" data-xmd-mermaid-view>
     <div class="relative flex min-h-20 w-full cursor-text" contenteditable="false"
-      title="点击编辑图表" @click.stop="startEditing">
+      :title="t('mermaid.edit')" @click.stop="startEditing">
       <div v-if="rendering" class="flex min-h-20 w-full items-center justify-center text-[12px] text-muted">
-        正在渲染图表…
+        {{ t('mermaid.rendering') }}
       </div>
       <div v-else-if="renderError"
         class="flex min-h-20 w-full flex-col justify-center gap-1 rounded-md border border-danger/40 px-4 py-3">
-        <span class="text-[13px] font-medium text-danger">图表语法有误</span>
+        <span class="text-[13px] font-medium text-danger">{{ t('mermaid.renderFailed') }}</span>
         <span class="font-mono text-[11px] leading-5 text-secondary">{{ renderError }}</span>
       </div>
       <div v-else class="flex min-h-20 w-full items-center justify-center overflow-x-auto px-2 py-3"
@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'

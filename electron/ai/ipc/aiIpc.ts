@@ -1,3 +1,4 @@
+import { mainT } from "../../i18n";
 import { aiProviderTemplate } from "../../../src/types/ai";
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent, type IpcMainEvent } from "electron";
 import { IPC_CHANNELS } from "../../../src/constants/ipcChannels";
@@ -76,7 +77,7 @@ const EDIT_ACTIONS = new Set([
 ]);
 
 function assertInvokeRequest(value: unknown): asserts value is AiInvokeRequest {
-  if (!value || typeof value !== "object") throw new Error("AI 请求格式不正确");
+  if (!value || typeof value !== "object") throw new Error(mainT("error.ai.requestInvalid"));
   const request = value as Partial<AiInvokeRequest>;
   // ai-write 支持纯指令编写：空文档、无选区时只携带 instruction 也能发起请求
   const hasContext =
@@ -90,7 +91,7 @@ function assertInvokeRequest(value: unknown): asserts value is AiInvokeRequest {
     !EDIT_ACTIONS.has(request.action) ||
     (!hasContext && !hasInstruction)
   ) {
-    throw new Error("AI 请求格式不正确");
+    throw new Error(mainT("error.ai.requestInvalid"));
   }
 }
 
@@ -99,7 +100,7 @@ return error instanceof Error ? error.message : String(error);
 }
 
 function timeoutMessage(timeoutMs: number): string {
-return `请求超时：AI 未在 ${Math.round(timeoutMs / 1000)} 秒内完成响应，可在 AI 设置中调大超时时间后重试`;
+return mainT("error.ai.timeout", { seconds: Math.round(timeoutMs / 1000) });
 }
 
 function resolveBaseUrl(provider: string, customBaseUrl?: string): string {
@@ -116,7 +117,7 @@ function resolveBaseUrl(provider: string, customBaseUrl?: string): string {
     case "ollama":
       return "http://localhost:11434/v1";
     default:
-      throw new Error("自定义提供方需要填写 API 地址");
+      throw new Error(mainT("error.ai.customBaseUrlRequired"));
   }
 }
 
@@ -128,11 +129,11 @@ async function fetchOpenAiModels(baseUrl: string, apiKey?: string): Promise<AiMo
   const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`获取模型列表失败 (${response.status}): ${text || response.statusText}`);
+    throw new Error(mainT("error.ai.modelsFetchFailed", { status: response.status, detail: text || response.statusText }));
   }
 
   const data = await response.json() as { data?: Array<{ id: string; name?: string }> };
-  if (!Array.isArray(data.data)) throw new Error("模型列表格式不正确");
+  if (!Array.isArray(data.data)) throw new Error(mainT("error.ai.modelsInvalid"));
 
   return data.data
     .map((m) => ({ id: m.id, name: m.name }))
@@ -145,11 +146,11 @@ async function fetchOllamaModels(baseUrl: string): Promise<AiModelInfo[]> {
   const url = `${rootUrl}/api/tags`;
   const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!response.ok) {
-    throw new Error(`获取 Ollama 模型失败 (${response.status}): ${response.statusText}`);
+    throw new Error(mainT("error.ai.ollamaModelsFetchFailed", { status: response.status, detail: response.statusText }));
   }
 
   const data = await response.json() as { models?: Array<{ name: string }> };
-  if (!Array.isArray(data.models)) throw new Error("Ollama 模型列表格式不正确");
+  if (!Array.isArray(data.models)) throw new Error(mainT("error.ai.ollamaModelsInvalid"));
 
   return data.models.map((m) => ({ id: m.name, name: m.name }));
 }
@@ -259,7 +260,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
   function validateSender(event: IpcMainInvokeEvent | IpcMainEvent): void {
     const mainWindow = getMainWindow();
     if (mainWindow && event.sender !== mainWindow.webContents) {
-      throw new Error("未授权的 AI 请求来源");
+      throw new Error(mainT("error.ai.unauthorizedSender"));
     }
   }
 
@@ -335,7 +336,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
 
     const status = await getAiAgentStatus();
     if (!status.configured) {
-      throw new Error("请先在设置中启用并配置 AI");
+      throw new Error(mainT("error.ai.notConfigured"));
     }
 
     const settings = await getAiSettings();
@@ -422,26 +423,26 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
   // ─── Chat 多轮对话 ─────────────────────────────────────────────────
 
   function assertChatRequest(value: unknown): asserts value is AiChatRequest {
-    if (!value || typeof value !== "object") throw new Error("Chat 请求格式不正确");
+    if (!value || typeof value !== "object") throw new Error(mainT("error.ai.chatRequestInvalid"));
     const request = value as Partial<AiChatRequest>;
     if (typeof request.requestId !== "string" || !request.requestId) {
-      throw new Error("Chat 请求缺少 requestId");
+      throw new Error(mainT("error.ai.chatMissingRequestId"));
     }
     if (!Array.isArray(request.messages) || request.messages.length === 0) {
-      throw new Error("Chat 请求缺少消息列表");
+      throw new Error(mainT("error.ai.chatMissingMessages"));
     }
     // 引用是独立的正文快照；格式错误直接拒绝，避免遗漏材料后继续回答。
     for (const message of request.messages) {
       if (!message || typeof message.content !== "string" || !["user", "assistant", "system"].includes(message.role)) {
-        throw new Error("Chat 消息格式不正确");
+        throw new Error(mainT("error.ai.chatMessageInvalid"));
       }
       if (message.references !== undefined && (!Array.isArray(message.references) || message.references.some((text) => typeof text !== "string"))) {
-        throw new Error("Chat 引用格式不正确");
+        throw new Error(mainT("error.ai.chatReferencesInvalid"));
       }
     }
     // 模型覆盖参数为可选；携带时必须是去除空白后非空的字符串
     if (request.model !== undefined && (typeof request.model !== "string" || !request.model.trim())) {
-      throw new Error("Chat 请求的模型参数不正确");
+      throw new Error(mainT("error.ai.chatModelInvalid"));
     }
   }
 
@@ -452,7 +453,7 @@ export function registerAiIpc(options: { getMainWindow: () => BrowserWindow | nu
 
     const status = await getAiAgentStatus();
     if (!status.configured) {
-      throw new Error("请先在设置中启用并配置 AI");
+      throw new Error(mainT("error.ai.notConfigured"));
     }
 
     const settings = await getAiSettings();

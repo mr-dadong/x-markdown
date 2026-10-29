@@ -39,6 +39,7 @@ import type {
   AiSettingsInput,
 } from '../src/types/ai'
 import { IPC_CHANNELS } from '../src/constants/ipcChannels'
+import type { UiLocale } from '../src/i18n/locale'
 import type { DocumentAgentEvent, DocumentAgentRequest } from '../src/types/documentAgent'
 
 const electronAPI: ElectronAPI = {
@@ -155,6 +156,11 @@ const electronAPI: ElectronAPI = {
 
   updateShortcuts: (shortcuts: Record<string, string>): void => {
     ipcRenderer.send(IPC_CHANNELS.updateShortcuts, shortcuts)
+  },
+
+  // 语言由渲染层解析（能读到设置存储），主进程只接收结果并重建菜单。
+  setUiLocale: (locale: UiLocale): void => {
+    ipcRenderer.send(IPC_CHANNELS.setUiLocale, locale)
   },
 
   showErrorMessage: (title: string, message: string): Promise<void> => {

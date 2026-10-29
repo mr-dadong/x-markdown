@@ -3,23 +3,24 @@
   <div class="flex items-center gap-3 border-b border-line bg-toolbar px-4 py-2">
     <Icon icon="lucide:refresh-cw" :size="14" class="shrink-0 text-accent" />
     <span class="min-w-0 flex-1 truncate text-[12.5px] text-secondary">
-      “{{ title }}”已在 XMD 之外被修改
+      {{ t('externalChange.message', { title: title ?? '' }) }}
     </span>
     <button type="button"
       class="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-3 text-[12px] font-medium text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       @click="emit('reload')">
       <Icon icon="lucide:download" :size="13" />
-      <span>重新加载</span>
+      <span>{{ t('externalChange.reload') }}</span>
     </button>
     <button type="button"
       class="flex h-7 shrink-0 items-center justify-center rounded-md px-3 text-[12px] font-medium text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
       @click="emit('dismiss')">
-      忽略
+      {{ t('externalChange.ignore') }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 
 defineProps<{ title?: string }>()

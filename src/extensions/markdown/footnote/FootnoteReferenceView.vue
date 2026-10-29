@@ -3,7 +3,7 @@
     contenteditable="false" @mouseenter="showPreview" @mouseleave="hidePreview">
     <span ref="anchorElement"
       class="mx-0.5 inline font-mono text-[10px] font-semibold text-link transition-colors hover:text-accent"
-      :title="hasDefinition ? `脚注 ${identifier}` : `未找到脚注 ${identifier} 的定义`">
+      :title="hasDefinition ? t('footnote.referenceTitle', { id: identifier }) : t('footnote.referenceMissing', { id: identifier })">
       [{{ identifier }}]
     </span>
 
@@ -15,12 +15,13 @@
       </div>
       <div v-if="previewBody" class="max-h-48 overflow-y-auto text-[12px] leading-5 text-secondary [&_ol]:m-0 [&_ol]:pl-5 [&_p]:m-0 [&_p]:text-[12px] [&_ul]:m-0 [&_ul]:pl-5"
         v-html="renderedBody" />
-      <div v-else class="text-[12px] leading-5 text-muted">未找到对应的脚注定义。</div>
+      <div v-else class="text-[12px] leading-5 text-muted">{{ t('footnote.missingDefinition') }}</div>
     </div>
   </NodeViewWrapper>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { Icon } from '@iconify/vue/offline'

@@ -1,3 +1,4 @@
+import { t } from "../composables/useI18n";
 import StarterKit from "@tiptap/starter-kit";
 import { markInputRule, type JSONContent, type MarkdownParseHelpers, type MarkdownToken } from "@tiptap/core";
 import { Markdown } from "@tiptap/markdown";
@@ -343,7 +344,7 @@ const createLocalImage = (getCurrentDocumentPath?: () => string | null) =>
         const zoomButton = document.createElement("span");
         zoomButton.className =
           "flex h-6 w-6 cursor-pointer items-center justify-center rounded text-icon hover:bg-control-hover hover:text-ink";
-        zoomButton.title = "放大预览";
+        zoomButton.title = t('editor.zoomPreview');
         // 内联放大镜图标（填充路径绘制，不使用 stroke-width 属性）
         zoomButton.innerHTML =
           '<svg viewBox="0 0 16 16" class="h-3.5 w-3.5"><path fill="currentColor" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"></path></svg>';
@@ -629,7 +630,7 @@ export const createEditorExtensions = (options: {
     // 排版替换加一道 HTML 标签保护，避免智能引号污染属性值（详见 htmlSafeTypography.ts）。
     HtmlSafeTypography,
     Placeholder.configure({
-      placeholder: "开始写作...",
+      placeholder: t('editor.placeholder'),
     }),
     Underline,
     PlainSubscript,

@@ -3,6 +3,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorView, keymap, placeholder, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view'
 import { EditorState, StateEffect, StateField, type Extension, type Line, type Range } from '@codemirror/state'
@@ -263,7 +264,7 @@ const buildExtensions = (dark: boolean): Extension[] => [
   EditorView.contentAttributes.of({ spellcheck: 'false' }),
   keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
   markdown({ codeLanguages }),
-  placeholder('开始输入 Markdown 源码...'),
+  placeholder(t('source.placeholder')),
   EditorView.updateListener.of((update) => {
     if (update.docChanged) {
       emit('update:content', update.state.doc.toString())

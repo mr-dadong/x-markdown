@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { readonly, ref } from 'vue'
 
 export interface ConfirmDialogOptions {
@@ -22,7 +23,7 @@ const requestConfirmation = (options: ConfirmDialogOptions): Promise<boolean> =>
 
   dialogState.value = {
     ...options,
-    cancelLabel: options.cancelLabel ?? '取消',
+    cancelLabel: options.cancelLabel ?? t('common.cancel'),
     tone: options.tone ?? 'default',
   }
 

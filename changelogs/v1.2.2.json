@@ -6,6 +6,7 @@
       "date": "2026-08-30",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：AI 设置「测试连接」按钮，真实请求验证配置，显示延迟与失败原因，通过后自动保存生效",
         "新增：AI 设置有未保存更改时，切换分区或关闭设置会提示确认，避免误丢配置",
@@ -17,6 +18,18 @@
         "优化：覆盖安装时会提示先保存文档并退出 XMD，避免旧进程继续运行或未保存内容丢失",
         "修复：API Key 加密保存后重启应用读取不到的问题",
         "修复：升级或覆盖安装后可能因旧缓存导致斜杠菜单和选区 AI 工具栏不显示的问题"
+      ],
+      "contentEn": [
+        "Added Test connection in AI settings with a real request, latency and failure details, and automatic save on success.",
+        "Switching sections or closing settings with unsaved AI changes now asks for confirmation.",
+        "Configured API keys show a masked value; enter a new value to replace it or leave blank to keep the current key.",
+        "API addresses are prefilled with each provider's official default and remain editable.",
+        "AI settings take effect immediately after saving; the selection AI toolbar works without a restart.",
+        "The AI live writing panel scrolls to make room when opened, so it does not cover the body.",
+        "Refreshing the model list uses the unsaved draft and no longer saves incomplete changes.",
+        "Overwriting an installation now asks users to save documents and quit XMD first, avoiding an old process or unsaved content loss.",
+        "Fixed API keys not being readable after a restart when saved encrypted.",
+        "Fixed the slash menu and selection AI toolbar not showing after an upgrade or overwrite install due to stale caches."
       ],
       "downloads": {
         "windows": {

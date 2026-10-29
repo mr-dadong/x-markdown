@@ -7,11 +7,11 @@
         : parts.length > 0
           ? 'border-line bg-panel text-secondary hover:border-accent hover:text-ink'
           : 'border-dashed border-line text-muted hover:border-accent hover:text-secondary'"
-      :title="recording ? '按下新的组合键，Esc 取消，退格清除' : '点击后按下新的组合键'" @click="startRecording"
+      :title="recording ? t('recorder.recordingTitle') : t('recorder.idleTitle')" @click="startRecording"
       @blur="stopRecording">
       <template v-if="recording">
         <span class="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-        <span class="text-[12px]">按下组合键…</span>
+        <span class="text-[12px]">{{ t('recorder.press') }}</span>
       </template>
       <template v-else-if="parts.length > 0">
         <kbd v-for="part in parts" :key="part"
@@ -19,17 +19,18 @@
           {{ part }}
         </kbd>
       </template>
-      <span v-else class="text-[12px]">未设置</span>
+      <span v-else class="text-[12px]">{{ t('common.notSet') }}</span>
     </button>
     <span v-if="error" class="max-w-[200px] text-right text-[11px] leading-4 text-danger">{{ error }}</span>
     <span v-else-if="conflictLabel" class="max-w-[200px] text-right text-[11px] leading-4 text-danger">
-      与「{{ conflictLabel }}」重复
+      {{ t('recorder.duplicate', { label: conflictLabel }) }}
     </span>
-    <span v-else class="text-[11px] leading-4 text-muted">点击录制 · 退格清除</span>
+    <span v-else class="text-[11px] leading-4 text-muted">{{ t('recorder.hint') }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { formatShortcutParts, parseShortcut, shortcutFromEvent } from '../../utils/shortcuts'
 

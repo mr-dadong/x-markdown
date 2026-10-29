@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { computed, ref } from 'vue'
 import type { UpdateDownloadProgress, UpdateInfo } from '../types/update'
 import { updateService } from '../services/updateService'
@@ -20,17 +21,19 @@ export function useUpdater() {
   const checkForUpdates = async (manual = false): Promise<void> => {
     if (isChecking.value) return
     isChecking.value = true
-    if (manual) checkMessage.value = '正在检查更新…'
+    if (manual) checkMessage.value = t('update.checking')
 
     try {
       const result = await updateService.check()
       updateInfo.value = result.hasUpdate ? result.update : null
       if (manual) {
-        checkMessage.value = result.hasUpdate ? `发现新版本 v${result.update?.version}` : `当前已是最新版本 v${result.currentVersion}`
+        checkMessage.value = result.hasUpdate
+          ? t('update.found', { version: result.update?.version ?? '' })
+          : t('update.upToDate', { version: result.currentVersion })
         if (result.hasUpdate) isUpdateModalOpen.value = true
       }
     } catch (error) {
-      if (manual) checkMessage.value = error instanceof Error ? error.message : '检查更新失败，请稍后重试'
+      if (manual) checkMessage.value = error instanceof Error ? error.message : t('update.checkFailed')
     } finally {
       isChecking.value = false
     }
@@ -55,9 +58,9 @@ export function useUpdater() {
       // 主进程已经按照当前系统与 CPU 架构选出了唯一匹配的安装包。
       const result = await updateService.download()
       if (result.status === 'downloaded' && result.filePath) downloadedFilePath.value = result.filePath
-      if (result.status === 'external') downloadMessage.value = '已打开夸克网盘，请在浏览器中下载安装包。'
+      if (result.status === 'external') downloadMessage.value = t('update.externalDownload')
     } catch (error) {
-      downloadMessage.value = error instanceof Error ? error.message : '下载失败，请稍后重试'
+      downloadMessage.value = error instanceof Error ? error.message : t('update.downloadFailed')
     } finally {
       isDownloading.value = false
     }
@@ -72,7 +75,7 @@ export function useUpdater() {
       // 安装前主进程需要再次校验安装包，界面在此期间保持明确反馈。
       await updateService.install()
     } catch (error) {
-      downloadMessage.value = error instanceof Error ? error.message : '安装程序启动失败，请稍后重试'
+      downloadMessage.value = error instanceof Error ? error.message : t('update.installStartFailed')
       isInstalling.value = false
     }
   }

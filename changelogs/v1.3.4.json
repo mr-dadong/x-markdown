@@ -6,6 +6,7 @@
       "date": "2026-09-16",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：代码块支持导出为 PNG 图片，方便粘贴到文档或分享给他人",
         "优化：二进制导出流程（ZIP / DOCX / PNG）统一重构，弹出保存对话框时自动处理文件名中的特殊字符，避免路径错乱",
@@ -15,6 +16,16 @@
         "优化：HTML块编辑交互，支持双击编辑源码",
         "新增：添加导出进度条和状态信息",
         "优化：代码块导出样式，确保长代码在静态导出中正确换行"
+      ],
+      "contentEn": [
+        "Code blocks can be exported as PNG images for pasting into documents or sharing.",
+        "Reworked binary export (ZIP, DOCX, PNG) to sanitize special characters in file names in save dialogs and avoid path issues.",
+        "Improved image preview: images next to linked documents now display.",
+        "Improved local link handling: paths starting with a slash resolve relative to the document folder instead of the disk root.",
+        "Formatted the AgentTimeline component code for readability.",
+        "Improved HTML block editing with double-click source editing.",
+        "Added export progress bars and status information.",
+        "Improved code block export styling so long code wraps correctly in static exports."
       ],
       "downloads": {
         "windows": {

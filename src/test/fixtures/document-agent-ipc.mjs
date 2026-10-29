@@ -3,14 +3,21 @@ import assert from 'node:assert/strict';
 import { mock } from 'bun:test';
 const handlers = new Map();
 const ipcMain = { handle: (name, callback) => handlers.set(name, callback), on: () => {} };
-mock.module('electron', () => ({ ipcMain }));
+mock.module('electron', () => ({
+  ipcMain,
+  // 主进程 i18n 在首次取文案时读取系统语言；测试固定为中文。
+  app: { getPreferredSystemLanguages: () => ['zh-CN'], getLocale: () => 'zh-CN' },
+}));
 mock.module('../../../electron/ai/aiSettings.ts', () => ({ getAiSettings: async () => ({ enabled: true, timeoutMs: 1000, maxTokens: 1000, temperature: 0 }) }));
 mock.module('../../../electron/ai/mastra.ts', () => ({ buildModelConfig: () => ({}) }));
 let mode = 'partial';
 mock.module('../../../electron/ai/documentAgentRun.ts', () => ({ runDocumentAgent: async (request, options) => {
   if (mode === 'error') { const error = new Error('网络连接失败'); options.controller.abort(error); throw error; }
   if (mode === 'timeout') { const error = new Error('模型超时'); error.name = 'TimeoutError'; options.controller.abort(error); throw error; }
-  options.controller.abort(new Error('任务已停止'));
+  // 用户主动停止用 TaskStopped 错误名标记，与可本地化的提示文案解耦。
+  const stopped = new Error('任务已停止');
+  stopped.name = 'TaskStopped';
+  options.controller.abort(stopped);
   options.report({ requestId: request.requestId, type: 'patch', patch: { id: 'p1', baseVersion: request.documentVersion, start: 0, end: 2, before: '原文', after: '新文', reason: '修改' } });
   options.report({ requestId: request.requestId, type: 'done', outcome: 'incomplete', issues: [], message: '任务已停止' });
 } }));

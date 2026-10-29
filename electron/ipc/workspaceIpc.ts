@@ -1,3 +1,4 @@
+import { mainT } from "../i18n";
 import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow } from "electron";
 import fs from "fs";
 import path from "path";
@@ -14,7 +15,7 @@ interface WorkspaceIpcDependencies {
 function validateFileTreeName(name: string): string {
   const trimmedName = name.trim();
   if (!trimmedName || trimmedName === "." || trimmedName === ".." || /[\\/:*?"<>|]/.test(trimmedName)) {
-    throw new Error("名称不能为空，也不能包含 \\ / : * ? \" < > |");
+    throw new Error(mainT("error.file.nameEmptyInvalid"));
   }
   return trimmedName;
 }

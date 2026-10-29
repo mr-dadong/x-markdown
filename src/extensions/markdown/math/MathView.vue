@@ -1,7 +1,7 @@
 <template>
   <NodeViewWrapper v-if="displayMode" class="relative my-5 flex w-full flex-col" data-xmd-math-view>
     <div class="relative flex min-h-12 w-full cursor-text items-center justify-center overflow-x-auto px-4 py-2"
-      contenteditable="false" title="点击编辑公式" @click.stop="startEditing">
+      contenteditable="false" :title="t('math.edit')" @click.stop="startEditing">
       <span v-if="renderError" class="font-mono text-[12px] text-danger">{{ renderError }}</span>
       <span v-else v-html="renderedMath" />
     </div>
@@ -17,7 +17,7 @@
       props.selected && !editing ? 'bg-selected' : '',
     ]"
     data-xmd-math-view contenteditable="false"
-    title="点击编辑公式" @click.stop="startEditing">
+    :title="t('math.edit')" @click.stop="startEditing">
     <span class="inline-flex cursor-text items-center">
       <span v-if="renderError" class="font-mono text-[12px] text-danger">{{ renderError }}</span>
       <span v-else v-html="renderedMath" />
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { computed, ref, watch } from 'vue'

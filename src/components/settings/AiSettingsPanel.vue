@@ -1,16 +1,16 @@
 <template>
   <fieldset :disabled="saving || testing" class="flex min-w-0 flex-col gap-5 border-0 p-0">
-    <SectionTitle title="AI 设置" description="管理多个模型连接，分别保存地址、密钥与模型。" />
+    <SectionTitle :title="t('settings.ai.title')" :description="t('settings.ai.description')" />
 
     <!-- 按连接展示列表，当前连接同时用于聊天和文档助手。 -->
     <div class="flex flex-col gap-2 rounded-lg border border-line p-4">
       <!-- 删除操作跟随当前连接放在右上角，不再打断下方配置表单。 -->
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="flex min-w-0 flex-col gap-2">
-          <span class="text-[13px] font-semibold text-ink">模型连接</span>
-          <p class="text-[12px] text-muted">点击选择当前连接，同一厂商可添加多个账号或服务地址。</p>
+          <span class="text-[13px] font-semibold text-ink">{{ t('settings.ai.connections') }}</span>
+          <p class="text-[12px] text-muted">{{ t('settings.ai.connectionsHint') }}</p>
         </div>
-        <button type="button" class="flex shrink-0 items-center rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected disabled:cursor-not-allowed disabled:opacity-50" :disabled="connectionOptions.length === 1" @click="removeConnection">删除此连接</button>
+        <button type="button" class="flex shrink-0 items-center rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected disabled:cursor-not-allowed disabled:opacity-50" :disabled="connectionOptions.length === 1" @click="removeConnection">{{ t('settings.ai.deleteConnection') }}</button>
       </div>
       <div class="flex flex-wrap gap-2">
         <button v-for="connection in connectionOptions" :key="connection.value" type="button"
@@ -18,40 +18,40 @@
           :class="provider === connection.value ? 'border-accent bg-selected text-accent' : 'border-line text-secondary hover:bg-selected'"
           @click="provider = connection.value as AiProvider">
           {{ connection.label }}
-          <span v-if="provider === connection.value" class="text-[11px]">当前使用</span>
+          <span v-if="provider === connection.value" class="text-[11px]">{{ t('settings.ai.current') }}</span>
         </button>
       </div>
       <!-- 添加入口收进连接区域，厂商模板和按钮在窄窗口中可以换行。 -->
       <div class="mt-2 flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <span class="text-[12px] text-muted">新建连接</span>
-        <IconSelect v-model="newTemplate" :options="providerOptions" placeholder="选择厂商模板" />
-        <button type="button" class="flex h-9 shrink-0 items-center rounded-md border border-line px-3 text-[13px] text-ink hover:bg-selected" @click="addConnection">添加连接</button>
+        <span class="text-[12px] text-muted">{{ t('settings.ai.newConnection') }}</span>
+        <IconSelect v-model="newTemplate" :options="providerOptions" :placeholder="t('settings.ai.providerTemplate')" />
+        <button type="button" class="flex h-9 shrink-0 items-center rounded-md border border-line px-3 text-[13px] text-ink hover:bg-selected" @click="addConnection">{{ t('settings.ai.addConnection') }}</button>
       </div>
-      <span v-if="connectionOptions.length === 1" class="text-[12px] text-muted">请先添加其他连接，再删除此连接。</span>
+      <span v-if="connectionOptions.length === 1" class="text-[12px] text-muted">{{ t('settings.ai.deleteOnlyHint') }}</span>
     </div>
-    <SettingGroup title="连接名称" description="例如：工作账号、公司中转服务。">
-      <input v-model="currentName" type="text" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent" placeholder="输入连接名称" />
+    <SettingGroup :title="t('settings.ai.connectionName.title')" :description="t('settings.ai.connectionName.description')">
+      <input v-model="currentName" type="text" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent" :placeholder="t('settings.ai.connectionName.placeholder')" />
     </SettingGroup>
 
-    <SettingGroup title="模型名称" description="从列表选择或输入自定义模型名称，点击刷新获取可用模型。">
+    <SettingGroup :title="t('settings.ai.modelName.title')" :description="t('settings.ai.modelName.description')">
       <ModelSelector ref="modelSelectorRef" v-model="currentModel" v-model:customModels="currentCustomModels"
-        placeholder="输入或选择模型" @fetch="onFetchModels" />
+        :placeholder="t('settings.ai.modelPlaceholder')" @fetch="onFetchModels" />
     </SettingGroup>
 
     <!-- 自定义模型直接展示在页面上，无需先清空输入框才能删除。 -->
     <div v-if="currentCustomModels.length" class="flex flex-col gap-2 rounded-lg border border-line p-4">
-      <span class="text-[13px] font-medium text-ink">已添加的自定义模型</span>
+      <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.customModels') }}</span>
       <div v-for="model in currentCustomModels" :key="model" class="flex items-center justify-between gap-3">
         <span class="min-w-0 break-all text-[13px] text-secondary">{{ model }}</span>
-        <button type="button" class="flex shrink-0 rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected" @click="removeCustomModel(model)">删除</button>
+        <button type="button" class="flex shrink-0 rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected" @click="removeCustomModel(model)">{{ t('sidebar.delete') }}</button>
       </div>
     </div>
 
-    <SettingGroup title="API 地址" description="填写此连接的服务地址，厂商模板会填入官方地址。">
+    <SettingGroup :title="t('settings.ai.baseUrl.title')" :description="t('settings.ai.baseUrl.description')">
       <input v-model="currentBaseUrl" type="text" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent" :placeholder="baseUrlPlaceholder" />
     </SettingGroup>
 
-    <SettingGroup v-if="currentTemplate !== 'ollama'" title="API Key" description="已配置的厂商显示掩码；聚焦后输入新值即可替换，留空保持原 Key。">
+    <SettingGroup v-if="currentTemplate !== 'ollama'" :title="t('settings.ai.apiKey.title')" :description="t('settings.ai.apiKey.description')">
       <input :value="apiKeyDisplay" type="password" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent" placeholder="sk-..." autocomplete="off"
         @focus="onApiKeyFocus" @input="onApiKeyInput" @blur="onApiKeyBlur" />
     </SettingGroup>
@@ -59,27 +59,27 @@
     <!-- 生成参数分组：三个数值参数收进一个圆角容器，与上方的连接配置在视觉上区分开 -->
     <div class="flex flex-col rounded-lg border border-line bg-panel">
       <div class="flex flex-col gap-1 px-5 pb-3 pt-4">
-        <h4 class="text-[13px] font-semibold text-ink">生成参数</h4>
-        <p class="text-[12px] text-muted">控制生成质量与稳定性，保存后对所有 AI 功能生效。</p>
+        <h4 class="text-[13px] font-semibold text-ink">{{ t('settings.ai.generation') }}</h4>
+        <p class="text-[12px] text-muted">{{ t('settings.ai.generationHint') }}</p>
       </div>
       <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">温度</span>
-          <span class="text-[12px] text-muted">0-2，数值越高生成结果越有创造性。</span>
+          <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.temperature') }}</span>
+          <span class="text-[12px] text-muted">{{ t('settings.ai.temperatureHint') }}</span>
         </div>
         <input v-model.number="temperature" type="number" min="0" max="2" step="0.1" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent !bg-paper" />
       </div>
       <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">单次请求输出预算</span>
-          <span class="text-[12px] text-muted">单次生成的最大 token 数，过小可能导致长内容被截断。</span>
+          <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.maxTokens') }}</span>
+          <span class="text-[12px] text-muted">{{ t('settings.ai.maxTokensHint') }}</span>
         </div>
         <input v-model.number="maxTokens" type="number" min="256" max="32768" step="256" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent !bg-paper" />
       </div>
       <div class="flex items-center justify-between gap-8 px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">超时时间</span>
-          <span class="text-[12px] text-muted">等待模型响应的最长时间，单位：秒。</span>
+          <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.timeout') }}</span>
+          <span class="text-[12px] text-muted">{{ t('settings.ai.timeoutHint') }}</span>
         </div>
         <input v-model.number="timeoutSeconds" type="number" min="5" max="300" step="5" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent !bg-paper" />
       </div>
@@ -88,20 +88,20 @@
     <!-- 文档 Agent 执行参数：与上方连接/生成参数分开，专门控制长任务的轮数和总时长。 -->
     <div class="flex flex-col rounded-lg border border-line bg-panel">
       <div class="flex flex-col gap-1 px-5 pb-3 pt-4">
-        <h4 class="text-[13px] font-semibold text-ink">文档 Agent</h4>
-        <p class="text-[12px] text-muted">控制后台 Agent 处理文档的轮数与总时长，复杂任务请适当调大。</p>
+        <h4 class="text-[13px] font-semibold text-ink">{{ t('settings.ai.agent') }}</h4>
+        <p class="text-[12px] text-muted">{{ t('settings.ai.agentHint') }}</p>
       </div>
       <div class="flex items-center justify-between gap-8 border-b border-line px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">最大轮数</span>
-          <span class="text-[12px] text-muted">Agent 最多执行的工具步骤数，越高越能处理复杂修改。</span>
+          <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.maxSteps') }}</span>
+          <span class="text-[12px] text-muted">{{ t('settings.ai.maxStepsHint') }}</span>
         </div>
         <input v-model.number="agentMaxSteps" type="number" min="1" max="100" step="1" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent !bg-paper" />
       </div>
       <div class="flex items-center justify-between gap-8 px-5 py-4">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="text-[13px] font-medium text-ink">任务总时长</span>
-          <span class="text-[12px] text-muted">整个 Agent 任务允许的最长时间，单位：分钟。</span>
+          <span class="text-[13px] font-medium text-ink">{{ t('settings.ai.taskDuration') }}</span>
+          <span class="text-[12px] text-muted">{{ t('settings.ai.taskDurationHint') }}</span>
         </div>
         <input v-model.number="agentTaskMinutes" type="number" min="1" max="120" step="1" class="flex h-9 w-[200px] max-w-[420px] rounded-md border border-line bg-panel px-2.5 text-[13px] text-ink outline-none focus:border-accent !bg-paper" />
       </div>
@@ -114,18 +114,18 @@
         :disabled="testing || saving" @click="runConnectionTest">
         <Icon :icon="testing ? 'lucide:loader-circle' : 'lucide:plug-zap'" :size="15"
            />
-        {{ testing ? '测试中…' : '测试连接' }}
+        {{ testing ? t('settings.ai.testing') : t('settings.ai.test') }}
       </button>
       <!-- 自动保存：表单停顿约 1 秒后整体提交，不覆盖用户正在编辑的中间态。 -->
       <span v-if="isDirty && !message && !testResult" class="flex items-center gap-1.5 text-[12px] text-accent">
         <span class="h-1.5 w-1.5 rounded-full bg-accent" />
-        更改将自动保存
+        {{ t('settings.ai.autoSave') }}
       </span>
-      <button type="button" class="flex h-9 cursor-pointer items-center rounded-md border border-line px-3 text-[12px] text-ink hover:border-accent hover:bg-selected hover:text-accent disabled:cursor-not-allowed disabled:opacity-50" :disabled="saving" @click="saveFromButton">{{ saving ? '保存中…' : '立即保存' }}</button>
+      <button type="button" class="flex h-9 cursor-pointer items-center rounded-md border border-line px-3 text-[12px] text-ink hover:border-accent hover:bg-selected hover:text-accent disabled:cursor-not-allowed disabled:opacity-50" :disabled="saving" @click="saveFromButton">{{ saving ? t('settings.ai.saving') : t('settings.ai.saveNow') }}</button>
       <button v-if="isDirty" type="button"
         class="flex h-9 items-center rounded-md px-2.5 text-[12px] text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="saving" @click="resetToSaved">
-        还原
+        {{ t('settings.ai.reset') }}
       </button>
       <span v-if="message" class="text-[12px]" :class="hasError ? 'text-danger' : 'text-secondary'">{{
         message }}</span>
@@ -138,14 +138,13 @@
         <Icon :icon="testResult.ok ? 'lucide:check-circle-2' : 'lucide:x-circle'" :size="16"
           :class="testResult.ok ? 'text-[#46a758]' : 'text-danger'" />
         <span class="text-[13px] font-medium" :class="testResult.ok ? 'text-[#2c7a3d]' : 'text-danger'">
-          {{ testResult.ok ? '连接成功' : '连接失败' }}
+          {{ testResult.ok ? t('settings.ai.testSuccess') : t('settings.ai.testFailed') }}
         </span>
-        <span class="ml-auto font-mono text-[11px] text-muted">{{ testResult.provider }} · {{ testResult.model ||
-          '（无模型名）' }}</span>
+        <span class="ml-auto font-mono text-[11px] text-muted">{{ testResult.provider }} · {{ testResult.model || t('settings.ai.noModelName') }}</span>
       </div>
       <div v-if="testResult.ok && testResult.latencyMs !== undefined" class="text-[12px] text-secondary">
-        端到端延迟 {{ testResult.latencyMs }} ms
-        <span v-if="testResult.sampleTokenCount" class="ml-2">已收到模型响应</span>
+        {{ t('settings.ai.latency', { ms: testResult.latencyMs }) }}
+        <span v-if="testResult.sampleTokenCount" class="ml-2">{{ t('settings.ai.responseReceived') }}</span>
       </div>
       <div v-if="!testResult.ok" class="break-all text-[12px] leading-5 text-secondary">{{ testResult.error }}</div>
     </div>
@@ -153,6 +152,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { useAiStatus } from '../../composables/useAiStatus'
@@ -172,14 +172,14 @@ import deepseekSvg from '../../assets/icon/deepseek.svg?raw'
 import minimaxSvg from '../../assets/icon/minimax.svg?raw'
 import ollamaSvg from '../../assets/icon/ollama.svg?raw'
 
-const providerOptions: IconSelectOption[] = [
+const providerOptions = computed<IconSelectOption[]>(() => [
   { value: 'openai', label: 'OpenAI', svg: openaiSvg },
   { value: 'anthropic', label: 'Anthropic', svg: anthropicSvg },
   { value: 'deepseek', label: 'DeepSeek', svg: deepseekSvg },
   { value: 'minimax', label: 'MiniMax', svg: minimaxSvg },
   { value: 'ollama', label: 'Ollama', svg: ollamaSvg },
-  { value: 'custom', label: '自定义', icon: 'lucide:sliders-horizontal' },
-]
+  { value: 'custom', label: t('settings.option.custom'), icon: 'lucide:sliders-horizontal' },
+])
 
 const newTemplate = ref<AiProviderTemplate>('custom')
 // 明确记录删除，保存失败时保留记录以便重试。
@@ -350,7 +350,7 @@ const currentConfig = computed(() => providersConfig.value[provider.value] ?? { 
 // 显示名称与协议分开，同一厂商可创建多个连接。
 const currentTemplate = computed(() => aiProviderTemplate(provider.value))
 const connectionOptions = computed<IconSelectOption[]>(() => Object.entries(providersConfig.value).map(([id, config]) => {
-  const template = providerOptions.find((option) => option.value === aiProviderTemplate(id as AiProvider))!
+  const template = providerOptions.value.find((option) => option.value === aiProviderTemplate(id as AiProvider))!
   return { ...template, value: id, label: config.name || template.label }
 }))
 const currentName = computed({
@@ -360,8 +360,8 @@ const currentName = computed({
 const addConnection = (): void => {
   const template = newTemplate.value
   const id: AiProvider = `${template}:${crypto.randomUUID()}`
-  const label = providerOptions.find((option) => option.value === template)!.label
-  providersConfig.value[id] = { name: `${label} 新连接`, model: '', baseUrl: DEFAULT_BASE_URLS[template], hasApiKey: false, customModels: [] }
+  const label = providerOptions.value.find((option) => option.value === template)!.label
+  providersConfig.value[id] = { name: t('settings.ai.newConnectionName', { label }), model: '', baseUrl: DEFAULT_BASE_URLS[template], hasApiKey: false, customModels: [] }
   provider.value = id
 }
 
@@ -369,7 +369,7 @@ const addConnection = (): void => {
 const removeConnection = (): void => {
   const id = provider.value
   const remaining = Object.keys(providersConfig.value).find((key) => key !== id)
-  if (!remaining) throw new Error('请先添加其他连接，再删除此连接')
+  if (!remaining) throw new Error(t('settings.ai.deleteOnlyHint'))
   provider.value = remaining as AiProvider
   delete providersConfig.value[id]
   delete apiKeyDrafts.value[id]
@@ -516,7 +516,7 @@ const allowLocalRequests = computed(() => {
 })
 
 // 预填后输入框一般都有值；placeholder 仅在用户手动清空地址时兜底提示。
-const baseUrlPlaceholder = computed(() => DEFAULT_BASE_URLS[currentTemplate.value] ?? 'https://你的服务地址/v1')
+const baseUrlPlaceholder = computed(() => DEFAULT_BASE_URLS[currentTemplate.value] ?? t('settings.ai.baseUrlPlaceholder'))
 
 const load = async (): Promise<void> => {
   try {
@@ -575,7 +575,7 @@ const performSave = async (): Promise<void> => {
     // 「配置 AI 后使用」切换为正常动作按钮，无需重启应用。
     await refreshAiStatus()
     savedSnapshot.value = snapshotForm()
-    message.value = 'AI 设置已保存'
+    message.value = t('settings.ai.saved')
   } catch (error) {
     hasError.value = true
     message.value = error instanceof Error ? error.message : String(error)

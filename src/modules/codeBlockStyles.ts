@@ -1,9 +1,10 @@
+import type { MessageKey } from "../i18n/messages/zh-CN";
 export type CodeBlockStyleId = 'mac' | 'terminal' | 'paper' | 'midnight'
 
 export interface CodeBlockStyle {
   id: CodeBlockStyleId
-  name: string
-  description: string
+  nameKey: MessageKey
+  descriptionKey: MessageKey
   headerClass: string
   headerTextClass: string
   headerControlClass: string
@@ -29,8 +30,8 @@ export interface CodeBlockStyle {
 export const codeBlockStyles: CodeBlockStyle[] = [
   {
     id: 'mac',
-    name: '经典窗口',
-    description: '熟悉的桌面代码窗口',
+    nameKey: 'codeBlockStyle.mac.name',
+    descriptionKey: 'codeBlockStyle.mac.description',
     headerClass: 'border-[#d4d4d4] bg-[#eeeeee] dark:border-[#414349] dark:bg-[#303238]',
     headerTextClass: 'text-[#55585f] dark:text-[#c4c7ce]',
     headerControlClass: 'text-[#62666d] dark:text-[#b7bac1]',
@@ -49,8 +50,8 @@ export const codeBlockStyles: CodeBlockStyle[] = [
   },
   {
     id: 'terminal',
-    name: '终端绿',
-    description: '高对比度的命令行质感',
+    nameKey: 'codeBlockStyle.terminal.name',
+    descriptionKey: 'codeBlockStyle.terminal.description',
     headerClass: 'border-[#31463a] bg-[#18261e]',
     headerTextClass: 'text-[#a9c9b3]',
     headerControlClass: 'text-[#8eb69a]',
@@ -69,8 +70,8 @@ export const codeBlockStyles: CodeBlockStyle[] = [
   },
   {
     id: 'paper',
-    name: '纸张浅色',
-    description: '适合明亮环境与长时间阅读',
+    nameKey: 'codeBlockStyle.paper.name',
+    descriptionKey: 'codeBlockStyle.paper.description',
     headerClass: 'border-[#d7d2c8] bg-[#eeeae1]',
     headerTextClass: 'text-[#635f56]',
     headerControlClass: 'text-[#706b61]',
@@ -89,8 +90,8 @@ export const codeBlockStyles: CodeBlockStyle[] = [
   },
   {
     id: 'midnight',
-    name: '午夜蓝',
-    description: '冷静、清晰的深蓝配色',
+    nameKey: 'codeBlockStyle.midnight.name',
+    descriptionKey: 'codeBlockStyle.midnight.description',
     headerClass: 'border-[#283a55] bg-[#1d2b40]',
     headerTextClass: 'text-[#b7c7de]',
     headerControlClass: 'text-[#9eb3d0]',

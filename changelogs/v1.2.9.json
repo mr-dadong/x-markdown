@@ -6,6 +6,7 @@
       "date": "2026-09-06",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：代码块头部工具栏新增自动换行切换按钮，与设置中的代码块自动换行开关同步；开启后代码自动折行显示、行号列自动隐藏，关闭时保持整行横向滚动",
         "新增：代码语言选择菜单支持键盘导航，方向键循环选择、回车快速选中，鼠标悬停与键盘高亮一致，高亮项超出可视区时列表自动滚动定位",
@@ -17,6 +18,18 @@
         "修复：斜杠菜单没有匹配命令时回车键不再被吞掉，会正常换行并关闭面板；空状态提示同步改为按 Esc 或 Enter 关闭",
         "新增：光标位于标题开头时输入 # 可将标题升级一级（例如一级标题变为二级标题），与 Typora 的标题级别调整方式一致",
         "优化：光标位于标题开头时按退格键不再把整个标题删除并并入上一行，而是让标题降级一级，一级标题直接转为普通段落"
+      ],
+      "contentEn": [
+        "Added a wrap toggle to the code block header toolbar, synced with the code block wrapping setting; wrapping hides line numbers, while off keeps horizontal scrolling.",
+        "The code language menu supports keyboard navigation: arrow keys cycle, Enter selects, hover and keyboard highlights match, and the list scrolls to the highlighted item.",
+        "The file sidebar no longer depends on a fixed workspace folder; it follows the currently open document and refreshes to that folder's files when opening or switching documents.",
+        "The slash menu no longer triggers inside code blocks or inline code, so typing a slash as code content does not pop up the panel.",
+        "The slash menu appears only when content is actually inserted (typing, paste); deleting, line breaks, and line merges do not reopen it after the caret rests after a slash command.",
+        "The AI action bar no longer appears inside code blocks; selecting code text does not offer polish or rewrite actions that make no sense for code.",
+        "After clicking Add to selection the AI action bar hides immediately, avoiding repeated obstruction; selecting other text shows it again.",
+        "When no command matches, Enter is no longer swallowed: it inserts a line break and closes the panel; the empty-state hint now says close with Esc or Enter.",
+        "Typing # at the start of a heading promotes it one level (for example, H1 becomes H2), matching Typora's heading level behavior.",
+        "Backspace at the start of a heading no longer deletes the whole heading into the previous line; it demotes the heading, and H1 becomes a normal paragraph."
       ],
       "downloads": {
         "windows": {

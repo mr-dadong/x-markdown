@@ -1,3 +1,4 @@
+import { t } from "../composables/useI18n";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -71,7 +72,7 @@ const buildDecorations = (
           const span = document.createElement("span");
           span.className = "ai-writing-placeholder";
 
-          const reasoningPrefix = "AI 思考：";
+          const reasoningPrefix = t('ai.ghost.thinkingPrefix');
           const isReasoning = placeholder.startsWith(reasoningPrefix);
           if (isReasoning)
             span.classList.add("ai-writing-placeholder-reasoning");
@@ -84,7 +85,7 @@ const buildDecorations = (
           if (isReasoning) {
             const label = document.createElement("span");
             label.className = "ai-writing-placeholder-label";
-            label.textContent = "思考";
+            label.textContent = t('ai.ghost.thinkingLabel');
             span.append(label);
 
             const separator = document.createElement("span");

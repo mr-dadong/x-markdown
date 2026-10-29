@@ -4,7 +4,7 @@
       v-for="style in codeBlockStyles"
       :key="style.id"
       type="button"
-      :title="style.description"
+      :title="t(style.descriptionKey)"
       class="flex w-[162px] flex-col gap-2 rounded-lg border p-2.5 text-left outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
       :class="modelValue === style.id ? 'border-accent bg-selected' : 'border-line bg-panel hover:border-muted'"
       @click="emit('update:modelValue', style.id)"
@@ -26,7 +26,7 @@
         </span>
       </span>
       <span class="flex items-center justify-between text-[12px] font-medium text-ink">
-        {{ style.name }}
+        {{ t(style.nameKey) }}
         <Icon v-if="modelValue === style.id" icon="lucide:check" :size="13" />
       </span>
     </button>
@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 import { codeBlockStyles, type CodeBlockStyleId } from '../../modules/codeBlockStyles'
 

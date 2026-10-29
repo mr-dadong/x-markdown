@@ -4,7 +4,7 @@
     <button
       type="button"
       class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
-      title="复制"
+      :title="t('common.copy')"
       @mousedown.prevent="emit('copy')"
     >
       <Icon icon="lucide:copy" :size="12" />
@@ -12,7 +12,7 @@
     <button
       type="button"
       class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
-      title="插入"
+      :title="t('emoji.insert')"
       @mousedown.prevent="emit('insert')"
     >
       <Icon icon="lucide:corner-down-left" :size="12" />
@@ -21,7 +21,7 @@
       v-if="!isStreaming"
       type="button"
       class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-selected hover:text-ink active:scale-95"
-      title="重新生成"
+      :title="t('ai.regenerate')"
       @mousedown.prevent="emit('retry')"
     >
       <Icon icon="lucide:rotate-ccw" :size="12" />
@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 
 defineProps<{

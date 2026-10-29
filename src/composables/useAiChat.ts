@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { computed, onUnmounted, ref, watch } from "vue";
 import { aiService } from "../services/aiService";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
@@ -195,7 +196,7 @@ export const useAiChat = (options: AiChatOptions) => {
         status.value = "error";
         isStreaming.value = false;
         error.value = invokeError instanceof Error ? invokeError.message : String(invokeError);
-        addSystemMessage(`错误：${error.value}`);
+        addSystemMessage(t('ai.chat.errorPrefix', { message: error.value }));
       }
     }
     // IPC 在本轮流结束后返回；只有正常完成才允许输入区清除草稿。
@@ -248,10 +249,10 @@ export const useAiChat = (options: AiChatOptions) => {
     const selection = options.getSelection();
     if (selection && selection.trim()) {
       options.replaceSelection(normalized);
-      addSystemMessage("已替换选区");
+      addSystemMessage(t('ai.chat.replacedSelection'));
     } else {
       options.insertAtCursor(normalized);
-      addSystemMessage("已插入到文档");
+      addSystemMessage(t('ai.chat.inserted'));
     }
   };
 
@@ -283,7 +284,7 @@ export const useAiChat = (options: AiChatOptions) => {
       addAssistantMessage(streamingContent.value, streamingReasoning.value || undefined);
       completedRequestId.value = event.requestId;
     } else {
-      addSystemMessage("AI 返回了空回复，请重试；若持续出现请检查网络与 AI 设置。");
+      addSystemMessage(t('ai.chat.emptyReply'));
     }
     streamingContent.value = "";
     streamingReasoning.value = "";
@@ -295,7 +296,7 @@ export const useAiChat = (options: AiChatOptions) => {
     isStreaming.value = false;
     status.value = "error";
     error.value = event.error;
-    addSystemMessage(`错误：${event.error}`);
+    addSystemMessage(t('ai.chat.errorPrefix', { message: event.error }));
     streamingContent.value = "";
     streamingReasoning.value = "";
     activeRequestId.value = "";

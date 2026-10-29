@@ -6,6 +6,7 @@
       "date": "2026-08-20",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "设置页新增快捷键自定义：点击组合键即可录制，支持清除与恢复默认。",
         "快捷键配置全局生效，系统菜单的加速键同步跟随，保存、新建、打开等均可自由修改。",
@@ -26,6 +27,27 @@
         "新增导出为纯文本：文档内容原样保存为 UTF-8 的 .txt 文件，方便在纯文本场景下使用。",
         "新增导出为 Word 文档（.docx）：无需安装 Office 即可生成，支持标题、加粗/斜体等行内格式、有序/无序/任务清单、代码块、引用块、表格、图片与超链接。",
         "DOCX 导出同时支持 Mermaid 图表（自动转为位图嵌入）、公式（保留可读文本）、Callout 提示块、脚注与目录等扩展内容。"
+      ],
+      "contentEn": [
+        "Added shortcut customization in settings: click a key combination to record it, with clear and restore-default support.",
+        "Shortcut settings apply globally; system menu accelerators follow them, so save, new, open, and others can all be changed.",
+        "Added the missing Switch editor mode shortcut (default Ctrl+/), which previously had no effect.",
+        "In-window shortcut hints (settings, sidebar, save, etc.) show the current configuration in real time.",
+        "Added Show in file manager to the tab context menu to locate the file quickly.",
+        "Added emoji insertion: type a colon shortcode (such as :smile:) to get suggestions, choose with arrow keys, and press Enter to insert.",
+        "Added Insert emoji to the slash menu, opening the full emoji picker with search and category browsing.",
+        "Included more than 900 popular emojis searchable by Chinese, English, and shortcode keywords.",
+        "Added emoji font fallbacks to the editor and source-mode font stacks so emojis render in color on Windows and other platforms.",
+        "Source mode supports search highlighting: the current match uses a vivid color with an outline, other matches use a yellow background, and highlights clear when search closes.",
+        "Fixed selected text in source mode being invisible when it shared the active-line background; selections now use a dedicated color.",
+        "Selecting a word in source mode highlights other occurrences throughout the document in yellow.",
+        "Improved the source-mode line-number gutter: monospace font, horizontally centered, the current line bold and dark, and a thin divider between gutter and text.",
+        "Fixed the text column drifting off-center as line-number width grew; the centering calculation now compensates for the gutter width at any line count.",
+        "Improved the status bar toggle buttons: smaller buttons with breathing room from the edges and a visible border when active.",
+        "Export is now a top-level menu containing HTML, PDF, Word, plain text, and ZIP; the old entries moved out of File.",
+        "Added plain-text export: the document is saved as-is to a UTF-8 .txt file.",
+        "Added Word (.docx) export without Office: headings, bold and italic inline formatting, ordered, bullet, and task lists, code blocks, blockquotes, tables, images, and links are supported.",
+        "DOCX export also supports Mermaid diagrams (embedded as bitmaps), formulas (readable text), callouts, footnotes, and tables of contents."
       ],
       "downloads": {
         "windows": {

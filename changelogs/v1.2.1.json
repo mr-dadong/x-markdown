@@ -6,10 +6,16 @@
       "date": "2026-08-29",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复：生产环境首次打开文档后设置与 AI 侧栏无法显示的问题",
         "修复：首次输入斜杠时功能菜单可能不显示的问题",
         "优化：应用错误日志仅记录异常并限制文件大小"
+      ],
+      "contentEn": [
+        "Fixed settings and the AI sidebar not showing after opening a document for the first time in production.",
+        "Fixed the slash command menu sometimes not appearing on the first slash.",
+        "Improved error logging to record only exceptions and limit file size."
       ],
       "downloads": {
         "windows": {

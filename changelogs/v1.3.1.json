@@ -6,6 +6,7 @@
       "date": "2026-09-09",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：文档 Agent 升级为语义化修改，按文档块定位改动位置，修改更精准；并提供快速、标准、大型三种执行档位，按任务复杂度自动匹配",
         "优化：Agent 修改预览实时渲染生成中的正文，不再等整次工具调用结束，所见即所得",
@@ -15,6 +16,16 @@
         "新增：记住上次打开的文件夹路径，下次启动自动定位到上次的工作目录",
         "优化：状态栏移除词数统计，仅保留行数与字符数，界面更简洁",
         "修复：侧边栏标题解析适配 CRLF 换行符，Windows 文件不再因换行符导致标题识别失败"
+      ],
+      "contentEn": [
+        "Document Agent now makes semantic edits by locating document blocks for more precise changes, with fast, standard, and large profiles matched to task complexity.",
+        "Agent change previews render the generated body in real time instead of waiting for the tool call to finish.",
+        "AI settings add Document Agent execution parameters (maximum rounds and total task duration) to control long tasks.",
+        "AI settings save automatically after a pause; the manual Save button and confirmation dialog are gone, so configuration is not lost.",
+        "Fixed missing cut (Ctrl+X / Cmd+X) support for blocks and partial text.",
+        "Remember the last opened folder and return to it on the next launch.",
+        "Removed the word count from the status bar, keeping lines and characters for a cleaner UI.",
+        "Sidebar title parsing now handles CRLF line endings, fixing Windows files whose headings failed to parse."
       ],
       "downloads": {
         "windows": {

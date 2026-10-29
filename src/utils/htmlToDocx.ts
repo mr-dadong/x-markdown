@@ -928,7 +928,7 @@ const convertBlockElement = async (
 
 // —— 文档组装 ——
 
-const DOCX_STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+const docxStylesXml = (wordLang: string): string => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:docDefaults>
     <w:rPrDefault>
@@ -936,7 +936,7 @@ const DOCX_STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="等线" w:cs="Calibri"/>
         <w:sz w:val="21"/>
         <w:szCs w:val="21"/>
-        <w:lang w:val="zh-CN" w:eastAsia="zh-CN" w:bidi="ar-SA"/>
+        <w:lang w:val="${wordLang}" w:eastAsia="${wordLang}" w:bidi="ar-SA"/>
       </w:rPr>
     </w:rPrDefault>
     <w:pPrDefault>
@@ -1051,6 +1051,7 @@ const assembleDocx = async (
   ctx: DocxContext,
   title: string,
   bodyXml: string,
+  wordLang: string,
 ): Promise<ArrayBuffer> => {
   const usedExtensions = new Set(ctx.media.map((media) => media.extension));
   const mediaDefaults = ["png", "jpg", "gif", "webp", "bmp"]
@@ -1130,7 +1131,7 @@ ${bodyXml}
   zip.folder("docProps")?.file("core.xml", coreXml);
   zip.folder("docProps")?.file("app.xml", appXml);
   zip.folder("word")?.file("document.xml", documentXml);
-  zip.folder("word")?.file("styles.xml", DOCX_STYLES_XML);
+  zip.folder("word")?.file("styles.xml", docxStylesXml(wordLang));
   zip.folder("word")?.file("numbering.xml", DOCX_NUMBERING_XML);
   zip.folder("word")?.folder("_rels")?.file("document.xml.rels", documentRels);
   for (const media of ctx.media) {
@@ -1145,8 +1146,9 @@ ${bodyXml}
 export const buildDocx = async (
   contentElement: HTMLElement,
   title: string,
+  lang: "zh-CN" | "en",
 ): Promise<ArrayBuffer> => {
   const ctx: DocxContext = { media: [], links: [], nextRelId: 2, drawingId: 0 };
   const bodyXml = await convertBlockChildren(contentElement, ctx, {});
-  return assembleDocx(ctx, title, bodyXml);
+  return assembleDocx(ctx, title, bodyXml, lang === "en" ? "en-US" : "zh-CN");
 };

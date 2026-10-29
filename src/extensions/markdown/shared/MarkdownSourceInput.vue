@@ -9,11 +9,11 @@
         </span>
         <span class="font-mono text-[10px] font-medium uppercase tracking-wider text-[#bec1c7]">{{ languageLabel }}</span>
       </span>
-      <button v-if="language === 'mermaid' || language === 'callout'" type="button" :title="lineWrapping ? '关闭自动换行' : '开启自动换行'"
+      <button v-if="language === 'mermaid' || language === 'callout'" type="button" :title="lineWrapping ? t('sourceEditor.wrapOff') : t('sourceEditor.wrapOn')"
         class="flex h-6 items-center justify-center gap-1 rounded px-2 font-mono text-[10px] text-[#969aa3] hover:bg-[#3a3b40] hover:text-[#e4e6eb]"
         :class="lineWrapping ? 'bg-[#45464c] text-[#e4e6eb]' : ''" @mousedown.prevent="toggleLineWrapping">
         <Icon icon="lucide:wrap-text" :size="13" />
-        <span>换行</span>
+        <span>{{ t('sourceEditor.wrapLabel') }}</span>
       </button>
     </div>
     <div ref="editorElement" class="flex min-w-0 bg-[#1e1f22]" :style="editorSize" />
@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import { defaultKeymap } from '@codemirror/commands'
 import { Compartment, EditorState, StateField } from '@codemirror/state'
 import { Decoration, EditorView, keymap, type DecorationSet } from '@codemirror/view'

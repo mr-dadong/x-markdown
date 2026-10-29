@@ -6,6 +6,7 @@
       "date": "2026-08-29",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：AI Chat 侧栏对话功能",
         "优化：重构 AI 聊天组件的 Markdown 渲染和 UI",
@@ -14,6 +15,15 @@
         "新增：AI 面板添加位置边界限制",
         "优化：AI 编写功能与视图切换定位",
         "修复：AI 设置和 Ollama 集成问题"
+      ],
+      "contentEn": [
+        "Added the AI Chat sidebar.",
+        "Reworked Markdown rendering and the UI of the AI chat components.",
+        "Improved AI chat input and message actions.",
+        "Added AI live writing and improved the sidebar layout.",
+        "Added position boundary constraints to AI panels.",
+        "Improved AI writing and view-switch positioning.",
+        "Fixed AI settings and Ollama integration issues."
       ],
       "downloads": {
         "windows": {

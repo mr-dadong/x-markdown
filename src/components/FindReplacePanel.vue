@@ -6,27 +6,27 @@
     <!-- 查找行：输入、计数、大小写与上下跳转。 -->
     <div class="flex items-center gap-1">
       <Icon icon="lucide:search" :size="13" class="shrink-0 text-muted" />
-      <input ref="findInput" v-model="queryModel" type="text" placeholder="查找" spellcheck="false"
+      <input ref="findInput" v-model="queryModel" type="text" :placeholder="t('find.placeholder')" spellcheck="false"
         class="h-7 min-w-0 flex-1 rounded-md border border-line bg-paper px-2 text-[12px] text-ink outline-none placeholder:text-placeholder focus:border-accent"
         @keydown="handleFindKeydown" />
       <span class="w-11 shrink-0 text-right font-mono text-[10.5px] text-muted">{{ counterText }}</span>
-      <button type="button" title="区分大小写"
+      <button type="button" :title="t('find.matchCase')"
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         :class="caseSensitive ? 'bg-control-active text-accent' : 'text-muted hover:bg-control-hover hover:text-ink'"
         @click="controller.toggleCaseSensitive()">
         Aa
       </button>
-      <button type="button" title="上一个匹配 (Shift+Enter)"
+      <button type="button" :title="t('find.previous')"
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-default disabled:text-muted/30"
         :disabled="matchCount === 0" @click="controller.goToPrev()">
         <Icon icon="lucide:arrow-up" :size="13" />
       </button>
-      <button type="button" title="下一个匹配 (Enter)"
+      <button type="button" :title="t('find.next')"
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-default disabled:text-muted/30"
         :disabled="matchCount === 0" @click="controller.goToNext()">
         <Icon icon="lucide:arrow-down" :size="13" />
       </button>
-      <button type="button" title="关闭 (Esc)"
+      <button type="button" :title="t('find.close')"
         class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @click="controller.close()">
         <Icon icon="lucide:x" :size="13" />
@@ -36,20 +36,21 @@
     <!-- 替换行：替换输入与执行按钮。 -->
     <div class="flex items-center gap-1">
       <Icon icon="lucide:replace" :size="13" class="shrink-0 text-muted" />
-      <input v-model="replacementModel" type="text" placeholder="替换为" spellcheck="false"
+      <input v-model="replacementModel" type="text" :placeholder="t('find.replacePlaceholder')" spellcheck="false"
         class="h-7 min-w-0 flex-1 rounded-md border border-line bg-paper px-2 text-[12px] text-ink outline-none placeholder:text-placeholder focus:border-accent"
         @keydown="handleReplaceKeydown" />
-      <button type="button" title="替换当前匹配 (Enter)"
+      <button type="button" :title="t('find.replaceCurrent')"
         class="flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-[11.5px] font-medium text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-default disabled:text-muted/30"
-        :disabled="matchCount === 0" @click="controller.replaceCurrent()">替换</button>
-      <button type="button" title="替换全部匹配 (Shift+Enter)"
+        :disabled="matchCount === 0" @click="controller.replaceCurrent()">{{ t('find.replace') }}</button>
+      <button type="button" :title="t('find.replaceAllTitle')"
         class="flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-[11.5px] font-medium text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-default disabled:text-muted/30"
-        :disabled="matchCount === 0" @click="controller.replaceAll()">全部替换</button>
+        :disabled="matchCount === 0" @click="controller.replaceAll()">{{ t('find.replaceAll') }}</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { FindReplaceController } from '../composables/useFindReplace'

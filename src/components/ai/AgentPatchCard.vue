@@ -6,7 +6,7 @@
       <p class="min-w-0 flex-1 text-xs font-medium leading-5 text-ink">{{ index + 1 }}. {{ patch.reason }}</p>
       <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px]" :class="decisionTone">{{ decisions[patch.decision] }}</span>
     </div>
-    <span class="text-[11px] text-muted">修改前 · 字符 {{ patch.start }}–{{ patch.end }}</span>
+    <span class="text-[11px] text-muted">{{ t('ai.patch.before', { start: patch.start, end: patch.end }) }}</span>
     <!-- diff 主体：删除行红底、新增行绿底、上下文行保持底色 -->
     <div class="flex flex-col overflow-hidden rounded-md border border-line font-mono text-xs leading-5">
       <div v-for="(line, lineIndex) in visibleLines" :key="lineIndex" class="flex min-w-0 gap-2 px-2 py-0.5"
@@ -19,18 +19,19 @@
     <button v-if="lines.length > collapseLines" type="button"
       class="flex cursor-pointer self-start text-[11px] text-secondary hover:text-ink"
       :aria-expanded="expanded" @click="expanded = !expanded">
-      {{ expanded ? '收起' : `展开全部 ${lines.length} 行` }}
+      {{ expanded ? t('ai.patch.collapse') : t('ai.patch.expand', { count: lines.length }) }}
     </button>
     <div v-if="patch.decision === 'pending' && canReview" class="flex justify-end gap-2">
       <button type="button" class="cursor-pointer rounded px-3 py-1 text-xs text-secondary hover:bg-toolbar"
-        @click="emit('reject', patch.id)">拒绝</button>
+        @click="emit('reject', patch.id)">{{ t('ai.patch.reject') }}</button>
       <button type="button" class="cursor-pointer rounded border border-accent px-3 py-1 text-xs text-accent hover:bg-selected"
-        @click="emit('accept', patch.id)">接受</button>
+        @click="emit('accept', patch.id)">{{ t('ai.patch.accept') }}</button>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, ref } from 'vue'
 import { diffLines } from '../../utils/diffLines'
 import type { DocumentPatch } from '../../types/documentAgent'
@@ -51,7 +52,11 @@ const expanded = ref(false)
 const lines = computed(() => diffLines(props.patch.before, props.patch.after))
 const visibleLines = computed(() => expanded.value ? lines.value : lines.value.slice(0, collapseLines))
 
-const decisions: Record<Decision, string> = { pending: '待审阅', accepted: '已接受', rejected: '已拒绝' }
+const decisions = computed<Record<Decision, string>>(() => ({
+  pending: t('ai.patch.pending'),
+  accepted: t('ai.patch.accepted'),
+  rejected: t('ai.patch.rejected'),
+}))
 const decisionTone = computed(() => {
   if (props.patch.decision === 'accepted') return 'bg-success-soft text-success'
   if (props.patch.decision === 'rejected') return 'bg-danger-soft text-danger'

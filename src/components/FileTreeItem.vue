@@ -35,7 +35,7 @@
         />
       </span>
       <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ node.name }}</span>
-      <span v-if="node.isLoading" class="shrink-0 font-mono text-[10px] text-muted">读取中</span>
+      <span v-if="node.isLoading" class="shrink-0 font-mono text-[10px] text-muted">{{ t('fileTree.loading') }}</span>
       <span
         v-else-if="!node.isDirectory"
         class="shrink-0 font-mono text-[9px] uppercase tracking-wide text-muted"
@@ -58,13 +58,14 @@
         v-if="!node.isLoading && node.children?.length === 0"
         class="flex h-8 items-center px-8 text-[11px] text-muted"
       >
-        没有 Markdown 文件
+        {{ t('fileTree.noMarkdown') }}
       </span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 

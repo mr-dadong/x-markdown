@@ -6,6 +6,7 @@
       "date": "2026-09-14",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：粘贴纯文本时自动识别 Markdown 语法并渲染为对应格式，`# 标题`、`- 列表`、`**加粗**`、表格与代码块等源码粘贴后直接呈现排版效果",
         "优化：粘贴内容仅在确实包含 Markdown 语法时才按格式渲染，配置文件、终端输出等普通文本仍按纯文本插入，不会把 `[Unit]`、`a*b*c` 误解析成排版",
@@ -19,6 +20,20 @@
         "修复：修复以 `/` 开头的资源地址被错误解析到磁盘分区根目录的问题（如 `/fav_error.png` 曾被解析成 `C:\\fav_error.png`），现在按文档所在目录解析，图片可正常显示",
         "修复：修复从侧栏文件树或最近记录打开的文档，其同级图片、附件被判定为无权访问而无法显示的问题",
         "优化：图片读取失败时区分「文件不存在」「格式不支持」与「无权访问」并给出具体路径，不再把图片缺失提示成权限问题，方便快速定位"
+      ],
+      "contentEn": [
+        "Pasting plain text auto-detects Markdown syntax and renders it: headings, lists, bold text, tables, and code blocks paste as formatted content.",
+        "Pasting renders only when Markdown syntax is actually present; config files and terminal output stay plain text, and bracket or asterisk text is not misparsed.",
+        "Extra escape characters in external text are restored before pasting, so over-escaped Markdown is recognized and rendered correctly.",
+        "Shift paste still forces plain text; headings, table cells, and code blocks keep their existing paste protections.",
+        "When Document Agent tool arguments are truncated or fail validation, the app states that the call did not run and asks for a smaller retry, avoiding truncated-argument runaway.",
+        "Fixed escaped backticks being misdetected as inline code, which wrote extra escape characters into documents.",
+        "Images support width and height attributes: an img tag with explicit dimensions displays at that size and is preserved on save.",
+        "Small inline icons such as favicons and badges are auto-sized; an image without dimensions scales to match text instead of using its original 48 by 48 size and stretching the line; standalone images are unaffected.",
+        "Inline icons align vertically centered with text with about 4px spacing.",
+        "Fixed resource paths starting with a slash being resolved to the disk root; they now resolve relative to the document folder.",
+        "Fixed images and attachments next to documents opened from the file tree or recent list being denied access.",
+        "Image read failures now distinguish missing files, unsupported formats, and denied access with the specific path, instead of reporting everything as a permission problem."
       ],
       "downloads": {
         "windows": {

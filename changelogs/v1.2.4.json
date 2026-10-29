@@ -6,6 +6,7 @@
       "date": "2026-09-01",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：脚注引用支持悬停预览对应的脚注定义，未找到定义时给出提示",
         "新增：公式、Mermaid 源码编辑换用带语法高亮的深色代码编辑器，Mermaid 支持自动换行开关",
@@ -18,6 +19,19 @@
         "修复：源码模式滚动同步定位不准的问题",
         "优化：补充 H5/H6 标题样式，编辑器与 AI 消息中显示层级更清晰",
         "优化：更新应用、安装包及各平台图标资源"
+      ],
+      "contentEn": [
+        "Footnote references show a hover preview of their definition, with a notice when no definition exists.",
+        "Formula and Mermaid source editing now uses a dark syntax-highlighted code editor; Mermaid supports a line-wrapping toggle.",
+        "Editing panels for formulas, Mermaid, HTML, footnotes, and callouts expand inline: click to edit and click outside to save.",
+        "Typing ==text== becomes highlighted and is saved back as == syntax.",
+        "Added subscript and superscript (sub/sup) syntax.",
+        "Hard line breaks are saved with their original form (two trailing spaces or a backslash) instead of being normalized.",
+        "Link titles and table delimiter rows are no longer lost or rewritten on save.",
+        "Selecting whole nodes such as formulas or images no longer shows the AI action bar.",
+        "Fixed inaccurate scroll synchronization in source mode.",
+        "Added H5 and H6 heading styles for clearer hierarchy in the editor and AI messages.",
+        "Updated the app, installer, and platform icon assets."
       ],
       "downloads": {
         "windows": {

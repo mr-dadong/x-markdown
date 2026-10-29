@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { onUnmounted, ref } from "vue";
 import { aiService } from "../services/aiService";
 import type { AiEditAction } from "../types/ai";
@@ -53,7 +54,7 @@ export const useInlineAi = (options: InlineAiOptions) => {
     const selection = options.getSelection().trim();
     const documentContext = options.getDocumentContext().trim();
     if (!selection && !documentContext) {
-      error.value = "请先选中文本";
+      error.value = t('inlineAi.noSelection');
       status.value = "error";
       return;
     }

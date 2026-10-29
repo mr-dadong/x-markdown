@@ -5,7 +5,7 @@
       <button type="button"
         class="flex h-6 w-7 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent"
         :class="sidebarVisible ? 'bg-control-active text-ink border border-line' : 'bg-transparent text-icon border border-transparent'"
-        :title="`${sidebarVisible ? '收缩侧边栏' : '展开侧边栏'} (${settings.shortcuts.toggleSidebar || '未设置'})`"
+        :title="t('status.sidebarTooltip', { action: sidebarVisible ? t('status.sidebarHide') : t('status.sidebarShow'), shortcut: settings.shortcuts.toggleSidebar || t('common.notSet') })"
         @click="emit('toggle-sidebar')">
         <Icon icon="lucide:panel-left" :size="15" />
       </button>
@@ -13,7 +13,7 @@
       <button type="button"
         class="flex h-6 w-7 items-center justify-center rounded hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent disabled:cursor-default disabled:text-muted disabled:hover:bg-transparent"
         :class="sourceMode ? 'bg-control-active text-ink border border-line' : 'bg-transparent text-icon border border-transparent'"
-        :disabled="!documentOpen" :title="sourceMode ? '切换到 Markdown 渲染视图' : '切换到 Markdown 源码视图'"
+        :disabled="!documentOpen" :title="sourceMode ? t('status.sourceToPreview') : t('status.sourceToSource')"
         @click="emit('toggle-source-mode')">
         <Icon :icon="sourceMode ? 'lucide:pen-line' : 'lucide:braces'" :size="15" />
       </button>
@@ -22,15 +22,16 @@
       <!-- 保存状态和文档统计以分隔线区分，便于快速扫读。 -->
       <span class="flex items-center gap-1.5 pr-3">
         <Icon :icon="isModified ? 'lucide:circle' : 'lucide:check'" :size="14" />
-        {{ isModified ? '未保存' : '已保存' }}
+        {{ isModified ? t('status.unsaved') : t('status.saved') }}
       </span>
-      <span class="flex h-4 items-center border-l border-line pl-3">{{ lineCount }} 行</span>
-      <span class="ml-4">{{ characterCount }} 字符</span>
+      <span class="flex h-4 items-center border-l border-line pl-3">{{ t('status.lines', { count: lineCount }) }}</span>
+      <span class="ml-4">{{ t('status.characters', { count: characterCount }) }}</span>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 import { useSettings } from '../composables/useSettings'
 

@@ -1,3 +1,4 @@
+import { mainT } from "../i18n";
 import path from "path";
 
 const authorizedDirectoryRoots = new Set<string>();
@@ -46,7 +47,7 @@ export function assertAuthorizedPath(filePath: string): string {
       isPathInside(normalizedPath, root),
     );
   if (!isAuthorized) {
-    throw new Error("无权访问该文件，请先通过打开对话框选择它");
+    throw new Error(mainT("error.file.unauthorized"));
   }
   return resolvedPath;
 }

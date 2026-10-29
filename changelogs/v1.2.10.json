@@ -6,6 +6,7 @@
       "date": "2026-09-06",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：选中文字后弹出文字格式工具栏，可一键把选区切换为正文、一级至三级标题、有序/无序/任务列表、代码块或引用块，当前类型带选中标记，切换类型时保留所选文字和后续段落",
         "新增：文字格式工具栏集成加粗、删除线、斜体、下划线、高亮五种行内格式与超链接编辑，选中文字即可设置链接、修改或移除已有链接，无效地址会明确提示",
@@ -18,6 +19,19 @@
         "新增：AI 回复代码块头部新增语言标签与「复制」按钮，点击一键复制代码并提示已复制",
         "优化：文字格式工具栏及其下拉面板会自动避开编辑区边缘，空间不足时向上展开，选中大段文字时也不会被顶部标签栏遮挡裁剪",
         "优化：设置中的更新日志改为分区内滚动与分批加载，默认展示最近 20 条，继续向下滚动自动加载更多版本记录"
+      ],
+      "contentEn": [
+        "Added a text format toolbar on selection: switch the selection to paragraph, headings 1 to 3, ordered, bullet, or task lists, code block, or blockquote in one click; the current type is marked, and switching keeps the selected text and following paragraphs.",
+        "The text format toolbar includes bold, strikethrough, italic, underline, highlight, and link editing; invalid addresses show a clear message.",
+        "The text format toolbar also appears for selections inside code blocks, so code can be converted back to paragraphs or headings.",
+        "The selection bar is now an Ask AI entry: when AI is configured, clicking sends the selection to AI chat; otherwise it opens AI settings. Formatting works without AI.",
+        "AI chat can carry body references: reference chips in the input can be clicked to preview the full text; sent messages show Referenced N passages below and can be expanded, and references are stored separately from the question.",
+        "After a failed or stopped AI chat request, the question and references stay in the input for resending; resending the same question does not duplicate history.",
+        "Regenerating an AI reply reuses the original references and clears the previous error before regenerating.",
+        "Code blocks in AI replies support syntax highlighting that matches the editor and follows the configured code block style.",
+        "AI reply code blocks show a language label and a Copy button with a copied confirmation.",
+        "The text format toolbar and its dropdown avoid the editor edges, expand upward when space is tight, and are not clipped by the top bar for large selections.",
+        "The changelog in settings now scrolls within its section and loads in pages: the latest 20 are shown, and more load as you scroll."
       ],
       "downloads": {
         "windows": {

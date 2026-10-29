@@ -6,6 +6,7 @@
       "date": "2026-08-31",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "优化：AI 设置的温度、最大输出、超时时间收进「生成参数」圆角分组容器，界面更整齐清晰",
         "优化：AI 设置默认最大输出从 2048 提升到 8192，减少长内容生成被截断",
@@ -17,6 +18,18 @@
         "优化：AI Chat 界面全面焕新：用户消息改为右对齐实心气泡、AI 回复与系统提示更轻量，欢迎页快捷提问、输入区和模型选择器样式同步更新",
         "修复：AI 返回空回复时给出明确提示，不再出现加载消失却无任何反馈的情况",
         "优化：点击右上角 AI 图标即可在打开与关闭之间切换"
+      ],
+      "contentEn": [
+        "Grouped temperature, max output, and timeout under a rounded Generation parameters container in AI settings for a cleaner layout.",
+        "Raised the default max output in AI settings from 2048 to 8192 to reduce truncation of long content.",
+        "Restyled the slash command panel with a macOS frosted-glass look: translucent blur and soft shadows for clearer hover selection.",
+        "AI Chat now shows the reasoning process of thinking models: Thinking… appears before the answer, reasoning can be expanded and collapses automatically when done.",
+        "Raised the default AI request timeout from 30 to 120 seconds; timeouts now show a clear message suggesting a larger timeout in AI settings.",
+        "Fixed over-escaped AI replies showing raw asterisks in inserted documents, copy, and streaming; bold and italic now work correctly.",
+        "Literal asterisks surrounded by spaces are no longer force-escaped when saving or copying, matching Typora source style and keeping saved text clean.",
+        "Refreshed the AI Chat UI: user messages are right-aligned solid bubbles, AI replies and system notices are lighter, and the welcome quick prompts, input area, and model selector are updated.",
+        "Fixed empty AI replies leaving no feedback; a clear message is now shown.",
+        "Clicking the AI icon in the top-right toggles the AI sidebar."
       ],
       "downloads": {
         "windows": {

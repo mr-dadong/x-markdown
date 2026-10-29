@@ -6,6 +6,7 @@
       "date": "2026-09-29",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：在编辑视图里手写或粘贴的块级 HTML，标签一闭合就立即渲染成实际内容，多行写法同样生效，不再停留在源码文字",
         "新增：README 风格的块级 HTML 渲染成真正的排版内容，居中的 div、hr 与一排徽章图片都按网页效果显示，不再整段显示源码",
@@ -15,6 +16,16 @@
         "修复：文件开头的 YAML 前置（--- 之间的配置）在编辑视图里被压成一行的问题，现在按源码逐行显示",
         "修复：图片的百分比宽度（如 width=\"60%\"）按百分比显示，不再被当成像素值",
         "修复：在居中 HTML 容器里粘贴内容后光标停在容器中间、回车继续居中的问题，现在光标落在内容下方的普通段落"
+      ],
+      "contentEn": [
+        "Block-level HTML typed or pasted in the editor renders as actual content as soon as tags close, including multi-line markup.",
+        "README-style block HTML renders as real layout: centered divs, horizontal rules, and badge rows display like a web page instead of source text.",
+        "These HTML blocks are saved back with the original tags; centered divs and horizontal rules are not rewritten as Markdown.",
+        "HTML comments use a muted color, distinguishing author notes from body text.",
+        "HTML comments are no longer separated by blank lines in the editor.",
+        "YAML frontmatter at the start of a file now displays line by line instead of collapsing into one line.",
+        "Percentage widths on images (such as width set to 60%) display as percentages, not pixels.",
+        "After pasting into a centered HTML container, the caret now lands in a normal paragraph below instead of staying centered."
       ],
       "downloads": {
         "windows": {

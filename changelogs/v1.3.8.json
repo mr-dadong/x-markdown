@@ -6,6 +6,7 @@
       "date": "2026-09-28",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复：输入 HTML 标签时属性引号被智能引号替换、注释无法输入的问题，标签内部的字符不再被排版规则篡改",
         "修复：无法识别的行内 HTML 标签（如 <span>、无 href 的 <a>）被静默丢弃的问题，解析不出格式时原样保留标签文本",
@@ -29,6 +30,30 @@
         "优化：代码块导出为图片时先选择保存位置再生成，长代码块会切成多张编号图片，并提供导出进度提示",
         "修复：代码块导出图片按钮在导出过程中未禁用、可重复触发的问题",
         "修复：鼠标移到按钮上光标不再变成小手的问题，按钮悬停恢复表示可点击的指针光标"
+      ],
+      "contentEn": [
+        "Fixed smart quotes replacing attribute quotes and comments becoming untypable when typing HTML tags; tag contents are no longer altered by typography rules.",
+        "Fixed unrecognized inline HTML tags (such as span or an anchor without href) being silently dropped; tags are preserved as text when parsing fails.",
+        "Typing a complete HTML tag pair renders it as an HTML block immediately, without switching views.",
+        "HTML previews are sanitized: scripts, iframes, forms, JavaScript URLs, and other dangerous content are blocked.",
+        "HTML blocks render as normal content with no persistent header, card shell, or action buttons.",
+        "Plain HTML text and markup are editable body content again; only complex HTML with style attributes enters isolated preview blocks.",
+        "Fixed excessive top margin on the first element (such as a heading) at the top of the document.",
+        "Added an Export settings section for PDF paper size (A4, A3, Letter, Legal, or custom inches) and margins.",
+        "PDF export supports custom headers and footers printed at the top and bottom of every page.",
+        "Use placeholders for dynamic content: ${pageNo} current page, ${pageCount} total pages, ${title} document title, ${date} export date. For example, a footer reading Page ${pageNo} / ${pageCount} shows Page 3 / 12. Leave both blank to skip headers and footers.",
+        "PDF export can enable Page break before level-1 headings so each H1 starts on a new page.",
+        "Insert page breaks via the slash menu; the editor shows a dashed marker and printing or PDF export starts a new page there.",
+        "Nested bullet lists distinguish levels: level 2 uses hollow circles, level 3 uses squares.",
+        "The outline panel highlights the current heading at the caret and scrolls it into view in both rendered and source modes.",
+        "Outline highlighting follows scrolling and uses the line at the viewport center to determine the current section.",
+        "Clicking an outline item scrolls the heading to the middle and moves the caret; works in source mode too.",
+        "Fixed outline highlighting and click navigation being misaligned with nested headings (such as headings indented in list items), block formulas, or HTML blocks.",
+        "The outline panel supports case-insensitive filtering by heading text.",
+        "Images have a context menu to rename, move, or delete the file with confirmation; references in the document are rewritten.",
+        "Code block image export now chooses the save location before generating; long blocks split into numbered images with progress feedback.",
+        "Fixed the code block image export button not being disabled during export and allowing repeated clicks.",
+        "Fixed the cursor not turning into a pointer over buttons; hover now shows the click cursor."
       ],
       "downloads": {
         "windows": {

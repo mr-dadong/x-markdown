@@ -5,6 +5,8 @@ export const IPC_CHANNELS = {
   getUpdateLogs: "get-update-logs",
   saveFile: "save-file",
   updateShortcuts: "update-shortcuts",
+  // 渲染层把解析后的界面语言同步给主进程，保证原生菜单使用同一语言。
+  setUiLocale: "set-ui-locale",
   showErrorMessage: "show-error-message",
   windowMinimize: "window-minimize",
   windowMaximize: "window-maximize",

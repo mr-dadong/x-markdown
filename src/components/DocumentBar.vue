@@ -25,8 +25,8 @@
       <span class="min-w-0 flex-1 truncate whitespace-nowrap text-left font-medium">{{ getDocumentTitle(document) }}</span>
       <span
         class="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted hover:bg-control-active hover:text-ink"
-        title="关闭文档" @click.stop="emit('close', document.id)">
-        <span v-if="document.isModified" class="h-1.5 w-1.5 rounded-full bg-accent group-hover:hidden" title="尚未保存" />
+        :title="t('document.closeTab')" @click.stop="emit('close', document.id)">
+        <span v-if="document.isModified" class="h-1.5 w-1.5 rounded-full bg-accent group-hover:hidden" :title="t('document.notSaved')" />
         <Icon icon="lucide:x" :size="15" :class="document.isModified ? 'hidden group-hover:block' : 'block'" />
       </span>
     </button>
@@ -41,14 +41,14 @@
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected"
         @click="handleSave">
         <Icon icon="lucide:save" :size="14" class="shrink-0" />
-        <span class="flex-1">保存</span>
+        <span class="flex-1">{{ t('common.save') }}</span>
         <span class="text-[10px] text-muted">{{ saveShortcutLabel }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected"
         @click="handleSaveAs">
         <Icon icon="lucide:copy-plus" :size="14" class="shrink-0" />
-        <span class="flex-1">另存为</span>
+        <span class="flex-1">{{ t('menu.file.saveAs') }}</span>
         <span class="text-[10px] text-muted">Ctrl+Shift+S</span>
       </button>
       <div class="my-1 flex border-t border-line" />
@@ -56,51 +56,52 @@
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected disabled:text-muted disabled:hover:bg-paper"
         :disabled="!hasFilePath" @click="handleShowInExplorer">
         <Icon icon="lucide:folder-open" :size="14" class="shrink-0" />
-        <span class="flex-1">在资源管理器中显示</span>
+        <span class="flex-1">{{ t('document.reveal') }}</span>
       </button>
       <div class="my-1 flex border-t border-line" />
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left hover:bg-control-hover"
         @click="handleCloseCurrent">
         <Icon icon="lucide:x" :size="14" class="shrink-0 text-secondary" />
-        <span>关闭当前标签页</span>
+        <span>{{ t('document.closeCurrent') }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
         :disabled="documents.length <= 1" @click="handleCloseOthers">
         <Icon icon="lucide:files" :size="14" class="shrink-0" />
-        <span>关闭其他标签页</span>
+        <span>{{ t('document.closeOthers') }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
         :disabled="!hasLeftDocuments" @click="handleCloseLeft">
         <Icon icon="lucide:panel-left-open" :size="14" class="shrink-0" />
-        <span>关闭左侧标签页</span>
+        <span>{{ t('document.closeLeft') }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-secondary hover:bg-control-hover hover:text-ink disabled:text-muted disabled:hover:bg-paper"
         :disabled="!hasRightDocuments" @click="handleCloseRight">
         <Icon icon="lucide:panel-right-open" :size="14" class="shrink-0" />
-        <span>关闭右侧标签页</span>
+        <span>{{ t('document.closeRight') }}</span>
       </button>
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-accent hover:bg-selected disabled:text-muted disabled:hover:bg-paper"
         :disabled="!hasSavedDocuments" @click="handleCloseSaved">
         <Icon icon="lucide:check" :size="14" class="shrink-0" />
-        <span>关闭已保存标签页</span>
+        <span>{{ t('document.closeSaved') }}</span>
       </button>
       <div class="my-1 flex border-t border-line" />
       <button type="button"
         class="flex h-8 items-center gap-2.5 rounded px-2.5 text-left text-danger hover:bg-control-hover"
         @click="handleCloseAll">
         <Icon icon="lucide:trash-2" :size="14" class="shrink-0" />
-        <span>关闭所有标签页</span>
+        <span>{{ t('document.closeAll') }}</span>
       </button>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { OpenDocument } from '../types'

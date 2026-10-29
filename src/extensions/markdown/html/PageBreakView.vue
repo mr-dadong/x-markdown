@@ -5,12 +5,13 @@
   -->
   <NodeViewWrapper class="my-4 flex items-center gap-3 select-none" data-xmd-page-break-view contenteditable="false">
     <span class="h-px min-w-4 flex-1 border-t border-dashed border-line" />
-    <span class="text-[11px] font-medium tracking-[0.14em] text-muted">分页符</span>
+    <span class="text-[11px] font-medium tracking-[0.14em] text-muted">{{ t('pageBreak.label') }}</span>
     <span class="h-px min-w-4 flex-1 border-t border-dashed border-line" />
   </NodeViewWrapper>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 

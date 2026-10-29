@@ -2,18 +2,18 @@
   <!-- 统一圆角、图标与留白，让工具栏接近 macOS 的紧凑浮动面板。 -->
   <div ref="root" class="relative flex max-w-[calc(100vw-32px)] flex-col rounded-lg border border-line bg-panel p-1 font-sans text-secondary [&_button]:font-sans [&_button]:leading-none [&_input]:font-sans" contenteditable="false" @mousedown.prevent @keydown.esc.stop.prevent="closeMenu">
     <div class="flex items-center gap-0.5 overflow-x-auto">
-      <button type="button" title="问问 AI" :class="buttonClass" class="gap-1.5 px-2.5 text-accent" @click="askAi">
+      <button type="button" :title="t('ai.ask')" :class="buttonClass" class="gap-1.5 px-2.5 text-accent" @click="askAi">
         <Icon icon="lucide:sparkles" width="15" height="15" />
-        <span class="whitespace-nowrap text-[12px] font-medium">问问 AI</span>
+        <span class="whitespace-nowrap text-[12px] font-medium">{{ t('ai.ask') }}</span>
       </button>
       <span class="mx-1 h-4 w-px shrink-0 bg-line" />
-      <button type="button" ref="blockTrigger" title="文字类型" :class="[buttonClass, menu === 'block' && activeClass]" class="gap-1 px-2" :aria-expanded="menu === 'block'" @click="menu = menu === 'block' ? null : 'block'">
+      <button type="button" ref="blockTrigger" :title="t('ai.blockType')" :class="[buttonClass, menu === 'block' && activeClass]" class="gap-1 px-2" :aria-expanded="menu === 'block'" @click="menu = menu === 'block' ? null : 'block'">
         <Icon icon="lucide:type" width="16" height="16" />
         <Icon icon="lucide:chevron-down" width="11" height="11" class="text-muted" />
       </button>
       <span class="mx-1 h-4 w-px shrink-0 bg-line" />
       <template v-for="item in marks" :key="item.name">
-        <button v-if="item.name === 'code'" type="button" title="超链接" :class="[buttonClass, (editor.isActive('link') || menu === 'link') && activeClass]" :aria-expanded="menu === 'link'" @click="openLink">
+        <button v-if="item.name === 'code'" type="button" :title="t('ai.link')" :class="[buttonClass, (editor.isActive('link') || menu === 'link') && activeClass]" :aria-expanded="menu === 'link'" @click="openLink">
           <Icon icon="lucide:link-2" width="16" height="16" />
         </button>
         <button type="button" :title="item.label" :class="[buttonClass, editor.isActive(item.name) && activeClass]" :aria-pressed="editor.isActive(item.name)" :disabled="!editor.can().toggleMark(item.name)" @click="toggleMark(item.name)">
@@ -38,21 +38,22 @@
     </div>
     <!-- 链接表单保持原操作顺序，用独立输入区和主按钮强调保存动作。 -->
     <form v-if="menu === 'link'" :style="panelStyle" class="absolute z-10 flex w-[288px] flex-col gap-3 rounded-lg border border-line bg-panel p-3" @submit.prevent="saveLink">
-      <label for="selection-link" class="text-[12px] font-medium text-ink">链接地址</label>
+      <label for="selection-link" class="text-[12px] font-medium text-ink">{{ t('ai.linkAddress') }}</label>
       <div class="flex items-center gap-2 rounded-lg border border-line bg-paper px-2.5 focus-within:border-accent">
         <Icon icon="lucide:link-2" width="15" height="15" class="shrink-0 text-muted" />
         <input id="selection-link" ref="linkInput" v-model="href" type="text" placeholder="https://example.com" class="h-9 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" @mousedown.stop @input="linkError = ''" />
       </div>
       <p v-if="linkError" class="text-xs text-danger" role="alert">{{ linkError }}</p>
       <div class="flex items-center justify-end gap-2 text-[12px]">
-        <button v-if="editor.isActive('link')" type="button" class="mr-auto flex h-7 items-center rounded-md px-1 text-danger hover:bg-control-hover" @click="removeLink">移除链接</button>
-        <button type="button" class="flex h-7 items-center justify-center rounded-md border border-line bg-paper px-3 hover:bg-control-hover" @click="closeMenu">取消</button>
-        <button type="submit" class="flex h-7 items-center justify-center rounded-md bg-accent px-3 font-medium text-white hover:bg-accent-strong">保存</button>
+        <button v-if="editor.isActive('link')" type="button" class="mr-auto flex h-7 items-center rounded-md px-1 text-danger hover:bg-control-hover" @click="removeLink">{{ t('ai.removeLink') }}</button>
+        <button type="button" class="flex h-7 items-center justify-center rounded-md border border-line bg-paper px-3 hover:bg-control-hover" @click="closeMenu">{{ t('common.cancel') }}</button>
+        <button type="submit" class="flex h-7 items-center justify-center rounded-md bg-accent px-3 font-medium text-white hover:bg-accent-strong">{{ t('common.save') }}</button>
       </div>
     </form>
   </div>
 </template>
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import boldIcon from '@iconify-icons/lucide/bold'
@@ -107,25 +108,25 @@ watch(menu, async () => {
 // 同一组按钮使用一致的点击区域，选中态沿用主题强调色。
 const buttonClass = 'flex h-8 min-w-8 shrink-0 items-center justify-center rounded-md px-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-30'
 const activeClass = 'bg-selected text-accent'
-const marks = [
-  { name: 'bold', label: '加粗', icon: boldIcon },
-  { name: 'strike', label: '删除线', icon: strikeIcon },
-  { name: 'italic', label: '斜体', icon: italicIcon },
-  { name: 'underline', label: '下划线', icon: underlineIcon },
-  { name: 'code', label: '代码', icon: codeIcon },
-  { name: 'highlight', label: '高亮选中', icon: highlightIcon },
-]
-const blocks: { id: SelectionBlock; label: string; icon: string }[] = [
-  { id: 'paragraph', label: '正文', icon: 'lucide:type' },
-  { id: 'heading1', label: '一级标题', icon: 'lucide:heading-1' },
-  { id: 'heading2', label: '二级标题', icon: 'lucide:heading-2' },
-  { id: 'heading3', label: '三级标题', icon: 'lucide:heading-3' },
-  { id: 'orderedList', label: '有序列表', icon: 'lucide:list-ordered' },
-  { id: 'bulletList', label: '无序列表', icon: 'lucide:list' },
-  { id: 'taskList', label: '任务', icon: 'lucide:list-checks' },
-  { id: 'codeBlock', label: '代码块', icon: 'lucide:code-2' },
-  { id: 'blockquote', label: '引用', icon: 'lucide:quote' },
-]
+const marks = computed(() => [
+  { name: 'bold', label: t('ai.format.bold'), icon: boldIcon },
+  { name: 'strike', label: t('ai.format.strike'), icon: strikeIcon },
+  { name: 'italic', label: t('ai.format.italic'), icon: italicIcon },
+  { name: 'underline', label: t('ai.format.underline'), icon: underlineIcon },
+  { name: 'code', label: t('ai.format.code'), icon: codeIcon },
+  { name: 'highlight', label: t('ai.format.highlight'), icon: highlightIcon },
+])
+const blocks = computed<{ id: SelectionBlock; label: string; icon: string }[]>(() => [
+  { id: 'paragraph', label: t('ai.block.paragraph'), icon: 'lucide:type' },
+  { id: 'heading1', label: t('ai.block.heading1'), icon: 'lucide:heading-1' },
+  { id: 'heading2', label: t('ai.block.heading2'), icon: 'lucide:heading-2' },
+  { id: 'heading3', label: t('ai.block.heading3'), icon: 'lucide:heading-3' },
+  { id: 'orderedList', label: t('ai.block.orderedList'), icon: 'lucide:list-ordered' },
+  { id: 'bulletList', label: t('ai.block.bulletList'), icon: 'lucide:list' },
+  { id: 'taskList', label: t('ai.block.taskList'), icon: 'lucide:list-checks' },
+  { id: 'codeBlock', label: t('codeBlock.title'), icon: 'lucide:code-2' },
+  { id: 'blockquote', label: t('ai.block.quote'), icon: 'lucide:quote' },
+])
 const activeBlock = computed(() => {
   for (const name of ['taskList', 'orderedList', 'bulletList', 'blockquote', 'codeBlock']) {
     if (props.editor.isActive(name)) return name
@@ -161,11 +162,11 @@ function saveLink() {
   const value = href.value.trim()
   // 明确提示无效地址，不自动补全或静默忽略错误。
   if (!value || /^(?:javascript|vbscript|data):/i.test(value.replace(/\s/g, ''))) {
-    linkError.value = '请输入有效的链接地址，不支持此协议。'
+    linkError.value = t('ai.linkInvalid')
     return
   }
   if (!props.editor.chain().focus().setLink({ href: value }).run()) {
-    linkError.value = '无法设置此链接，请检查地址。'
+    linkError.value = t('ai.linkFailed')
     return
   }
   menu.value = null

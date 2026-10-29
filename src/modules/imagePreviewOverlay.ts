@@ -1,3 +1,4 @@
+import { t } from "../composables/useI18n";
 import { mediaService } from "../services/mediaService";
 
 // 图片放大预览层：思维导图、架构图这类超宽高分辨率图片在编辑器里
@@ -82,7 +83,7 @@ export const openImagePreview = (options: ImagePreviewOptions): void => {
     title.textContent = getTitle(options);
     const hint = document.createElement("span");
     hint.className = "shrink-0 text-[12px] text-[#969aa3]";
-    hint.textContent = "滚轮缩放 · 滚动条平移 · Esc 关闭";
+    hint.textContent = t('imagePreview.hint');
     headerLeft.append(title, hint);
 
     const headerRight = document.createElement("div");
@@ -123,30 +124,30 @@ export const openImagePreview = (options: ImagePreviewOptions): void => {
         );
     };
 
-    const zoomOutButton = createButton("−", "缩小", () => {
+    const zoomOutButton = createButton("−", t('imagePreview.zoomOut'), () => {
         applyZoom(zoom / BUTTON_ZOOM_STEP);
     });
-    const zoomInButton = createButton("＋", "放大", () => {
+    const zoomInButton = createButton("＋", t('imagePreview.zoomIn'), () => {
         applyZoom(zoom * BUTTON_ZOOM_STEP);
     });
-    const fitWidthButton = createButton("适应宽度", "把图片缩放到与窗口同宽", () => {
+    const fitWidthButton = createButton(t('imagePreview.fitWidth'), t('imagePreview.fitWidthTitle'), () => {
         if (naturalWidth > 0) applyZoom(scroller.clientWidth / naturalWidth);
     });
-    const fitWindowButton = createButton("适应窗口", "把整张图缩放到刚好放进窗口", () => {
+    const fitWindowButton = createButton(t('imagePreview.fitWindow'), t('imagePreview.fitWindowTitle'), () => {
         applyZoom(getFitWindowZoom());
     });
-    const actualSizeButton = createButton("1:1", "按原图真实尺寸显示", () => {
+    const actualSizeButton = createButton(t('imagePreview.actualSize'), t('imagePreview.actualSizeTitle'), () => {
         applyZoom(1);
     });
-    const openExternalButton = createButton("系统应用打开", "用系统默认看图器打开原图", () => {
+    const openExternalButton = createButton(t('imagePreview.openExternal'), t('imagePreview.openExternalTitle'), () => {
         void mediaService
             .openFile(options.src, options.currentDocumentPath)
             .then((error) => {
                 // 打开失败要把原因显示出来，不能静默吞掉
-                if (error) hint.textContent = `系统应用打开失败：${error}`;
+                if (error) hint.textContent = t('imagePreview.openFailed', { error });
             });
     });
-    const closeButton = createButton("关闭", "关闭放大预览", () => {
+    const closeButton = createButton(t('imagePreview.close'), t('imagePreview.closeTitle'), () => {
         close();
     });
     const separator = document.createElement("span");
@@ -215,13 +216,13 @@ export const openImagePreview = (options: ImagePreviewOptions): void => {
         .readImage(options.src, options.currentDocumentPath)
         .then((displayUrl) => {
             if (!displayUrl) {
-                hint.textContent = "图片加载失败：读取不到文件内容";
+                hint.textContent = t('imagePreview.loadFailed');
                 return;
             }
             image.src = displayUrl;
         })
         .catch((error: unknown) => {
-            hint.textContent = `图片加载失败：${String(error)}`;
+            hint.textContent = t('imagePreview.loadFailedDetail', { error: String(error) });
         });
 
     image.addEventListener("load", () => {

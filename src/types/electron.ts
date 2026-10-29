@@ -7,6 +7,7 @@ import type {
 import type { AiServiceApi } from "./ai";
 import type { DocumentAgentApi } from "./documentAgent";
 import type { IPC_CHANNELS } from "../constants/ipcChannels";
+import type { UiLocale } from "../i18n/locale";
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
 
@@ -193,6 +194,8 @@ export interface ElectronAPI {
   saveFile: (data: SaveFileData) => Promise<SaveFileResult>;
   /** 把设置页的快捷键同步到主进程，用于更新系统菜单加速键。 */
   updateShortcuts: (shortcuts: Record<string, string>) => void;
+  /** 把当前界面语言同步到主进程，用于重建原生菜单与对话框文案。 */
+  setUiLocale: (locale: UiLocale) => void;
   showErrorMessage: (title: string, message: string) => Promise<void>;
   minimizeWindow: () => void;
   maximizeWindow: () => void;

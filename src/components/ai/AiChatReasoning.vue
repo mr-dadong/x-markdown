@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import MarkdownIt from 'markdown-it'
@@ -47,7 +48,7 @@ const renderedContent = computed(() =>
 
 const expanded = ref(!!props.streaming)
 
-const title = computed(() => (props.streaming ? '思考中…' : '思考过程'))
+const title = computed(() => (props.streaming ? t('ai.reasoning.streaming') : t('ai.reasoning.title')))
 
 // 流式期间默认展开，结束后自动收起，保持最终消息简洁
 watch(

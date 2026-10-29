@@ -1,3 +1,4 @@
+import { currentT } from "../i18n/current";
 // 状态栏使用同一份统计结果，避免分别遍历长文档。
 export interface DocumentStats {
   lineCount: number;
@@ -25,8 +26,8 @@ export const getDocumentStats = (text: string): DocumentStats => {
  * @returns 目录名
  */
 export const getDirectoryName = (dirPath: string | null): string => {
-  if (!dirPath) return "本地文稿";
-  return dirPath.split(/[/\\]/).filter(Boolean).pop() ?? "本地文稿";
+  if (!dirPath) return currentT("file.localDocument");
+  return dirPath.split(/[/\\]/).filter(Boolean).pop() ?? currentT("file.localDocument");
 };
 
 /**
@@ -45,8 +46,8 @@ export const isMarkdownFile = (fileName: string): boolean => {
  * @param filePath 文件路径
  * @returns 文件名
  */
-export const getFileName = (filePath: string | null): string => {
-  if (!filePath) return "未命名.md";
+export const getFileName = (filePath: string | null, fallback = "未命名.md"): string => {
+  if (!filePath) return fallback;
   // 用 || 而非 ??：路径以分隔符结尾时 pop() 会得到空串，此时也应回退到默认名。
-  return filePath.split(/[/\\]/).pop() || "未命名.md";
+  return filePath.split(/[/\\]/).pop() || fallback;
 };

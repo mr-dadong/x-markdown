@@ -17,9 +17,9 @@
       <!-- 文件列表 -->
       <div v-if="activeTab === 'files'" class="flex min-h-0 flex-1 flex-col">
         <div v-if="currentDir" class="flex h-9 shrink-0 items-center justify-between px-4">
-          <span class="text-[10px] font-semibold tracking-[0.14em] text-muted">资源</span>
+          <span class="text-[10px] font-semibold tracking-[0.14em] text-muted">{{ t('sidebar.explorer') }}</span>
           <span class="font-mono text-[10px] text-muted">
-            {{ directoryCount }} 目录 · {{ documentCount }} 文档
+            {{ t('sidebar.counts', { directories: directoryCount, documents: documentCount }) }}
           </span>
         </div>
 
@@ -29,8 +29,8 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-paper text-muted">
               <Icon icon="lucide:folder-open" :size="19" />
             </div>
-            <p class="text-[13px] font-medium text-secondary">尚未打开项目</p>
-            <p class="text-[11px] leading-5 text-muted">打开一个 Markdown 文档后，这里会显示同级文件。</p>
+            <p class="text-[13px] font-medium text-secondary">{{ t('sidebar.noProject') }}</p>
+            <p class="text-[11px] leading-5 text-muted">{{ t('sidebar.noProjectHint') }}</p>
           </div>
 
           <div v-else-if="files.length === 0"
@@ -38,8 +38,8 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-paper text-muted">
               <Icon icon="lucide:folder-x" :size="19" />
             </div>
-            <p class="text-[13px] font-medium text-secondary">目录中没有文档</p>
-            <p class="text-[11px] leading-5 text-muted">当前仅展示目录与 Markdown 文件。</p>
+            <p class="text-[13px] font-medium text-secondary">{{ t('sidebar.emptyFolder') }}</p>
+            <p class="text-[11px] leading-5 text-muted">{{ t('sidebar.emptyFolderHint') }}</p>
           </div>
 
           <div v-else class="flex flex-col gap-0.5">
@@ -52,17 +52,17 @@
       <!-- 大纲列表与文件列表共用同一视觉层级，避免切换时结构跳变。 -->
       <div v-if="activeTab === 'outline'" class="flex min-h-0 flex-1 flex-col">
         <div class="flex h-9 shrink-0 items-center justify-between px-4">
-          <span class="text-[10px] font-semibold tracking-[0.14em] text-muted">文档结构</span>
+          <span class="text-[10px] font-semibold tracking-[0.14em] text-muted">{{ t('sidebar.outline') }}</span>
           <span v-if="headings.length" class="font-mono text-[10px] text-muted">
             {{ visibleHeadings.length === headings.length
-              ? `${headings.length} 节`
-              : `${visibleHeadings.length} / ${headings.length} 节` }}
+              ? t('sidebar.sections', { count: headings.length })
+              : t('sidebar.sectionsFiltered', { visible: visibleHeadings.length, total: headings.length }) }}
           </span>
         </div>
 
         <!-- 标题多了以后靠滚动查找很慢，这里按标题文字过滤，大小写不敏感。 -->
         <div v-if="headings.length" class="shrink-0 px-3 pb-2">
-          <input v-model="headingQuery" type="text" placeholder="过滤标题" spellcheck="false"
+          <input v-model="headingQuery" type="text" :placeholder="t('sidebar.filterHeadings')" spellcheck="false"
             class="h-7 w-full rounded-md border border-line/60 bg-paper px-2 text-[12px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
         </div>
 
@@ -72,14 +72,14 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-paper text-muted">
               <Icon icon="lucide:list-tree" :size="19" />
             </div>
-            <p class="text-[13px] font-medium text-secondary">还没有文档大纲</p>
-            <p class="text-[11px] leading-5 text-muted">添加 Markdown 标题后，可从这里快速跳转。</p>
+            <p class="text-[13px] font-medium text-secondary">{{ t('sidebar.noOutline') }}</p>
+            <p class="text-[11px] leading-5 text-muted">{{ t('sidebar.noOutlineHint') }}</p>
           </div>
 
           <div v-else-if="visibleHeadings.length === 0"
             class="flex h-full flex-col items-center justify-center gap-2 px-7 text-center">
-            <p class="text-[13px] font-medium text-secondary">没有匹配的标题</p>
-            <p class="text-[11px] leading-5 text-muted">换一个更短的关键词试试。</p>
+            <p class="text-[13px] font-medium text-secondary">{{ t('sidebar.noMatchingHeadings') }}</p>
+            <p class="text-[11px] leading-5 text-muted">{{ t('sidebar.noMatchingHeadingsHint') }}</p>
           </div>
 
           <div v-else class="flex flex-col gap-0.5">
@@ -114,6 +114,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import FileTreeItem from './FileTreeItem.vue'
@@ -149,7 +150,10 @@ let headingParseTimer: ReturnType<typeof setTimeout> | null = null
 let workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let stopWorkspaceListener: (() => void) | null = null
 
-const tabs = SIDEBAR_CONFIG.tabs
+const tabs = computed(() => SIDEBAR_CONFIG.tabs.map((tab) => ({
+  ...tab,
+  label: tab.id === 'outline' ? t('sidebar.tab.outline') : t('sidebar.tab.files'),
+})))
 
 // 标题扫描规则放在 utils/outlineHeadings.ts：源码模式的大纲高亮要用同一套顺序。
 const parseHeadings = (): void => {
@@ -188,19 +192,19 @@ type FileTreeAction = 'new-file' | 'new-folder' | 'rename' | 'delete' | 'copy-pa
 const contextMenuItems = computed<{ action: FileTreeAction; label: string }[]>(() => {
   const createItems = contextMenu.value?.node.isDirectory
     ? [
-        { action: 'new-file' as const, label: '新建文件' },
-        { action: 'new-folder' as const, label: '新建文件夹' },
+        { action: 'new-file' as const, label: t('sidebar.newFile') },
+        { action: 'new-folder' as const, label: t('sidebar.newFolder') },
       ]
     : []
   const entryItems = contextMenu.value?.isRoot ? [] : [
-    { action: 'rename' as const, label: '重命名' },
-    { action: 'delete' as const, label: '删除' },
+    { action: 'rename' as const, label: t('sidebar.rename') },
+    { action: 'delete' as const, label: t('sidebar.delete') },
   ]
   return [
     ...createItems,
     ...entryItems,
-    { action: 'copy-path', label: '复制路径' },
-    { action: 'show-entry', label: '在资源管理器中显示' },
+    { action: 'copy-path', label: t('sidebar.copyPath') },
+    { action: 'show-entry', label: t('document.reveal') },
   ]
 })
 
@@ -226,15 +230,15 @@ const runFileTreeAction = async (action: FileTreeAction): Promise<void> => {
 
   try {
     if (action === 'new-file' || action === 'new-folder') {
-      const name = window.prompt(action === 'new-file' ? '请输入文件名' : '请输入文件夹名')
+      const name = window.prompt(action === 'new-file' ? t('sidebar.promptFileName') : t('sidebar.promptFolderName'))
       if (name === null) return
       await fileSystemService.createEntry(node.path, name, action === 'new-folder')
     } else if (action === 'rename') {
-      const newName = window.prompt('请输入新名称', node.name)
+      const newName = window.prompt(t('sidebar.promptNewName'), node.name)
       if (newName === null || newName === node.name) return
       await fileSystemService.renameEntry(node.path, newName)
     } else if (action === 'delete') {
-      if (!window.confirm(`确定删除“${node.name}”吗？${node.isDirectory ? '文件夹内的内容也会一并删除。' : ''}`)) return
+      if (!window.confirm(t('sidebar.confirmDelete', { name: node.name }) + (node.isDirectory ? t('sidebar.confirmDeleteFolder') : ''))) return
       await fileSystemService.deleteEntry(node.path)
     } else if (action === 'copy-path') {
       await fileSystemService.copyPath(node.path)
@@ -246,7 +250,7 @@ const runFileTreeAction = async (action: FileTreeAction): Promise<void> => {
     await loadFiles()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    await window.electronAPI.showErrorMessage('文件操作失败', message)
+    await window.electronAPI.showErrorMessage(t('sidebar.operationFailed'), message)
   }
 }
 

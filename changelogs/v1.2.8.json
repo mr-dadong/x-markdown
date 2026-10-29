@@ -6,6 +6,7 @@
       "date": "2026-09-04",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：代码块内双击选中某个词时，自动高亮当前代码块中其它相同文本，快速定位同名标识符，效果类似 VS Code 的匹配高亮",
         "优化：切换文档标签时自动记住每个文档的阅读位置，切回标签后恢复到原来的视图区域，超长文档来回查看无需反复滚动",
@@ -18,6 +19,19 @@
         "优化：斜杠命令菜单新增「提示块」分组，备注块、提示块、重要块、警告块、注意块统一归入该组",
         "优化：斜杠命令分组顺序固定，扩展内容组始终排在最后",
         "优化：斜杠命令面板隐藏右侧滚动条，命令较多时仍可正常滚动浏览"
+      ],
+      "contentEn": [
+        "Double-clicking a word in a code block highlights other occurrences in the block, similar to VS Code match highlighting.",
+        "Switching document tabs remembers each document's reading position and restores it when returning, so long documents do not require repeated scrolling.",
+        "Reading positions are remembered separately for the rendered and source views, restoring the right position in each mode.",
+        "Closing a document clears its remembered state; rapid tab switching only restores the final document without overwriting each other.",
+        "Callouts are split into five insert commands (Note, Tip, Important, Warning, Caution) with fixed types at insertion.",
+        "Callout editing now uses the same source editing as formulas and Mermaid: click the block to open a dark source editor for the body.",
+        "Callout titles are no longer edited separately; cards show the type name automatically, and new blocks are not collapsible by default.",
+        "Removed the keyboard hint bar from the slash panel (select, insert, close) for a cleaner panel.",
+        "Added a Callouts group to the slash menu containing Note, Tip, Important, Warning, and Caution.",
+        "Slash command group order is fixed, with Extended content always last.",
+        "The slash panel hides its scrollbar while remaining scrollable when there are many commands."
       ],
       "downloads": {
         "windows": {

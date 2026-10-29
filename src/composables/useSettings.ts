@@ -3,6 +3,7 @@ import type { CodeBlockStyleId } from '../modules/codeBlockStyles'
 import type { PdfPageSize } from '../utils/pdfOptions'
 import { defaultShortcuts } from '../constants/shortcuts'
 import { isValidShortcut } from '../utils/shortcuts'
+import { isLanguagePreference, type LanguagePreference } from '../i18n/locale'
 
 export type SettingsSection = 'general' | 'typography' | 'theme' | 'export' | 'shortcuts' | 'ai' | 'changelog' | 'about'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -14,6 +15,8 @@ export type EditorLineWidth = 'narrow' | 'medium' | 'wide' | 'full'
 export type PreviewZoomLevel = 'small' | 'standard' | 'large' | 'xlarge'
 
 interface AppSettings {
+  // 界面语言偏好：跟随系统时按系统首选语言解析。
+  language: LanguagePreference
   editorMode: EditorMode
   showSlashCommandDescriptions: boolean
   attachmentHandling: AttachmentHandling
@@ -42,6 +45,7 @@ interface AppSettings {
 const SETTINGS_STORAGE_KEY = 'xmd-app-settings'
 
 const defaultSettings: AppSettings = {
+  language: 'system',
   editorMode: 'preview',
   showSlashCommandDescriptions: false,
   attachmentHandling: 'reference',
@@ -87,6 +91,10 @@ const getInitialSettings = (): AppSettings => {
     return {
       ...structuredClone(defaultSettings),
       ...parsedSettings,
+      // 语言字段来自历史存储或手工修改，必须在进入应用前收敛到受支持值。
+      language: isLanguagePreference(parsedSettings.language)
+        ? parsedSettings.language
+        : defaultSettings.language,
       shortcuts: { ...defaultSettings.shortcuts, ...sanitizeShortcuts(parsedSettings.shortcuts) },
     }
   } catch {
@@ -104,11 +112,14 @@ watch(
 )
 
 // 快捷键改动实时同步到主进程，让系统菜单加速键（CmdOrCtrl+N 等）跟随设置。
-watch(
-  () => settings.shortcuts,
-  (shortcuts) => window.electronAPI.updateShortcuts({ ...shortcuts }),
-  { deep: true, immediate: true },
-)
+// 放到显式初始化里，避免只在测试中导入模块时就调用 Electron API。
+export const setupSettingsSync = (): void => {
+  watch(
+    () => settings.shortcuts,
+    (shortcuts) => window.electronAPI.updateShortcuts({ ...shortcuts }),
+    { deep: true, immediate: true },
+  )
+}
 
 export const useSettings = () => {
   const resetShortcuts = (): void => {

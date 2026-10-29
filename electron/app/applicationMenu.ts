@@ -1,7 +1,9 @@
 import { app, dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from "electron";
 import path from "path";
 import { IPC_CHANNELS } from "../../src/constants/ipcChannels";
-import { OPEN_FILE_DIALOG_FILTERS } from "../../src/constants";
+import { APPLICATION_MENU_KEYS } from "../../src/constants/applicationMenu";
+import { OPEN_FILE_DIALOG_EXTENSIONS } from "../../src/constants";
+import { mainT } from "../i18n";
 import {
   getLastOpenedFolderPath,
   setLastOpenedFolderPath,
@@ -90,7 +92,7 @@ function buildApplicationMenu(): void {
   const recentFiles = getRecentFiles();
   const recentFilesSubmenu: MenuItemConstructorOptions[] =
     recentFiles.length === 0
-      ? [{ label: "暂无最近打开的文档", enabled: false }]
+      ? [{ label: mainT("menu.file.noRecent"), enabled: false }]
       : [
         ...recentFiles.map((filePath) => ({
           label: path.basename(filePath),
@@ -103,17 +105,17 @@ function buildApplicationMenu(): void {
         })),
         { type: "separator" },
         {
-          label: "清空最近打开",
+          label: mainT("menu.file.clearRecent"),
           click: () => send(IPC_CHANNELS.menuClearRecentFiles),
         },
       ];
   const template: MenuItemConstructorOptions[] = [
     {
-      label: "文件",
+      label: mainT(APPLICATION_MENU_KEYS[0]),
       submenu: [
-        { label: "新建", accelerator: shortcutAccelerator("newFile"), click: () => send(IPC_CHANNELS.menuNewFile) },
+        { label: mainT("menu.file.new"), accelerator: shortcutAccelerator("newFile"), click: () => send(IPC_CHANNELS.menuNewFile) },
         {
-          label: "打开",
+          label: mainT("menu.file.open"),
           accelerator: shortcutAccelerator("openFile"),
           click: async () => {
             const mainWindow = getMainWindow();
@@ -122,7 +124,10 @@ function buildApplicationMenu(): void {
               // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
               defaultPath: getLastOpenedFolderPath() ?? undefined,
               properties: ["openFile", "multiSelections"],
-              filters: OPEN_FILE_DIALOG_FILTERS,
+              filters: [
+                { name: mainT("fileDialog.markdownArchive"), extensions: [...OPEN_FILE_DIALOG_EXTENSIONS] },
+                { name: mainT("fileDialog.allFiles"), extensions: ["*"] },
+              ],
             });
             if (result.canceled) return;
             // 记录本次打开的目录，供下次打开对话框跳转。
@@ -134,7 +139,7 @@ function buildApplicationMenu(): void {
               // 压缩包损坏、无文档、超限等失败必须让用户看见，不能静默无响应。
               await dialog.showMessageBox(mainWindow, {
                 type: "error",
-                title: "无法打开文档",
+                title: mainT("dialog.openFailed.title"),
                 message: (error as Error).message,
               });
               return;
@@ -142,56 +147,56 @@ function buildApplicationMenu(): void {
             files.forEach((file) => getMainWindow()?.webContents.send(IPC_CHANNELS.menuOpenFile, file));
           },
         },
-        { label: "最近打开", submenu: recentFilesSubmenu },
-        { label: "保存", accelerator: shortcutAccelerator("saveFile"), click: () => send(IPC_CHANNELS.menuSaveFile) },
-        { label: "另存为", accelerator: "CmdOrCtrl+Shift+S", click: () => send(IPC_CHANNELS.menuSaveAsFile) },
+        { label: mainT("menu.file.recent"), submenu: recentFilesSubmenu },
+        { label: mainT("menu.file.save"), accelerator: shortcutAccelerator("saveFile"), click: () => send(IPC_CHANNELS.menuSaveFile) },
+        { label: mainT("menu.file.saveAs"), accelerator: "CmdOrCtrl+Shift+S", click: () => send(IPC_CHANNELS.menuSaveAsFile) },
         { type: "separator" },
-        { label: "退出", accelerator: "CmdOrCtrl+Q", click: () => app.quit() },
+        { label: mainT("menu.file.quit"), accelerator: "CmdOrCtrl+Q", click: () => app.quit() },
       ],
     },
     // 导出作为一级菜单，集中承载全部导出格式；入口统一由渲染进程按类型分发。
     {
-      label: "导出",
+      label: mainT(APPLICATION_MENU_KEYS[1]),
       submenu: [
-        { label: "导出为 HTML…", accelerator: "CmdOrCtrl+Shift+E", click: () => send(IPC_CHANNELS.menuExportHtml) },
-        { label: "导出为 PDF…", click: () => send(IPC_CHANNELS.menuExportPdf) },
-        { label: "导出为 Word 文档…", click: () => send(IPC_CHANNELS.menuExportDocx) },
-        { label: "导出为图片…", click: () => send(IPC_CHANNELS.menuExportImage) },
-        { label: "导出为纯文本…", click: () => send(IPC_CHANNELS.menuExportText) },
-        { label: "导出为 ZIP 包…", click: () => send(IPC_CHANNELS.menuExportZip) },
+        { label: mainT("menu.export.html"), accelerator: "CmdOrCtrl+Shift+E", click: () => send(IPC_CHANNELS.menuExportHtml) },
+        { label: mainT("menu.export.pdf"), click: () => send(IPC_CHANNELS.menuExportPdf) },
+        { label: mainT("menu.export.docx"), click: () => send(IPC_CHANNELS.menuExportDocx) },
+        { label: mainT("menu.export.image"), click: () => send(IPC_CHANNELS.menuExportImage) },
+        { label: mainT("menu.export.text"), click: () => send(IPC_CHANNELS.menuExportText) },
+        { label: mainT("menu.export.zip"), click: () => send(IPC_CHANNELS.menuExportZip) },
       ],
     },
     {
-      label: "编辑",
+      label: mainT(APPLICATION_MENU_KEYS[2]),
       submenu: [
-        { label: "撤销", accelerator: "CmdOrCtrl+Z", role: "undo" },
-        { label: "重做", accelerator: "CmdOrCtrl+Shift+Z", role: "redo" },
+        { label: mainT("menu.edit.undo"), accelerator: "CmdOrCtrl+Z", role: "undo" },
+        { label: mainT("menu.edit.redo"), accelerator: "CmdOrCtrl+Shift+Z", role: "redo" },
         { type: "separator" },
-        { label: "剪切", accelerator: "CmdOrCtrl+X", role: "cut" },
-        { label: "复制", accelerator: "CmdOrCtrl+C", role: "copy" },
-        { label: "粘贴", accelerator: "CmdOrCtrl+V", role: "paste" },
-        { label: "全选", accelerator: "CmdOrCtrl+A", role: "selectAll" },
+        { label: mainT("menu.edit.cut"), accelerator: "CmdOrCtrl+X", role: "cut" },
+        { label: mainT("menu.edit.copy"), accelerator: "CmdOrCtrl+C", role: "copy" },
+        { label: mainT("menu.edit.paste"), accelerator: "CmdOrCtrl+V", role: "paste" },
+        { label: mainT("menu.edit.selectAll"), accelerator: "CmdOrCtrl+A", role: "selectAll" },
         { type: "separator" },
-        { label: "查找", accelerator: "CmdOrCtrl+F", click: () => send(IPC_CHANNELS.menuFindReplace) },
+        { label: mainT("menu.edit.find"), accelerator: "CmdOrCtrl+F", click: () => send(IPC_CHANNELS.menuFindReplace) },
       ],
     },
     {
-      label: "视图",
+      label: mainT(APPLICATION_MENU_KEYS[3]),
       submenu: [
-        { label: "重新加载", accelerator: "CmdOrCtrl+R", role: "reload" },
+        { label: mainT("menu.view.reload"), accelerator: "CmdOrCtrl+R", role: "reload" },
         { type: "separator" },
-        { label: "实际大小", accelerator: "CmdOrCtrl+0", role: "resetZoom" },
-        { label: "放大", accelerator: "CmdOrCtrl+Plus", role: "zoomIn" },
-        { label: "缩小", accelerator: "CmdOrCtrl+-", role: "zoomOut" },
+        { label: mainT("menu.view.actualSize"), accelerator: "CmdOrCtrl+0", role: "resetZoom" },
+        { label: mainT("menu.view.zoomIn"), accelerator: "CmdOrCtrl+Plus", role: "zoomIn" },
+        { label: mainT("menu.view.zoomOut"), accelerator: "CmdOrCtrl+-", role: "zoomOut" },
         { type: "separator" },
-        { label: "全屏", accelerator: "F11", role: "togglefullscreen" },
+        { label: mainT("menu.view.fullscreen"), accelerator: "F11", role: "togglefullscreen" },
       ],
     },
     {
-      label: "窗口",
+      label: mainT(APPLICATION_MENU_KEYS[4]),
       submenu: [
-        { label: "最小化", accelerator: "CmdOrCtrl+M", role: "minimize" },
-        { label: "关闭", accelerator: "CmdOrCtrl+W", role: "close" },
+        { label: mainT("menu.window.minimize"), accelerator: "CmdOrCtrl+M", role: "minimize" },
+        { label: mainT("menu.window.close"), accelerator: "CmdOrCtrl+W", role: "close" },
       ],
     },
   ];

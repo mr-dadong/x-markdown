@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { onUnmounted, ref } from "vue";
 import { aiService } from "../services/aiService";
 import { normalizeAiMarkdown } from "../utils/aiMarkdown";
@@ -265,7 +266,7 @@ const renderStreamedMarkdown = (withCaret = false): void => {
 
     // 如果有指令，允许空的selection和documentContext
     if (!instruction && !selection && !documentContext) {
-      error.value = "请先选中文本或输入内容";
+      error.value = t('inlineWriter.noSelection');
       status.value = "error";
       return;
     }
@@ -289,8 +290,16 @@ const renderStreamedMarkdown = (withCaret = false): void => {
     editorWasEditable = editor.isEditable;
 
     const waitingMessages = from === to
-      ? ["已读取当前上下文", "请求已发送，正在等待模型响应", "模型仍在处理，请稍候"]
-      : ["已读取选中内容", "请求已发送，正在等待模型响应", "模型仍在处理，原文保持不变"];
+      ? [
+        t('inlineWriter.contextDocument'),
+        t('inlineWriter.requestSent'),
+        t('inlineWriter.stillProcessing'),
+      ]
+      : [
+        t('inlineWriter.contextSelection'),
+        t('inlineWriter.requestSent'),
+        t('inlineWriter.stillProcessingKeep'),
+      ];
     let waitingMessageIndex = 0;
     const showWaitingMessage = (): void => {
       editor.commands.markAiWritingTarget(
@@ -346,7 +355,7 @@ const renderStreamedMarkdown = (withCaret = false): void => {
       editor.commands.markAiWritingTarget(
         startPos.value,
         endPos.value ?? startPos.value,
-        "模型已响应，正在写入",
+        t('inlineWriter.writing'),
       );
     }
 
@@ -379,7 +388,7 @@ const renderStreamedMarkdown = (withCaret = false): void => {
       editor.commands.markAiWritingTarget(
         startPos.value,
         endPos.value,
-        `AI 思考：${visibleText}`,
+        t('ai.ghost.thinkingPrefix') + visibleText,
       );
     }, 120);
   });

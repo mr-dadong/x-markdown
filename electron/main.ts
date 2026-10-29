@@ -36,6 +36,7 @@ import {
 import { registerWindowIpc } from "./ipc/windowIpc";
 import { registerWorkspaceIpc } from "./ipc/workspaceIpc";
 import { registerRecentFilesIpc } from "./ipc/recentFilesIpc";
+import { mainT } from "./i18n";
 import { registerAiIpc } from "./ai/ipc/aiIpc";
 import { getAiAgentStatus } from "./ai/mastra";
 import { getRecentFiles } from "./services/recentFiles";
@@ -45,13 +46,16 @@ import {
 } from "./services/lastOpenedFolder";
 import {
   createApplicationMenu,
+  rebuildApplicationMenu,
   setConfiguredShortcuts,
 } from "./app/applicationMenu";
 import { createMainWindow } from "./app/mainWindow";
+import { setMainUiLocale } from "./i18n";
+import { isUiLocale } from "../src/i18n/locale";
 import { IPC_CHANNELS } from "../src/constants/ipcChannels";
 import {
   OPENABLE_FILE_EXTENSIONS,
-  OPEN_FILE_DIALOG_FILTERS,
+  OPEN_FILE_DIALOG_EXTENSIONS,
 } from "../src/constants";
 import type {
   AttachmentCopyProgress,
@@ -280,10 +284,10 @@ async function fetchUpdateManifest(url: string): Promise<UpdateManifest> {
   const response = await net.fetch(requestUrl.toString(), {
     signal: AbortSignal.timeout(10000),
   });
-  if (!response.ok) throw new Error(`获取版本信息失败（${response.status}）`);
+  if (!response.ok) throw new Error(mainT("error.update.fetchFailed", { status: response.status }));
 
   const manifest: unknown = await response.json();
-  if (!isUpdateManifest(manifest)) throw new Error("版本信息格式不正确");
+  if (!isUpdateManifest(manifest)) throw new Error(mainT("error.update.manifestInvalid"));
   return manifest;
 }
 
@@ -292,29 +296,29 @@ function getManifestPlatform(): "windows" | "macos" | "linux" {
   if (process.platform === "win32") return "windows";
   if (process.platform === "darwin") return "macos";
   if (process.platform === "linux") return "linux";
-  throw new Error(`当前系统暂不支持自动更新：${process.platform}`);
+  throw new Error(mainT("error.update.platformUnsupported", { platform: process.platform }));
 }
 
 function selectUpdate(release: UpdateRelease): SelectedUpdate {
   const platformName = getManifestPlatform();
   const platform = release.downloads[platformName];
   if (!platform || !platform.available)
-    throw new Error(`v${release.version} 暂未提供当前系统的安装包`);
+    throw new Error(mainT("error.update.releaseUnavailable", { version: release.version }));
 
   const selectedPackage = platform.packages.find(
     (item) => item.arch === process.arch,
   );
   if (!selectedPackage)
     throw new Error(
-      `v${release.version} 暂未提供 ${process.arch} 架构的安装包`,
+      mainT("error.update.archUnavailable", { version: release.version, arch: process.arch }),
     );
   if (!selectedPackage.filename || !selectedPackage.url)
-    throw new Error("安装包信息不完整");
+    throw new Error(mainT("error.update.packageIncomplete"));
   if (
     !selectedPackage.sha256 ||
     !/^[a-f\d]{64}$/iu.test(selectedPackage.sha256)
   )
-    throw new Error("安装包缺少有效的 SHA-256 校验值");
+    throw new Error(mainT("error.update.checksumMissing"));
   ensureHttpsUrl(selectedPackage.url);
 
   return {
@@ -343,7 +347,7 @@ function compareVersions(left: string, right: string): number {
       (part) => !Number.isInteger(part) || part < 0,
     )
   ) {
-    throw new Error("版本号格式不正确");
+    throw new Error(mainT("error.update.versionInvalid"));
   }
 
   const length = Math.max(leftParts.length, rightParts.length);
@@ -357,7 +361,7 @@ function compareVersions(left: string, right: string): number {
 function ensureHttpsUrl(url: string): URL {
   const parsedUrl = new URL(url);
   if (parsedUrl.protocol !== "https:")
-    throw new Error("更新地址必须使用 HTTPS");
+    throw new Error(mainT("error.update.httpsRequired"));
   return parsedUrl;
 }
 
@@ -413,7 +417,7 @@ async function openPendingFiles(): Promise<void> {
     if (mainWindow) {
       await dialog.showMessageBox(mainWindow, {
         type: "error",
-        title: "无法打开文档",
+        title: mainT("dialog.openFailed.title"),
         message: (error as Error).message,
       });
     }
@@ -499,6 +503,14 @@ ipcMain.on(
   },
 );
 
+// 渲染层解析出的界面语言是主进程菜单与对话框的唯一来源。
+ipcMain.on(IPC_CHANNELS.setUiLocale, (_event, locale: unknown) => {
+  // IPC 边界只接受受支持的语言值，避免非法数据进入菜单重建流程。
+  if (!isUiLocale(locale)) return;
+  setMainUiLocale(locale);
+  rebuildApplicationMenu();
+});
+
 ipcMain.on(
   IPC_CHANNELS.rendererDiagnostic,
   (_event, diagnosticEvent: RendererDiagnosticEvent) => {
@@ -537,7 +549,7 @@ ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
     (release) => release.version.trim() === manifest.latest.trim(),
   );
   if (!latestRelease)
-    throw new Error(`找不到最新版 v${manifest.latest} 的发布信息`);
+    throw new Error(mainT("error.update.releaseMissing", { version: manifest.latest }));
 
   selectedUpdate = selectUpdate(latestRelease);
   verifiedUpdate = null;
@@ -552,14 +564,14 @@ ipcMain.handle(IPC_CHANNELS.checkForUpdates, async () => {
 ipcMain.handle(IPC_CHANNELS.openExternalLink, async (_event, url: string) => {
   const parsedUrl = new URL(url);
   if (!["http:", "https:", "mailto:"].includes(parsedUrl.protocol)) {
-    throw new Error("仅支持打开网页和邮箱链接");
+    throw new Error(mainT("error.link.unsupported"));
   }
   await shell.openExternal(parsedUrl.toString());
 });
 
 ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
-  if (!selectedUpdate) throw new Error("请先检查并确认可用更新");
-  if (updateDownloadInProgress) throw new Error("安装包正在下载");
+  if (!selectedUpdate) throw new Error(mainT("error.update.notSelected"));
+  if (updateDownloadInProgress) throw new Error(mainT("error.update.downloading"));
 
   const currentUpdate = selectedUpdate;
   const parsedUrl = ensureHttpsUrl(currentUpdate.download.url);
@@ -573,7 +585,7 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
       // 探测安装包地址同样访问外部网络，加超时避免下载流程卡在这一步。
       signal: AbortSignal.timeout(10000),
     });
-    if (!response.ok) throw new Error(`下载安装包失败（${response.status}）`);
+    if (!response.ok) throw new Error(mainT("error.update.downloadFailed", { status: response.status }));
     const contentType =
       response.headers.get("content-type")?.toLowerCase() ?? "";
 
@@ -597,7 +609,7 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
             path.extname(item.getFilename()).toLowerCase() !== extension
           ) {
             item.cancel();
-            reject(new Error("下载地址没有返回支持的安装包"));
+            reject(new Error(mainT("error.update.packageUnsupported")));
             return;
           }
 
@@ -621,7 +633,7 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
           });
           item.once("done", (_doneEvent, state) => {
             if (state !== "completed") {
-              reject(new Error("安装包下载未完成"));
+              reject(new Error(mainT("error.update.downloadIncomplete")));
               return;
             }
             void calculateFileSha256(savePath).then((actualSha256) => {
@@ -629,7 +641,7 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
                 void fs.promises
                   .rm(savePath, { force: true })
                   .then(
-                    () => reject(new Error("安装包校验失败，文件已删除")),
+                    () => reject(new Error(mainT("error.update.checksumFailed"))),
                     reject,
                   );
                 return;
@@ -670,24 +682,24 @@ ipcMain.handle(IPC_CHANNELS.downloadUpdate, async () => {
 });
 
 ipcMain.handle(IPC_CHANNELS.installUpdate, async () => {
-  if (updateInstallInProgress) throw new Error("安装程序正在启动");
+  if (updateInstallInProgress) throw new Error(mainT("error.update.installerStarting"));
   updateInstallInProgress = true;
 
   try {
-    if (!verifiedUpdate) throw new Error("没有已通过校验的安装包");
+    if (!verifiedUpdate) throw new Error(mainT("error.update.notVerified"));
     const resolvedPath = path.resolve(verifiedUpdate.filePath);
     const tempDirectory = path.resolve(app.getPath("temp"));
     if (
       !resolvedPath.startsWith(`${tempDirectory}${path.sep}`) ||
       !installerExtensions.has(path.extname(resolvedPath).toLowerCase())
     ) {
-      throw new Error("安装包路径无效");
+      throw new Error(mainT("error.update.installerPathInvalid"));
     }
     const installerExists = await fs.promises
       .stat(resolvedPath)
       .then((stats) => stats.isFile())
       .catch(() => false);
-    if (!installerExists) throw new Error("安装包不存在，请重新下载");
+    if (!installerExists) throw new Error(mainT("error.update.installerMissing"));
 
     // 安装包在下载完成时已经过 SHA-256 校验通过（见 downloadUpdate），
     // 这里不再对全量文件二次哈希，避免点击“立即安装”后界面长时间卡在
@@ -726,7 +738,7 @@ ipcMain.handle(
             return {
               success: false,
               conflict: true,
-              error: "文件已被其他程序修改",
+              error: mainT("error.file.externalModified"),
             };
           }
         }
@@ -748,9 +760,9 @@ ipcMain.handle(
             });
             await dialog.showMessageBox(mainWindow!, {
               type: "error",
-              title: "写回压缩包失败",
-              message: `文档已保存到临时工作区，但写回压缩包失败：${(zipError as Error).message}`,
-              detail: `临时工作区已保留，位置：${zipWorkspaceDir}\n请勿手动删除该目录，否则未写回的修改会丢失。`,
+              title: mainT("dialog.zipWriteBack.title"),
+              message: mainT("dialog.zipWriteBack.message", { error: (zipError as Error).message }),
+              detail: mainT("dialog.zipWriteBack.detail", { path: zipWorkspaceDir }),
             });
           }
         }
@@ -764,7 +776,7 @@ ipcMain.handle(
         const result = await dialog.showSaveDialog(mainWindow!, {
           filters: [
             { name: "Markdown", extensions: ["md"] },
-            { name: "所有文件", extensions: ["*"] },
+            { name: mainT("fileDialog.allFiles"), extensions: ["*"] },
           ],
         });
         if (!result.canceled && result.filePath) {
@@ -841,7 +853,7 @@ const resolvePdfPageSize = (
   value: unknown,
 ): "A4" | "A3" | "Letter" | "Legal" | "Tabloid" | { width: number; height: number } => {
   if (typeof value === "string") {
-    if (!PDF_PAGE_SIZES.has(value)) throw new Error(`不支持的纸张大小：${value}`);
+    if (!PDF_PAGE_SIZES.has(value)) throw new Error(mainT("error.pdf.pageSizeUnsupported", { value }));
     return value as "A4" | "A3" | "Letter" | "Legal" | "Tabloid";
   }
   const size = value as { width?: unknown; height?: unknown } | null;
@@ -849,7 +861,7 @@ const resolvePdfPageSize = (
   const height = Number(size?.height);
   // 1 英寸到 200 英寸足够覆盖所有真实纸张，越界说明设置被改坏了。
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1 || width > 200 || height > 200) {
-    throw new Error("自定义纸张尺寸必须是 1 到 200 英寸之间的数值");
+    throw new Error(mainT("error.pdf.customSizeRange"));
   }
   return { width, height };
 };
@@ -862,7 +874,7 @@ const resolvePdfMargins = (
   const read = (side: string): number => {
     const number = Number(margins?.[side]);
     if (!Number.isFinite(number) || number < 0 || number > 20) {
-      throw new Error(`页边距（${side}）必须是 0 到 20 英寸之间的数值`);
+      throw new Error(mainT("error.pdf.marginRange", { side }));
     }
     return number;
   };
@@ -875,7 +887,7 @@ ipcMain.handle(
   IPC_CHANNELS.exportPdf,
   async (_event, { html, suggestedName, printOptions }: ExportPdfData) => {
     if (!mainWindow) return { canceled: true };
-    if (!printOptions) throw new Error("缺少 PDF 打印选项");
+    if (!printOptions) throw new Error(mainT("error.pdf.optionsMissing"));
     const pageSize = resolvePdfPageSize(printOptions.pageSize);
     const margins = resolvePdfMargins(printOptions.margins);
     const result = await dialog.showSaveDialog(mainWindow, {
@@ -899,7 +911,7 @@ ipcMain.handle(
       // 因此加载和打印两个阶段都要有超时保护。
       await withTimeout(
         printWindow.loadURL(dataUrl),
-        "PDF 页面加载超时（15 秒）",
+        mainT("error.pdf.pageLoadTimeout"),
         15000,
       );
       const pdfBuffer = await withTimeout(
@@ -912,7 +924,7 @@ ipcMain.handle(
           headerTemplate: String(printOptions.headerTemplate ?? ""),
           footerTemplate: String(printOptions.footerTemplate ?? ""),
         }),
-        "PDF 生成超时（30 秒）",
+        mainT("error.pdf.generateTimeout"),
         30000,
       );
       await fs.promises.writeFile(result.filePath, pdfBuffer);
@@ -966,7 +978,7 @@ const saveBinaryWithDialog = async (
 ipcMain.handle(
   IPC_CHANNELS.exportZip,
   async (_event, { zipData, suggestedName }: ExportZipData) =>
-    saveBinaryWithDialog(Buffer.from(zipData), suggestedName, "zip", "ZIP 压缩包"),
+    saveBinaryWithDialog(Buffer.from(zipData), suggestedName, "zip", mainT("fileDialog.zipArchive")),
 );
 
 // 导出为纯文本：文档原文本身就是 UTF-8 文本，直接选路径写 .txt 文件。
@@ -976,7 +988,7 @@ ipcMain.handle(
     if (!mainWindow) return { canceled: true };
     const result = await dialog.showSaveDialog(mainWindow, {
       defaultPath: `${suggestedName}.txt`,
-      filters: [{ name: "纯文本", extensions: ["txt"] }],
+      filters: [{ name: mainT("fileDialog.plainText"), extensions: ["txt"] }],
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     await fs.promises.writeFile(result.filePath, text, "utf-8");
@@ -988,7 +1000,7 @@ ipcMain.handle(
 ipcMain.handle(
   IPC_CHANNELS.exportDocx,
   async (_event, { docxData, suggestedName }: ExportDocxData) =>
-    saveBinaryWithDialog(Buffer.from(docxData), suggestedName, "docx", "Word 文档"),
+    saveBinaryWithDialog(Buffer.from(docxData), suggestedName, "docx", mainT("fileDialog.wordDocument")),
 );
 
 // 导出为图片：用隐藏窗口加载导出的 HTML 后栅格化为 PNG，不影响当前编辑窗口。
@@ -1000,7 +1012,7 @@ ipcMain.handle(
     if (!mainWindow) return { canceled: true };
     const result = await dialog.showSaveDialog(mainWindow, {
       defaultPath: `${suggestedName}.png`,
-      filters: [{ name: "PNG 图片", extensions: ["png"] }],
+      filters: [{ name: mainT("fileDialog.pngImage"), extensions: ["png"] }],
     });
     if (result.canceled || !result.filePath) return { canceled: true };
 
@@ -1025,7 +1037,7 @@ ipcMain.handle(
       const dataUrl = `data:text/html;charset=utf-8;base64,${Buffer.from(html, "utf-8").toString("base64")}`;
       await withTimeout(
         captureWindow.loadURL(dataUrl),
-        "图片页面加载超时（30 秒）",
+        mainT("error.image.pageLoadTimeout"),
         30000,
       );
       const dimensions = (await withTimeout(
@@ -1044,7 +1056,7 @@ ipcMain.handle(
           );
           return { width, height };
         })()`),
-        "图片尺寸读取超时（10 秒）",
+        mainT("error.image.sizeReadTimeout"),
         10000,
       )) as { width: number; height: number };
       const width = Math.max(1, Math.min(Math.round(dimensions.width), 2400));
@@ -1059,7 +1071,7 @@ ipcMain.handle(
       captureWindow.showInactive();
       await withTimeout(
         new Promise<void>((resolve) => setTimeout(resolve, 350)),
-        "图片绘制等待超时",
+        mainT("error.image.drawWaitTimeout"),
         3000,
       );
       const image = await withTimeout(
@@ -1069,7 +1081,7 @@ ipcMain.handle(
           width,
           height,
         }),
-        "图片生成超时（30 秒）",
+        mainT("error.image.generateTimeout"),
         30000,
       );
       await fs.promises.writeFile(result.filePath, image.toPNG());
@@ -1084,7 +1096,7 @@ ipcMain.handle(
 ipcMain.handle(
   IPC_CHANNELS.choosePngSavePath,
   async (_event, suggestedName: string) =>
-    chooseSavePath(suggestedName, "png", "PNG 图片"),
+    chooseSavePath(suggestedName, "png", mainT("fileDialog.pngImage")),
 );
 
 // 代码块导出图片第二步：渲染进程已经生成好 PNG 分片，这里负责写盘。
@@ -1094,7 +1106,7 @@ ipcMain.handle(
   IPC_CHANNELS.writePngFiles,
   async (_event, { filePath, slices }: WritePngFilesData) => {
     const [firstSlice] = slices;
-    if (!firstSlice) throw new Error("没有可写入的图片数据");
+    if (!firstSlice) throw new Error(mainT("error.image.noData"));
     if (slices.length === 1) {
       await fs.promises.writeFile(filePath, Buffer.from(firstSlice));
       return;
@@ -1116,7 +1128,10 @@ ipcMain.handle(IPC_CHANNELS.openFile, async () => {
     // 默认定位到上次打开的文件夹，方便连续编辑同一目录下的文档。
     defaultPath: getLastOpenedFolderPath() ?? undefined,
     properties: ["openFile", "multiSelections"],
-    filters: OPEN_FILE_DIALOG_FILTERS,
+    filters: [
+      { name: mainT("fileDialog.markdownArchive"), extensions: [...OPEN_FILE_DIALOG_EXTENSIONS] },
+      { name: mainT("fileDialog.allFiles"), extensions: ["*"] },
+    ],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
 
@@ -1137,10 +1152,10 @@ ipcMain.handle(
     if (modifiedCount === 0) {
       const result = await dialog.showMessageBox(mainWindow, {
         type: "question",
-        title: "关闭 XMD？",
-        message: `当前打开了 ${openCount} 个文档。`,
-        detail: "确认关闭全部标签页并退出程序吗？",
-        buttons: ["关闭并退出", "取消"],
+        title: mainT("dialog.close.title"),
+        message: mainT("dialog.close.message", { count: openCount }),
+        detail: mainT("dialog.close.detail"),
+        buttons: [mainT("dialog.close.confirm"), mainT("common.cancel")],
         defaultId: 1,
         cancelId: 1,
         noLink: true,
@@ -1149,10 +1164,10 @@ ipcMain.handle(
     }
     const result = await dialog.showMessageBox(mainWindow, {
       type: "warning",
-      title: "保存修改后退出？",
-      message: `还有 ${modifiedCount} 个文档尚未保存。`,
-      detail: "可以先保存全部文档，也可以放弃这些修改。",
-      buttons: ["保存全部并退出", "放弃修改", "取消"],
+      title: mainT("dialog.saveBeforeExit.title"),
+      message: mainT("dialog.saveBeforeExit.message", { count: modifiedCount }),
+      detail: mainT("dialog.saveBeforeExit.detail"),
+      buttons: [mainT("dialog.saveBeforeExit.saveAll"), mainT("dialog.saveBeforeExit.discard"), mainT("common.cancel")],
       defaultId: 0,
       cancelId: 2,
       noLink: true,
@@ -1370,7 +1385,7 @@ async function copyAttachmentWithProgress(
       reportProgress("completed");
     },
     async (error: unknown) => {
-      const message = error instanceof Error ? error.message : "复制附件失败";
+      const message = error instanceof Error ? error.message : mainT("error.attachment.copyFailed");
       reportProgress("failed", message);
       // 失败时移除不完整的目标文件，避免 assets 中留下无法使用的副本。
       await fs.promises.rm(targetPath, { force: true }).catch(() => undefined);
@@ -1393,7 +1408,7 @@ const editorImageMimeTypes: Record<string, string> = {
 async function readEditorImageDataUrl(filePath: string): Promise<string> {
   const extension = path.extname(filePath).toLowerCase();
   const mimeType = editorImageMimeTypes[extension];
-  if (!mimeType) throw new Error("不支持的图片格式");
+  if (!mimeType) throw new Error(mainT("error.image.unsupportedFormat"));
   const content = await fs.promises.readFile(filePath);
   return `data:${mimeType};base64,${content.toString("base64")}`;
 }
@@ -1491,13 +1506,13 @@ async function importEditorFile({
 }) {
   if (currentDocumentPath) assertAuthorizedPath(currentDocumentPath);
   const sourceStats = await fs.promises.stat(sourcePath);
-  if (!sourceStats.isFile()) throw new Error("只能插入文件，暂不支持文件夹");
+  if (!sourceStats.isFile()) throw new Error(mainT("error.attachment.folderUnsupported"));
 
   const shouldCopyToAssets =
     kind === "image" ||
     (kind === "file" && attachmentHandling === "copy-to-assets");
   if (shouldCopyToAssets && !currentDocumentPath)
-    throw new Error("复制资源前需要先保存当前文档");
+    throw new Error(mainT("error.attachment.saveFirst"));
 
   // 拖入和粘贴都使用同一套路径处理，确保生成的 Markdown 地址格式完全一致。
   let importedPath = sourcePath;
@@ -1564,9 +1579,9 @@ ipcMain.handle(
     if (shouldCopyToAssets && !currentDocumentPath) {
       await dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "请先保存文档",
-        message: "复制资源前需要先保存当前文档",
-        detail: "保存后，图片或附件将复制到文档同级的 assets 目录。",
+        title: mainT("dialog.saveFirst.title"),
+        message: mainT("error.attachment.saveFirst"),
+        detail: mainT("dialog.copyAsset.detail"),
       });
       return null;
     }
@@ -1574,14 +1589,14 @@ ipcMain.handle(
     const filters = {
       image: [
         {
-          name: "图片",
+          name: mainT("fileDialog.images"),
           extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"],
         },
       ],
       video: [
-        { name: "视频", extensions: ["mp4", "webm", "ogg", "mov", "m4v"] },
+        { name: mainT("fileDialog.videos"), extensions: ["mp4", "webm", "ogg", "mov", "m4v"] },
       ],
-      file: [{ name: "所有文件", extensions: ["*"] }],
+      file: [{ name: mainT("fileDialog.allFiles"), extensions: ["*"] }],
     };
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ["openFile"],
@@ -1654,7 +1669,7 @@ ipcMain.handle(
       currentDocumentPath,
     }: { url: string; currentDocumentPath: string | null },
   ) => {
-    if (!currentDocumentPath) throw new Error("请先保存当前文档");
+    if (!currentDocumentPath) throw new Error(mainT("error.file.saveFirst"));
     // 本地链接可能带 #锚点 或 ?查询后缀，它们不属于文件名，解析前先去掉
     const plainUrl = url.split(/[?#]/u)[0];
     const filePath = resolvePathFromDocument(plainUrl, currentDocumentPath);
@@ -1662,7 +1677,7 @@ ipcMain.handle(
     const exists = await fs.promises
       .access(filePath)
       .then(() => true, () => false);
-    if (!exists) throw new Error(`文件不存在：${filePath}`);
+    if (!exists) throw new Error(mainT("error.file.notFound", { path: filePath }));
     // Markdown 链接在编辑器内以文档打开：点击链接等同于用户明确打开该文档，
     // 与打开对话框同一规则加入授权名单（含文档目录之外的相对链接）
     if (/\.markdown?$/iu.test(filePath)) {
@@ -1671,7 +1686,7 @@ ipcMain.handle(
     }
     // 其余本地文件交给系统默认应用，仍保留授权边界
     const errorMessage = await shell.openPath(assertAuthorizedPath(filePath));
-    if (errorMessage) throw new Error(`系统应用打开失败：${errorMessage}`);
+    if (errorMessage) throw new Error(mainT("error.file.openFailed", { error: errorMessage }));
     return { kind: "opened" };
   },
 );
@@ -1694,9 +1709,9 @@ ipcMain.handle(
     if (!currentDocumentPath) {
       await dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "请先保存文档",
-        message: "粘贴图片前需要先保存当前文档",
-        detail: "保存后，图片将写入文档同级的 assets 目录。",
+        title: mainT("dialog.saveFirst.title"),
+        message: mainT("dialog.pasteImage.message"),
+        detail: mainT("dialog.pasteImage.detail"),
       });
       return null;
     }
@@ -1704,7 +1719,7 @@ ipcMain.handle(
     const extensionEntry = Object.entries(editorImageMimeTypes).find(
       ([, value]) => value === mimeType,
     );
-    if (!extensionEntry) throw new Error("剪贴板中的图片格式不受支持");
+    if (!extensionEntry) throw new Error(mainT("error.image.clipboardUnsupported"));
     const authorizedDocumentPath = assertAuthorizedPath(currentDocumentPath);
     const assetsDirectory = path.join(
       path.dirname(authorizedDocumentPath),
@@ -1713,7 +1728,7 @@ ipcMain.handle(
     await fs.promises.mkdir(assetsDirectory, { recursive: true });
     const targetPath = await getAvailableAttachmentPath(
       assetsDirectory,
-      `粘贴图片${extensionEntry[0]}`,
+      mainT("fileName.pastedImage", { ext: extensionEntry[0] }),
     );
     await fs.promises.writeFile(targetPath, Buffer.from(bytes));
     authorizeFile(targetPath);
@@ -1740,9 +1755,9 @@ ipcMain.handle(
     // HTML 预览只接收图片数据，下载超时或失败时明确报告错误。
     if (downloadRemote && /^https?:/i.test(url)) {
       const response = await net.fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!response.ok) throw new Error(`下载 HTML 预览图片失败：${response.status}（${url}）`);
+      if (!response.ok) throw new Error(mainT("error.image.htmlPreviewFetchFailed", { status: response.status, url }));
       const mimeType = (response.headers.get("content-type") ?? "").split(";")[0].trim();
-      if (!mimeType.startsWith("image/")) throw new Error(`HTML 预览资源不是图片：${url}`);
+      if (!mimeType.startsWith("image/")) throw new Error(mainT("error.image.htmlPreviewNotImage", { url }));
       const bytes = Buffer.from(await response.arrayBuffer());
       return `data:${mimeType};base64,${bytes.toString("base64")}`;
     }
@@ -1759,14 +1774,17 @@ ipcMain.handle(
       const outsideDocument = currentDocumentPath
         && path.relative(path.dirname(currentDocumentPath), resolvedPath).startsWith("..");
       throw new Error(
-        `图片文件不存在：${resolvedPath}${outsideDocument ? "（该图片不在文档所在目录内）" : ""}`,
+        mainT("error.image.fileMissing", {
+          path: resolvedPath,
+          suffix: outsideDocument ? mainT("error.image.outsideDocumentSuffix") : "",
+        }),
       );
     }
 
     // 格式由扩展名决定，先判断可给出比「读取失败」更明确的提示。
     const extension = path.extname(resolvedPath).toLowerCase();
     if (!editorImageMimeTypes[extension]) {
-      throw new Error(`不支持的图片格式：${extension || resolvedPath}`);
+      throw new Error(mainT("error.image.unsupportedFormatWithExt", { ext: extension || resolvedPath }));
     }
 
     try {
@@ -1796,7 +1814,7 @@ ipcMain.handle(
   ) => {
     const filePath = resolveEditorFilePath(url, currentDocumentPath);
     const stats = await fs.promises.stat(filePath);
-    if (!stats.isFile()) throw new Error("资源文件不存在");
+    if (!stats.isFile()) throw new Error(mainT("error.file.resourceMissing"));
     return new Uint8Array(await fs.promises.readFile(filePath));
   },
 );
@@ -1859,14 +1877,14 @@ ipcMain.handle(
     }): Promise<{ url: string | null }> => {
     if (!mainWindow) return { url: null };
     if (/^https?:/i.test(url) || /^data:/i.test(url)) {
-      throw new Error("只能整理本地图片文件");
+      throw new Error(mainT("error.image.onlyLocal"));
     }
     if (!currentDocumentPath) {
       await dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "请先保存文档",
-        message: "整理图片前需要先保存当前文档",
-        detail: "图片路径是相对文档所在目录记录的，未保存的文档没有可用的目录。",
+        title: mainT("dialog.saveFirst.title"),
+        message: mainT("dialog.tidyImages.message"),
+        detail: mainT("dialog.tidyImages.detail"),
       });
       return { url: null };
     }
@@ -1886,9 +1904,9 @@ ipcMain.handle(
 
     if (action === "rename") {
       const trimmedName = (newName ?? "").trim();
-      if (!trimmedName) throw new Error("请输入新的文件名");
+      if (!trimmedName) throw new Error(mainT("error.file.nameRequired"));
       if (/[\\/:*?"<>|]/u.test(trimmedName)) {
-        throw new Error('文件名不能包含 \\ / : * ? " < > |');
+        throw new Error(mainT("error.file.nameInvalidChars"));
       }
       // 只写主名时沿用原扩展名，避免把 a.png 改成没有扩展名的文件。
       targetName =
@@ -1897,7 +1915,7 @@ ipcMain.handle(
           : trimmedName;
     } else {
       const pickedDirectory = await dialog.showOpenDialog(mainWindow, {
-        title: "选择图片存放目录",
+        title: mainT("dialog.selectImageFolder.title"),
         defaultPath: documentDirectory,
         properties: ["openDirectory"],
       });
@@ -1907,7 +1925,7 @@ ipcMain.handle(
       targetDirectory = pickedDirectory.filePaths[0];
       // 文档目录是授权边界：放到边界之外，下次启动就读不到这张图了。
       if (!isPathInside(targetDirectory, documentDirectory)) {
-        throw new Error("只能移动到当前文档所在目录内的文件夹");
+        throw new Error(mainT("error.file.moveInsideDocument"));
       }
     }
 
@@ -1917,7 +1935,7 @@ ipcMain.handle(
       .access(targetPath)
       .then(() => true)
       .catch(() => false);
-    if (targetExists) throw new Error(`目标位置已有同名文件：${targetName}`);
+    if (targetExists) throw new Error(mainT("error.file.targetExists", { name: targetName }));
 
     await fs.promises.mkdir(targetDirectory, { recursive: true });
     await fs.promises.rename(sourcePath, targetPath);
@@ -1941,7 +1959,7 @@ ipcMain.handle(
       const response = await net.fetch(url, {
         signal: AbortSignal.timeout(10000),
       });
-      if (!response.ok) throw new Error(`下载图片失败：${response.status}`);
+      if (!response.ok) throw new Error(mainT("error.image.readFailed", { status: response.status }));
       image = nativeImage.createFromBuffer(
         Buffer.from(await response.arrayBuffer()),
       );
@@ -1953,7 +1971,7 @@ ipcMain.handle(
       );
     }
 
-    if (image.isEmpty()) throw new Error("无法读取选中的图片");
+    if (image.isEmpty()) throw new Error(mainT("error.image.readSelectionFailed"));
     // Electron 44 起 clipboard 对齐 W3C 异步 API：writeImage 等便捷方法已移除，
     // 图片需要按 MIME 类型包成 ClipboardItem（Blob 负载）后整体写入。
     // nativeImage.toPNG() 返回的 Buffer 底层可能是 SharedArrayBuffer，BlobPart 不接受，
@@ -1980,7 +1998,7 @@ ipcMain.handle(
       return url;
     const filePath = resolveEditorFilePath(url, currentDocumentPath);
     const stats = await fs.promises.stat(filePath);
-    if (!stats.isFile()) throw new Error("视频文件不存在");
+    if (!stats.isFile()) throw new Error(mainT("error.video.missing"));
     return `xmd-media://video/?path=${encodeURIComponent(filePath)}`;
   },
 );
@@ -1991,7 +2009,7 @@ app.whenReady().then(async () => {
     const mediaUrl = new URL(request.url);
     const filePath = mediaUrl.searchParams.get("path");
     if (mediaUrl.host !== "video" || !filePath)
-      return new Response("视频地址无效", { status: 400 });
+      return new Response(mainT("error.video.invalidUrl"), { status: 400 });
     const authorizedPath = assertAuthorizedPath(filePath);
     return createVideoResponse(request, authorizedPath);
   });

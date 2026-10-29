@@ -6,12 +6,20 @@
       "date": "2026-08-05",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "优化局部文本复制，仅复制实际选中内容，并保留加粗等行内格式。",
         "优化侧栏布局与样式，默认展示文档大纲。",
         "优化文档启动展示，减少打开文件时欢迎页闪现。",
         "优化代码块选中文本的对比度，提升可读性。",
         "修复 Windows 下保存已有文件可能失败的问题。"
+      ],
+      "contentEn": [
+        "Improved partial text copy to copy only the actual selection while preserving inline formatting such as bold.",
+        "Improved sidebar layout and styling; the outline is shown by default.",
+        "Improved document startup to reduce welcome-screen flashes when opening files.",
+        "Improved contrast for selected text in code blocks.",
+        "Fixed saving existing files failing on Windows."
       ],
       "downloads": {
         "windows": {

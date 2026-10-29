@@ -22,7 +22,7 @@
       <div
         ref="progressElement"
         class="flex h-4 cursor-pointer items-center"
-        title="拖动调整播放进度"
+        :title="t('video.seek')"
         @pointerdown="startSeeking"
       >
         <div class="flex h-1 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.28)]">
@@ -35,7 +35,7 @@
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded hover:bg-[rgba(255,255,255,0.14)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-white"
-            :title="playing ? '暂停' : '播放'"
+            :title="playing ? t('video.pause') : t('video.play')"
             @click.stop="togglePlayback"
           >
             <!-- 使用固定矢量图标，避免播放字符在 Windows 上被渲染成彩色 Emoji。 -->
@@ -50,7 +50,7 @@
           <button
             type="button"
             class="flex h-7 min-w-[46px] items-center justify-center rounded px-2 font-mono text-[11px] hover:bg-[rgba(255,255,255,0.14)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-white"
-            title="播放速度"
+            :title="t('video.speed')"
             @click.stop="speedMenuVisible = !speedMenuVisible"
           >
             {{ playbackRate }}×
@@ -77,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { Icon } from '@iconify/vue/offline'

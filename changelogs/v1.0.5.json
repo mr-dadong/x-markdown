@@ -6,6 +6,7 @@
       "date": "2026-08-03",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "优化编辑器 Tab 键交互，列表和任务列表支持 Tab 降级、Shift+Tab 提升级，表格支持前后单元格导航。",
         "代码块和 Markdown 源码模式支持单行及多行批量缩进，并修复连续按 Tab 时页面滚动和编辑焦点丢失的问题。",
@@ -15,6 +16,16 @@
         "完善普通段落和标题的 Tab 缩进，按 Tab 可插入两个空格，按 Shift+Tab 可移除光标前的一到两个缩进空格。",
         "升级 Mermaid 图表编辑器，新增源码行号、Ctrl+Enter 快速保存，并优化编辑弹窗的标题、尺寸和定位。",
         "优化提示块样式与编辑体验，强化类型辨识，支持 Ctrl+Enter 快速保存，并统一 Markdown 扩展内容的编辑弹窗布局。"
+      ],
+      "contentEn": [
+        "Improved Tab behavior: lists and task lists support Tab to demote and Shift+Tab to promote; tables navigate between cells.",
+        "Single-line and multi-line bulk indentation in code blocks and Markdown source mode; fixed page scrolling and focus loss when pressing Tab repeatedly.",
+        "Simplified workspace actions in the sidebar by removing the redundant manual refresh button now that automatic refresh exists.",
+        "Improved click-to-edit between images, attachments, and other blocks; temporary empty lines are cleaned up when no content is entered.",
+        "Added HTML source blocks: insert via slash command, with syntax highlighting, live safe preview, full-screen editing, and lossless source saving; scripts never execute.",
+        "Tab indentation for paragraphs and headings: Tab inserts two spaces, Shift+Tab removes one or two leading spaces before the cursor.",
+        "Upgraded the Mermaid editor with source line numbers, Ctrl+Enter to save, and improved dialog title, size, and positioning.",
+        "Improved callout styling and editing, stronger type distinction, Ctrl+Enter to save, and a consistent dialog layout for Markdown extension blocks."
       ],
       "downloads": {
         "windows": {

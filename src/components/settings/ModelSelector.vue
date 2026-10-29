@@ -23,7 +23,7 @@
         <!-- 已保存的自定义模型 -->
         <div v-if="customModels.length > 0 && !inputValue.trim()" class="model-selector-section">
           <div class="model-selector-section-header">
-            <span>自定义模型</span>
+            <span>{{ t('model.customModels') }}</span>
           </div>
           <div class="model-selector-list">
             <div v-for="(m, index) in customModels" :key="'custom-' + m" :ref="(el) => setItemRef(el, index)"
@@ -46,7 +46,7 @@
         <!-- 从 API 获取的模型 -->
         <div v-if="filteredOptions.length > 0" class="model-selector-section">
           <div v-if="customModels.length > 0 && !inputValue.trim()" class="model-selector-section-header">
-            <span>可用模型</span>
+            <span>{{ t('model.available') }}</span>
           </div>
           <div class="model-selector-list">
             <button v-for="(option, index) in filteredOptions" :key="option.id"
@@ -73,7 +73,7 @@
             @mouseenter="activeIndex = totalOptions">
             <Icon icon="lucide:plus-circle" :size="14" class="model-selector-add-icon" />
             <div class="model-selector-option-main">
-              <span class="model-selector-option-name">添加为自定义模型</span>
+              <span class="model-selector-option-name">{{ t('model.addCustom') }}</span>
               <span class="model-selector-option-id">{{ inputValue.trim() }}</span>
             </div>
           </button>
@@ -83,7 +83,7 @@
         <div
           v-if="!fetching && filteredOptions.length === 0 && customModels.length === 0 && !inputValue.trim() && !fetchError"
           class="model-selector-empty">
-          点击右侧刷新按钮获取可用模型
+          {{ t('model.emptyHint') }}
         </div>
       </div>
     </Transition>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, nextTick, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { AiModelInfo } from '../../types/ai'

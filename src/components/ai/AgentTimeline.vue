@@ -8,7 +8,7 @@
           class="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-[11px] text-muted hover:bg-toolbar hover:text-ink"
           :aria-expanded="thinkingOpen(entry, index)" @click="toggle(entry.id)">
           <Icon icon="lucide:sparkles" :size="13" class="shrink-0" />
-          <span class="shrink-0">{{ running && index === timeline.length - 1 ? '正在思考' : '思考详情' }}</span>
+          <span class="shrink-0">{{ running && index === timeline.length - 1 ? t('agent.thinking') : t('agent.thinkingDetails') }}</span>
           <!-- 收起时用首行内容做摘要，多条思考行不再长得一模一样。 -->
           <span v-if="!thinkingOpen(entry, index)" class="min-w-0 flex-1 truncate text-left text-muted">{{
             firstLine(entry.text) }}</span>
@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { DocumentAgentOperation, DocumentAgentTimelineEntry, DocumentPatch } from '../../types/documentAgent'
@@ -137,8 +138,10 @@ const firstLine = (text: string): string => text.split('\n')[0]
 // 本地登记类工具实测不足 1 毫秒，显示「<1 毫秒」比「0 毫秒」更符合直觉。
 const duration = (operation: DocumentAgentOperation): string => {
   const ms = (operation.endedAt ?? operation.startedAt) - operation.startedAt
-  if (ms < 1) return '<1 毫秒'
-  return ms < 1000 ? `${ms} 毫秒` : `${(ms / 1000).toFixed(1)} 秒`
+  if (ms < 1) return t('agent.lessThanMillisecond')
+  return ms < 1000
+    ? t('agent.milliseconds', { count: ms })
+    : t('agent.seconds', { count: (ms / 1000).toFixed(1) })
 }
 
 const patchOf = (id: string): ReviewPatch | undefined => props.patches.find(patch => patch.id === id)

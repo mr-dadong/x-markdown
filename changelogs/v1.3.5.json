@@ -6,6 +6,7 @@
       "date": "2026-09-16",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：附件卡片显示文件大小与缺失状态",
         "新增：手写文件链接自动转换为附件卡片功能",
@@ -13,6 +14,14 @@
         "优化：完善AI代理模式下的撤销重做机制",
         "优化：代码块内选中代码文字时不再弹出AI动作条",
         "优化：导出PDF/HTML时为代码块补写当前外观的语法配色类"
+      ],
+      "contentEn": [
+        "Attachment cards show file size and missing status.",
+        "Handwritten file links are automatically converted into attachment cards.",
+        "Improved heading label positioning for multiple inline elements.",
+        "Improved undo and redo in AI agent mode.",
+        "The AI action bar no longer appears when selecting code text inside code blocks.",
+        "PDF and HTML export now writes the current syntax color classes for code blocks."
       ],
       "downloads": {
         "windows": {

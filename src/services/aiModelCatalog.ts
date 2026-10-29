@@ -1,3 +1,4 @@
+import { t } from '../composables/useI18n';
 import type { AiModelInfo } from '../types/ai'
 import { ref } from 'vue'
 
@@ -20,7 +21,7 @@ export const readModelCatalog = (provider: string, baseUrl: string): AiModelInfo
   const models: unknown = JSON.parse(stored)
   if (!Array.isArray(models) || !models.every((model) =>
     model && typeof model.id === 'string' && (model.name === undefined || typeof model.name === 'string'))) {
-    throw new Error('已保存的模型列表格式错误，请在设置中重新获取')
+    throw new Error(t('ai.modelCatalogInvalid'))
   }
   return models
 }

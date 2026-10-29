@@ -6,6 +6,7 @@
       "date": "2026-08-04",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "Windows 安装版新增资源管理器右键“新建 Markdown 文档”入口，可直接创建空白 .md 文件。",
         "新增文档查找与替换功能，支持在编辑模式和源码模式中定位及替换内容。",
@@ -15,6 +16,16 @@
         "优化 HTML 导出，原生 HTML 内容可按编辑器中的实际样式正确显示。",
         "精简侧栏顶部布局，移除重复的当前项目信息和更换文件夹入口。",
         "优化 ZIP 导出，自动打包文档中的本地图片、附件和视频，并转换为可传递的相对资源路径。"
+      ],
+      "contentEn": [
+        "The Windows installer adds an Explorer context menu entry, New Markdown Document, to create a blank .md file.",
+        "Added find and replace in both rendered and source modes.",
+        "Added HTML, PDF, and ZIP export.",
+        "Added a file tree context menu: new file or folder, rename, delete, copy path, and show in file manager.",
+        "Improved the outline by cleaning Markdown formatting markers from headings.",
+        "Improved HTML export so native HTML content displays with the editor's styling.",
+        "Simplified the sidebar header by removing duplicate project info and the change-folder entry.",
+        "Improved ZIP export: local images, attachments, and videos are packed with portable relative paths."
       ],
       "downloads": {
         "windows": {

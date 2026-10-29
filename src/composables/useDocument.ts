@@ -13,6 +13,7 @@ import {
   getFileName,
   type DocumentStats,
 } from "../utils/file";
+import { t } from "./useI18n";
 import { useConfirmDialog } from "./useConfirmDialog";
 import type { OpenFileData, RecoveryDraftData } from "../types/electron";
 import { documentService } from "../services/documentService";
@@ -96,9 +97,9 @@ export const useDocument = () => {
 
     if (document.isModified) {
       const shouldReload = await requestConfirmation({
-        title: "重新加载将丢弃未保存的修改？",
-        message: `“${getDocumentTitle(document)}”在 XMD 中的修改尚未保存，重新加载将从磁盘载入最新内容并丢弃这些修改。`,
-        confirmLabel: "重新加载",
+        title: t("dialog.reloadDiscard.title"),
+        message: t("dialog.reloadDiscard.message", { title: getDocumentTitle(document) }),
+        confirmLabel: t("dialog.reloadDiscard.confirm"),
         tone: "danger",
       });
       if (!shouldReload) return;
@@ -107,8 +108,8 @@ export const useDocument = () => {
     const result = await documentService.readFile(document.filePath);
     if (!result.success || result.content === undefined) {
       await documentService.showErrorMessage(
-        "重新加载失败",
-        result.error ?? "无法读取磁盘上的最新内容。",
+        t("error.reload.failed"),
+        result.error ?? t("error.reload.readFailed"),
       );
       return;
     }
@@ -218,7 +219,7 @@ export const useDocument = () => {
 
   // 文件名统一在这里处理，标签栏和当前文档标题会保持一致。
   const getDocumentTitle = (document: OpenDocument | null): string =>
-    getFileName(document?.filePath ?? null);
+    getFileName(document?.filePath ?? null, t("document.untitledFile"));
 
   const activateDocument = (documentId: number): void => {
     const document = documents.value.find((item) => item.id === documentId);
@@ -342,9 +343,9 @@ export const useDocument = () => {
     // 未保存内容必须由用户明确确认，避免关闭标签时误丢编辑结果。
     if (document.isModified) {
       const shouldClose = await requestConfirmation({
-        title: "关闭未保存的文档？",
-        message: `“${getDocumentTitle(document)}”中的修改尚未保存，关闭后将无法恢复。`,
-        confirmLabel: "放弃修改",
+        title: t("dialog.closeUnsaved.title"),
+        message: t("dialog.closeUnsaved.message", { title: getDocumentTitle(document) }),
+        confirmLabel: t("dialog.saveBeforeExit.discard"),
         tone: "danger",
       });
       if (!shouldClose) return;
@@ -376,9 +377,9 @@ export const useDocument = () => {
     ).length;
     if (modifiedCount > 0) {
       const shouldClose = await requestConfirmation({
-        title: "关闭其他标签页？",
-        message: `其他标签页中有 ${modifiedCount} 个文档尚未保存，关闭后修改将无法恢复。`,
-        confirmLabel: "关闭其他标签页",
+        title: t("dialog.closeOthers.title"),
+        message: t("dialog.closeOthers.message", { count: modifiedCount }),
+        confirmLabel: t("document.closeOthers"),
         tone: "danger",
       });
       if (!shouldClose) return;
@@ -394,9 +395,9 @@ export const useDocument = () => {
     ).length;
     if (modifiedCount > 0) {
       const shouldClose = await requestConfirmation({
-        title: "关闭所有标签页？",
-        message: `有 ${modifiedCount} 个文档尚未保存，关闭后修改将无法恢复。`,
-        confirmLabel: "关闭所有标签页",
+        title: t("dialog.closeAll.title"),
+        message: t("dialog.closeAll.message", { count: modifiedCount }),
+        confirmLabel: t("document.closeAll"),
         tone: "danger",
       });
       if (!shouldClose) return;
@@ -412,7 +413,7 @@ export const useDocument = () => {
       if (files) applyOpenedFiles(files);
     } catch (error) {
       // 压缩包损坏、无 Markdown 文档、超大小上限等失败要明确提示，与最近文件打开保持一致。
-      await documentService.showErrorMessage("无法打开文档", (error as Error).message);
+      await documentService.showErrorMessage(t("dialog.openFailed.title"), (error as Error).message);
     }
   };
 
@@ -427,8 +428,8 @@ export const useDocument = () => {
 
     if (unsupportedFiles.length > 0) {
       await documentService.showErrorMessage(
-        "无法打开部分文件",
-        `仅支持 .md、.markdown、.txt 和 .zip 文件：\n${unsupportedFiles.map((file) => file.name).join("\n")}`,
+        t("error.open.partial"),
+        t("error.open.unsupported", { files: unsupportedFiles.map((file) => file.name).join("\n") }),
       );
     }
 
@@ -443,7 +444,7 @@ export const useDocument = () => {
       applyOpenedFiles(openedFiles);
     } catch (error) {
       // 拖入的压缩包损坏、无 Markdown 文档、超大小上限等失败要明确提示，不能毫无反应。
-      await documentService.showErrorMessage("无法打开文档", (error as Error).message);
+      await documentService.showErrorMessage(t("dialog.openFailed.title"), (error as Error).message);
     }
   };
 
@@ -460,8 +461,8 @@ export const useDocument = () => {
     if (!result.success || result.content === undefined) {
       console.error("打开文件失败:", result.error);
       await documentService.showErrorMessage(
-        "无法打开文档",
-        result.error ?? "文件读取失败，请检查文件是否存在以及当前账号是否有读取权限。",
+        t("dialog.openFailed.title"),
+        result.error ?? t("error.open.readFailed"),
       );
       return;
     }
@@ -488,8 +489,8 @@ export const useDocument = () => {
       console.error("打开最近文件失败:", result.error);
       await removeRecentFile(filePath);
       await documentService.showErrorMessage(
-        "无法打开文档",
-        result.error ?? "文件读取失败，请检查文件是否存在以及当前账号是否有读取权限。",
+        t("dialog.openFailed.title"),
+        result.error ?? t("error.open.readFailed"),
       );
       return;
     }
@@ -516,9 +517,9 @@ export const useDocument = () => {
     });
     if (result.conflict) {
       const shouldOverwrite = await requestConfirmation({
-        title: "覆盖磁盘上的文件？",
-        message: `“${getDocumentTitle(document)}”已被其他程序修改。继续保存将覆盖磁盘上的新内容。`,
-        confirmLabel: "继续覆盖",
+        title: t("dialog.overwrite.title"),
+        message: t("dialog.overwrite.message", { title: getDocumentTitle(document) }),
+        confirmLabel: t("dialog.overwrite.confirm"),
         tone: "danger",
       });
       // 冲突确认期间用户可能切换标签，因此必须继续保存最初捕获的文档。
@@ -528,7 +529,7 @@ export const useDocument = () => {
     if (!result.success) {
       if (result.error) {
         console.error("保存文件失败:", result.error);
-        await documentService.showErrorMessage("无法保存文档", result.error);
+        await documentService.showErrorMessage(t("error.save.failed"), result.error);
       }
       return false;
     }
@@ -558,11 +559,11 @@ export const useDocument = () => {
       (document) => document.isModified,
     ).length;
     if (modifiedCount > 0) {
-      const direction = side === "left" ? "左侧" : "右侧";
+      const sideLabel = side === "left" ? t("side.left") : t("side.right");
       const shouldClose = await requestConfirmation({
-        title: `关闭${direction}标签页？`,
-        message: `${direction}标签页中有 ${modifiedCount} 个文档尚未保存，关闭后修改将无法恢复。`,
-        confirmLabel: `关闭${direction}标签页`,
+        title: t("dialog.closeSide.title", { side: sideLabel }),
+        message: t("dialog.closeSide.message", { side: sideLabel, count: modifiedCount }),
+        confirmLabel: t("dialog.closeSide.confirm", { side: sideLabel }),
         tone: "danger",
       });
       if (!shouldClose) return;
@@ -766,8 +767,8 @@ export const useDocument = () => {
       const message =
         initializationError instanceof Error
           ? initializationError.message
-          : "文档初始化失败";
-      await documentService.showErrorMessage("无法完成文档初始化", message);
+          : t("error.init.message");
+      await documentService.showErrorMessage(t("error.init.title"), message);
     }
   });
 

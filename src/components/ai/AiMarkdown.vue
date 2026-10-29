@@ -11,6 +11,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { extractUnclosedFence, normalizeAiMarkdown } from '../../utils/aiMarkdown'
@@ -40,8 +41,8 @@ const md = new MarkdownIt({
 const makeFenceHtml = (lang: string, content: string, highlighted: boolean): string => {
   const style = getCodeBlockStyle(settings.codeBlockStyle)
   const langLabel = `<span class="code-lang">${md.utils.escapeHtml(lang)}</span>`
-  const wrapButton = `<button type="button" title="关闭自动换行" class="code-wrap-btn is-active ${style.headerControlClass} ${style.headerHoverClass}">自动换行</button>`
-  const copyButton = `<button type="button" class="code-copy-btn ${style.headerControlClass} ${style.headerHoverClass}">复制</button>`
+  const wrapButton = `<button type="button" title="${t('codeBlock.wrapOff')}" class="code-wrap-btn is-active ${style.headerControlClass} ${style.headerHoverClass}">${t('codeBlock.wrapOnShort')}</button>`
+  const copyButton = `<button type="button" class="code-copy-btn ${style.headerControlClass} ${style.headerHoverClass}">${t('common.copy')}</button>`
   const code = highlighted ? highlightCode(lang, content) : md.utils.escapeHtml(content)
   return (
     `<div class="code-block-wrapper ${style.tokenClass}" data-wrap="1">` +
@@ -96,8 +97,8 @@ const handleClick = (event: MouseEvent): void => {
     wrapper.dataset.wrap = nowWrapped ? '1' : '0'
     // 高亮状态跟随当前是否换行，方便一眼看出代码块当前是否自动换行
     wrapButton.classList.toggle('is-active', nowWrapped)
-    wrapButton.textContent = nowWrapped ? '关闭换行' : '自动换行'
-    wrapButton.title = nowWrapped ? '关闭自动换行' : '开启自动换行'
+    wrapButton.textContent = nowWrapped ? t('codeBlock.wrapOffShort') : t('codeBlock.wrapOnShort')
+    wrapButton.title = nowWrapped ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')
     return
   }
 
@@ -114,9 +115,9 @@ const handleClick = (event: MouseEvent): void => {
         .replace(/^\s*\n/, '')
         .replace(/\n\s*$/, '')
       void navigator.clipboard.writeText(codeText)
-      copyButton.textContent = '已复制'
+      copyButton.textContent = t('common.copied')
       window.setTimeout(() => {
-        copyButton.textContent = '复制'
+        copyButton.textContent = t('common.copy')
       }, 1500)
     }
     return

@@ -6,6 +6,7 @@
       "date": "2026-09-08",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：代码块内未选中文字时按 Ctrl+X（macOS 按 Cmd+X）可直接剪切光标所在整行，并将整行内容写入剪贴板，不会留空行",
         "优化：内容块操作菜单移除「新增」「副本」两个入口，新增「问问AI」：点击即把整个内容块文本发送到 AI 聊天，可直接围绕该块内容提问",
@@ -20,6 +21,21 @@
         "优化：查找替换仅作用于当前文档，避免「搜索横跨所有标签页、全部替换却只替换当前文件」的范围不一致问题",
         "优化：设置中获取过的模型列表按厂商本地缓存，AI 侧栏可直接复用，无需重复请求",
         "修复：源码模式下切换文档后按 Ctrl+Z 会回退到上一个文档内容的问题"
+      ],
+      "contentEn": [
+        "With no selection inside a code block, Ctrl+X (Cmd+X on macOS) cuts the caret's whole line and writes it to the clipboard without leaving a blank line.",
+        "The block action menu removes Insert and Duplicate and adds Ask AI: clicking sends the entire block text to AI chat for questions about that block.",
+        "Added an Agent mode to the AI sidebar: it reads and searches the current document, proposes local edits with before and after comparisons, and lets you accept or reject each or all; accepted edits enter the editor undo history and the whole task can be undone.",
+        "Agent tasks show stages and per-step results with timings in real time, followed by goal verification and model reasoning for transparency.",
+        "Editor block selection: drag to select multiple blocks (lists select by item), copy, cut, or delete the selection, and press Esc to cancel.",
+        "External file change banner: when another program changes the open file, a banner appears to reload the latest content or ignore the change.",
+        "Code blocks in AI replies have a wrap toggle, on by default; turning it off enables horizontal scrolling for long lines.",
+        "AI replies render formatting (including code blocks) as paragraphs stream instead of waiting as plain text.",
+        "After sending an AI chat message the input clears immediately; failures restore the draft so nothing is lost.",
+        "Copying AI reply code blocks removes extra leading and trailing blank lines; the horizontal scrollbar matches the editor.",
+        "Find and replace applies only to the current document, fixing the inconsistency where search spanned all tabs but replace only affected one file.",
+        "Model lists fetched in settings are cached locally per provider and reused by the AI sidebar without repeated requests.",
+        "Fixed Ctrl+Z in source mode reverting to the previous document after switching tabs."
       ],
       "downloads": {
         "windows": {

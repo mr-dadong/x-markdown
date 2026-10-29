@@ -4,7 +4,7 @@
       class="relative flex w-full items-start gap-3 rounded-lg border border-l-[3px] px-3.5 py-3"
       :class="[typeStyle.surface, props.selected ? 'outline outline-1 outline-accent/30' : '']"
       contenteditable="false"
-      title="点击编辑提示块"
+      :title="t('callout.edit')"
       @click.stop="startEditing"
     >
       <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" :class="typeStyle.iconSurface">
@@ -19,7 +19,7 @@
             <button
               v-if="foldable"
               type="button"
-              :title="collapsed ? '展开提示块' : '折叠提示块'"
+              :title="collapsed ? t('callout.expand') : t('callout.collapse')"
               class="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
               @click.stop="collapsed = !collapsed"
             >
@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { Icon } from '@iconify/vue/offline'
@@ -61,12 +62,12 @@ const collapsed = ref(String(props.node.attrs.fold) === '-')
 const calloutType = computed(() => String(props.node.attrs.calloutType).toLocaleUpperCase())
 // 标题为空时卡片标题直接显示类型名。
 const displayTitle = computed(() => String(props.node.attrs.title) || ({
-  NOTE: '备注',
-  TIP: '提示',
-  IMPORTANT: '重要',
-  WARNING: '警告',
-  CAUTION: '注意',
-}[calloutType.value] ?? '提示'))
+  NOTE: t('callout.type.note'),
+  TIP: t('callout.type.tip'),
+  IMPORTANT: t('callout.type.important'),
+  WARNING: t('callout.type.warning'),
+  CAUTION: t('callout.type.caution'),
+}[calloutType.value] ?? t('callout.type.tip')))
 const foldable = computed(() => ['+', '-'].includes(String(props.node.attrs.fold)))
 const hasBody = computed(() => String(props.node.attrs.body).trim().length > 0)
 const renderedBody = computed(() => renderSafeMarkdown(String(props.node.attrs.body)))

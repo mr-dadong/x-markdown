@@ -8,7 +8,7 @@
         <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-panel text-muted">
           <Icon icon="lucide:share" :size="15" />
         </div>
-        <h2 class="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-tight text-ink">正在导出 {{ formatLabel }}
+        <h2 class="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-tight text-ink">{{ t('export.progressTitle', { format: formatLabel }) }}
         </h2>
         <!-- 百分比靠右对齐标题行，不再悬在卡片中间。 -->
         <span class="shrink-0 font-mono text-[12px] text-muted">{{ progress }}%</span>
@@ -26,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 
 defineProps<{

@@ -8,13 +8,13 @@
     <div class="flex h-7 items-center justify-between px-1">
       <span class="flex items-center gap-2 text-[12px] font-semibold text-ink">
         <Icon icon="lucide:link-2" :size="15" class="text-link" />
-        插入超链接
+        {{ t('editor.insertLink.title') }}
       </span>
       <span class="font-mono text-[10px] text-muted/60">ESC</span>
     </div>
     <div class="flex flex-col overflow-hidden rounded-md border border-line bg-toolbar">
       <label class="flex h-9 items-center gap-2 px-2.5 focus-within:bg-paper">
-        <span class="w-10 shrink-0 text-[11px] text-muted">地址</span>
+        <span class="w-10 shrink-0 text-[11px] text-muted">{{ t('editor.insertLink.address') }}</span>
         <input
           ref="urlInput"
           :value="url"
@@ -28,12 +28,12 @@
       </label>
       <span class="mx-2.5 h-px bg-line" />
       <label class="flex h-9 items-center gap-2 px-2.5 focus-within:bg-paper">
-        <span class="w-10 shrink-0 text-[11px] text-muted">文字</span>
+        <span class="w-10 shrink-0 text-[11px] text-muted">{{ t('editor.insertLink.text') }}</span>
         <input
           ref="labelInput"
           :value="label"
           type="text"
-          placeholder="链接显示名称"
+          :placeholder="t('editor.insertLink.namePlaceholder')"
           class="h-full min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none placeholder:text-muted/50"
           @input="updateLabel"
           @keydown.esc.prevent="$emit('cancel')"
@@ -48,20 +48,21 @@
         class="flex h-7 items-center rounded-md px-2.5 text-[11px] text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @mousedown.prevent="$emit('cancel')"
       >
-        取消
+        {{ t('common.cancel') }}
       </button>
       <button
         type="button"
         class="flex h-7 items-center rounded-md bg-ink px-3 text-[11px] font-medium text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @mousedown.prevent="$emit('submit')"
       >
-        插入
+        {{ t('emoji.insert') }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { Icon } from "@iconify/vue/offline";
 import { onMounted, ref } from "vue";
 

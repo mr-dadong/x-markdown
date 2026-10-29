@@ -1,3 +1,4 @@
+import { currentT } from "../i18n/current";
 import type { DocumentPatch } from '../types/documentAgent';
 
 /** 把 \r\n 和旧式单独 \r 的换行统一为 \n，与 CodeMirror 文档文本的拆行规则一致，
@@ -13,16 +14,16 @@ export function applyDocumentPatches(document: string, patches: DocumentPatch[])
     const patch = sorted[index];
     if (!Number.isInteger(patch.start) || !Number.isInteger(patch.end) ||
       patch.start < 0 || patch.end < patch.start || patch.end > document.length) {
-      throw new Error('修改位置无效，请重新读取文档');
+      throw new Error(currentT('agent.invalidPosition'));
     }
     if (document.slice(patch.start, patch.end) !== patch.before) {
-      throw new Error('修改原文不匹配，请重新读取文档');
+      throw new Error(currentT('agent.invalidOriginal'));
     }
     const previous = sorted[index - 1];
     if (previous && (previous.end > patch.start || previous.start === patch.start)) {
-      throw new Error('修改范围重叠，请合并为一处修改');
+      throw new Error(currentT('agent.overlap'));
     }
-    if (patch.before === patch.after) throw new Error('修改前后内容相同');
+    if (patch.before === patch.after) throw new Error(currentT('agent.sameContent'));
   }
   // 所有坐标都属于原文，按顺序收集片段后一次拼接，避免批量替换反复复制整篇文档。
   const parts: string[] = [];
@@ -74,12 +75,12 @@ export function validateAgentDocument(document: string): string[] {
     const heading = /^ {0,3}(#{1,6})\s+/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      if (previousHeading && level > previousHeading + 1) issues.push(`第 ${index + 1} 行：标题从 ${previousHeading} 级跳到 ${level} 级`);
+      if (previousHeading && level > previousHeading + 1) issues.push(currentT('agent.issue.headingJump', { line: index + 1, from: previousHeading, to: level }));
       previousHeading = level;
     }
   });
   // 循环回调中的赋值需要显式保留围栏类型，供 TypeScript 分析。
   const unclosed = fence as { line: number } | null;
-  if (unclosed) issues.push(`第 ${unclosed.line} 行：代码围栏未闭合`);
+  if (unclosed) issues.push(currentT('agent.issue.unclosedFence', { line: unclosed.line }));
   return issues;
 }

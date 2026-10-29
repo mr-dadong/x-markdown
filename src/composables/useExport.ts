@@ -1,3 +1,4 @@
+import { locale, t } from "./useI18n";
 import { Editor } from "@tiptap/core";
 import DOMPurify from "dompurify";
 import JSZip from "jszip";
@@ -36,7 +37,7 @@ const waitForRenderSettled = async (host: HTMLElement): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     const hasPendingMermaid =
-      host.querySelector("[data-xmd-mermaid-view]")?.textContent?.includes("正在渲染图表") ??
+      host.querySelector("[data-xmd-mermaid-view]")?.textContent?.includes(t('mermaid.rendering')) ??
       false;
     const currentHtml = host.innerHTML;
 
@@ -163,7 +164,7 @@ const renderExportContent = async (
   documentPath: string | null,
   reportProgress?: ExportProgressReporter,
 ): Promise<{ content: HTMLElement; cleanup: () => void }> => {
-  reportProgress?.({ percent: 10, message: "正在准备文档" });
+  reportProgress?.({ percent: 10, message: t("export.preparingDocument") });
   // 创建隐藏渲染容器，放在屏幕外避免影响当前编辑界面。
   const host = document.createElement("div");
   host.style.cssText =
@@ -188,7 +189,7 @@ const renderExportContent = async (
       },
     },
   });
-  reportProgress?.({ percent: 35, message: "正在渲染文档内容" });
+  reportProgress?.({ percent: 35, message: t("export.renderingContent") });
 
   try {
     // 等待异步节点渲染完成；超时不阻断导出，避免用户长时间无反馈。
@@ -196,13 +197,13 @@ const renderExportContent = async (
     if (!renderSettled) {
       console.warn("[export] 等待导出渲染超时，部分异步内容（Mermaid/公式）可能未渲染完整");
     }
-    reportProgress?.({ percent: 75, message: "正在整理导出内容" });
+    reportProgress?.({ percent: 75, message: t("export.organizingContent") });
 
     // 去掉编辑交互用的小部件（图片缩放控制点），避免出现在导出结果里。
     host.querySelectorAll("[data-xmd-image] span").forEach((node) => node.remove());
     materializeHtmlBlocks(host);
     prepareCodeBlocksForStaticExport(host);
-    reportProgress?.({ percent: 90, message: "文档内容准备完成" });
+    reportProgress?.({ percent: 90, message: t("export.contentReady") });
     const content = host.querySelector(".tiptap");
     return {
       content: (content ?? host) as HTMLElement,
@@ -232,6 +233,7 @@ export const buildExportHtml = async (
   const { content, cleanup } = await renderExportContent(markdown, documentPath, reportProgress);
   try {
     const contentHtml = content.innerHTML;
+    const htmlLang = locale.value === "en" ? "en" : "zh-CN";
 
     const escapedTitle = title.replace(/[<>&"]/g, (char) => {
       const entities: Record<string, string> = {
@@ -245,7 +247,7 @@ export const buildExportHtml = async (
 
     const html = [
       "<!DOCTYPE html>",
-      '<html lang="zh-CN">',
+      `<html lang="${htmlLang}">`,
       "<head>",
       '<meta charset="UTF-8">',
       '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
@@ -264,7 +266,7 @@ export const buildExportHtml = async (
     ]
       .filter((line) => line !== "")
       .join("\n");
-    reportProgress?.({ percent: 100, message: "HTML 内容生成完成" });
+    reportProgress?.({ percent: 100, message: t("export.htmlReady") });
     return html;
   } finally {
     cleanup();
@@ -330,7 +332,9 @@ export const buildExportZip = async (
 
   reportProgress?.({
     percent: references.length > 0 ? 5 : 70,
-    message: references.length > 0 ? `正在收集资源 0/${references.length}` : "文档中没有本地资源",
+    message: references.length > 0
+        ? t("export.collectingResources", { completed: 0, total: references.length })
+        : t("export.noResources"),
   });
 
   for (const [index, reference] of references.entries()) {
@@ -368,7 +372,7 @@ export const buildExportZip = async (
       const completed = index + 1;
       reportProgress?.({
         percent: Math.round(5 + completed / references.length * 65),
-        message: `正在收集资源 ${completed}/${references.length}`,
+        message: t("export.collectingResources", { completed, total: references.length }),
       });
     }
   }
@@ -377,7 +381,7 @@ export const buildExportZip = async (
   return zip.generateAsync({ type: "arraybuffer" }, (metadata) => {
     reportProgress?.({
       percent: Math.round(70 + metadata.percent * 0.3),
-      message: "正在压缩导出文件",
+      message: t("export.compressing"),
     });
   });
 };
@@ -404,9 +408,9 @@ export const buildExportDocx = async (
     });
   });
   try {
-    reportProgress?.({ percent: 70, message: "正在生成 Word 文档" });
-    const docx = await buildDocx(content, title);
-    reportProgress?.({ percent: 100, message: "Word 文档生成完成" });
+    reportProgress?.({ percent: 70, message: t("export.generatingDocx") });
+    const docx = await buildDocx(content, title, locale.value);
+    reportProgress?.({ percent: 100, message: t("export.docxReady") });
     return docx;
   } finally {
     cleanup();

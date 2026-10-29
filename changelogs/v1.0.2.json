@@ -1,42 +1,59 @@
 {
-    "latest": "1.0.2",
-    "releases": [
-        {
-            "version": "1.0.2",
-            "date": "2026-07-29",
-            "channel": "stable",
-            "title": "优化代码块功能",
-            "content": [
-                "新增内容块操作菜单，支持新增、上下移动、复制文本、生成副本和删除内容块。",
-                "新增表格快捷工具栏，支持增删行列、切换表头、合并或拆分单元格及删除表格。",
-                "优化超链接插入与编辑体验，支持打开、编辑、复制和取消链接，并限制为安全链接类型。",
-                "新增附件卡片，展示文件名称、类型和大小，并可使用系统默认应用打开。",
-                "新增附件处理设置，可选择引用原文件或复制到文档同级 assets 目录。",
-                "新增附件复制实时进度，复制失败时自动清理不完整文件。",
-                "支持将粘贴和选择的图片保存到 assets 目录，并改进本地图片预览。",
-                "优化附件和视频的 Markdown 兼容性，其他编辑器也可识别并打开对应文件。",
-                "优化本地视频加载，支持流式播放，并在媒体内容后自动保留可继续输入的段落。",
-                "新增未保存文档关闭确认，并在文件被其他程序修改时提示保存冲突，避免误覆盖内容。",
-                "支持网页链接使用系统浏览器打开、本地链接按当前文档目录安全访问。",
-                "优化富文本与源码模式切换，按文档记忆编辑模式并保持阅读位置。",
-                "增强扩展 Markdown 语法兼容性，无法识别的内容块可原样保留。",
-                "优化文件访问权限校验和异步读写，提升本地文件操作的安全性与稳定性。"
-            ],
-            "downloads": {
-                "windows": {
-                    "available": true,
-                    "requirements": "Windows 10 或 Windows 11",
-                    "packages": [
-                        {
-                            "arch": "x64",
-                            "format": "exe",
-                            "installer": "NSIS",
-                            "filename": "XMD-1.0.2-Windows-x64.exe",
-                            "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Windows-x64.exe"
-                        }
-                    ]
-                }
+  "latest": "1.0.2",
+  "releases": [
+    {
+      "version": "1.0.2",
+      "date": "2026-07-29",
+      "channel": "stable",
+      "title": "优化代码块功能",
+      "titleEn": "Code Block Improvements",
+      "content": [
+        "新增内容块操作菜单，支持新增、上下移动、复制文本、生成副本和删除内容块。",
+        "新增表格快捷工具栏，支持增删行列、切换表头、合并或拆分单元格及删除表格。",
+        "优化超链接插入与编辑体验，支持打开、编辑、复制和取消链接，并限制为安全链接类型。",
+        "新增附件卡片，展示文件名称、类型和大小，并可使用系统默认应用打开。",
+        "新增附件处理设置，可选择引用原文件或复制到文档同级 assets 目录。",
+        "新增附件复制实时进度，复制失败时自动清理不完整文件。",
+        "支持将粘贴和选择的图片保存到 assets 目录，并改进本地图片预览。",
+        "优化附件和视频的 Markdown 兼容性，其他编辑器也可识别并打开对应文件。",
+        "优化本地视频加载，支持流式播放，并在媒体内容后自动保留可继续输入的段落。",
+        "新增未保存文档关闭确认，并在文件被其他程序修改时提示保存冲突，避免误覆盖内容。",
+        "支持网页链接使用系统浏览器打开、本地链接按当前文档目录安全访问。",
+        "优化富文本与源码模式切换，按文档记忆编辑模式并保持阅读位置。",
+        "增强扩展 Markdown 语法兼容性，无法识别的内容块可原样保留。",
+        "优化文件访问权限校验和异步读写，提升本地文件操作的安全性与稳定性。"
+      ],
+      "contentEn": [
+        "Added a block action menu for inserting, moving up or down, copying text, duplicating, and deleting blocks.",
+        "Added a table toolbar for adding or removing rows and columns, toggling the header row, merging or splitting cells, and deleting tables.",
+        "Improved link insertion and editing: open, edit, copy, and remove links, restricted to safe link types.",
+        "Added attachment cards showing file name, type, and size, openable with the system default application.",
+        "Added attachment handling settings: reference the original file or copy it to an assets folder next to the document.",
+        "Added live copy progress for attachments; incomplete files are cleaned up automatically on failure.",
+        "Pasted and selected images can be saved to the assets folder; improved local image preview.",
+        "Improved Markdown compatibility for attachments and videos so other editors can recognize and open the files.",
+        "Improved local video loading with streaming playback and an editable paragraph kept after media content.",
+        "Added a confirmation when closing unsaved documents and a save-conflict warning when files change externally, preventing accidental overwrites.",
+        "Web links open in the system browser; local links are accessed safely relative to the current document folder.",
+        "Improved switching between rich text and source mode: the editor mode is remembered per document and the reading position is preserved.",
+        "Improved compatibility with extended Markdown syntax; unrecognized blocks are preserved as-is.",
+        "Improved file access permission checks and asynchronous I/O for safer, more stable local file operations."
+      ],
+      "downloads": {
+        "windows": {
+          "available": true,
+          "requirements": "Windows 10 或 Windows 11",
+          "packages": [
+            {
+              "arch": "x64",
+              "format": "exe",
+              "installer": "NSIS",
+              "filename": "XMD-1.0.2-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/xmd-released/-/releases/download/v1.0.2/XMD-1.0.2-Windows-x64.exe"
             }
+          ]
         }
-    ]
+      }
+    }
+  ]
 }

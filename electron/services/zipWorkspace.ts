@@ -1,3 +1,4 @@
+import { mainT } from "../i18n";
 import { createHash } from "crypto";
 import fs from "fs";
 import os from "os";
@@ -93,10 +94,10 @@ async function writeManifest(
 function assertSafeEntryName(entryName: string): string {
     const normalized = entryName.replaceAll("\\", "/");
     if (normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) {
-        throw new Error(`压缩包包含非法条目：${entryName}`);
+        throw new Error(mainT("error.zip.illegalEntry", { name: entryName }));
     }
     if (normalized.split("/").some((segment) => segment === "..")) {
-        throw new Error(`压缩包包含越界路径：${entryName}`);
+        throw new Error(mainT("error.zip.pathEscape", { name: entryName }));
     }
     return normalized;
 }
@@ -137,7 +138,7 @@ async function extractZipToWorkspace(
     maxTotalBytes: number,
 ): Promise<void> {
     const zip = await JSZip.loadAsync(await fs.promises.readFile(zipPath));
-    const limitMessage = `压缩包解压后超过大小上限（${Math.floor(maxTotalBytes / 1024 / 1024)}MB），已中止`;
+    const limitMessage = mainT("error.zip.tooLarge", { size: Math.floor(maxTotalBytes / 1024 / 1024) });
     let totalBytes = 0;
     for (const entry of Object.values(zip.files)) {
         const safeName = assertSafeEntryName(entry.name);
@@ -196,7 +197,7 @@ export async function prepareZipWorkspace(
 ): Promise<string> {
     const resolvedZipPath = path.resolve(zipPath);
     const zipStats = await fs.promises.stat(resolvedZipPath);
-    if (!zipStats.isFile()) throw new Error(`压缩包不存在：${resolvedZipPath}`);
+    if (!zipStats.isFile()) throw new Error(mainT("error.zip.missing", { path: resolvedZipPath }));
 
     const workspaceDir = workspaceDirForZip(resolvedZipPath);
     const manifest = await readManifest(workspaceDir);
@@ -252,7 +253,7 @@ export async function readDocumentsWithZipSupport(
         const workspaceDir = await prepareZipWorkspace(filePath);
         const markdownPaths = await findMarkdownDocuments(workspaceDir);
         if (markdownPaths.length === 0) {
-            throw new Error(`压缩包内没有找到 Markdown 文档：${filePath}`);
+            throw new Error(mainT("error.zip.noMarkdown", { path: filePath }));
         }
         documentPaths.push(...markdownPaths);
     }
@@ -266,7 +267,7 @@ export async function readDocumentsWithZipSupport(
 export async function repackZipWorkspace(workspaceDir: string): Promise<number> {
     const workspace = zipWorkspaces.get(workspaceDir);
     if (!workspace) {
-        throw new Error(`未找到工作区对应的压缩包信息：${workspaceDir}`);
+        throw new Error(mainT("error.zip.workspaceMissing", { path: workspaceDir }));
     }
     const zip = new JSZip();
     const collectFiles = async (dir: string): Promise<void> => {

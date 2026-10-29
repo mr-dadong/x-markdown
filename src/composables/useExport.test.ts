@@ -244,6 +244,24 @@ describe("HTML 与 DOCX 导出", () => {
     assert.ok(documentXml?.includes(longCode));
     assert.ok(!documentXml?.includes("<w:noWrap"));
   });
+
+  test("导出语言标记跟随当前界面语言", async () => {
+    const { setLanguagePreference } = await import("./useI18n");
+    setLanguagePreference("en");
+    try {
+      const html = await buildExportHtml("# Title", null, "Title");
+      assert.match(html, /<html lang="en">/);
+      const data = await buildExportDocx("# Title", null, "Title");
+      const zip = await JSZip.loadAsync(data);
+      const stylesXml = await zip.file("word/styles.xml")?.async("string");
+      assert.match(stylesXml ?? "", /<w:lang w:val="en-US" w:eastAsia="en-US"/);
+    } finally {
+      setLanguagePreference("zh-CN");
+    }
+
+    const chineseHtml = await buildExportHtml("# 标题", null, "标题");
+    assert.match(chineseHtml, /<html lang="zh-CN">/);
+  });
 });
 
 describe("代码块截图克隆准备", () => {

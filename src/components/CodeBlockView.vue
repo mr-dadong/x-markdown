@@ -7,7 +7,7 @@
       class="flex h-10 items-center justify-between rounded-t-md border border-b-0 px-3"
       :class="activeCodeBlockStyle.headerClass">
       <div class="flex min-w-0 items-center gap-3">
-        <div class="flex shrink-0 items-center gap-1.5" title="代码块">
+        <div class="flex shrink-0 items-center gap-1.5" :title="t('codeBlock.title')">
           <span class="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <span class="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
           <span class="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
@@ -22,13 +22,13 @@
       <div class="flex shrink-0 items-center gap-2">
         <!-- 换行切换按钮：与设置面板的“代码块内自动换行”共用同一个开关，
              开启时用选中底色高亮，方便一眼看出当前状态。 -->
-        <button type="button" :title="settings.codeWrap ? '关闭自动换行' : '开启自动换行'"
+        <button type="button" :title="settings.codeWrap ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')"
           class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerHoverClass, settings.codeWrap ? activeCodeBlockStyle.menuSelectedClass : activeCodeBlockStyle.headerControlClass]"
           @click.stop="settings.codeWrap = !settings.codeWrap">
           <Icon icon="lucide:wrap-text" :size="14" />
         </button>
-        <button type="button" :title="copied ? '已复制' : '复制代码'"
+        <button type="button" :title="copied ? t('codeBlock.copied') : t('codeBlock.copy')"
           class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerControlClass, activeCodeBlockStyle.headerHoverClass]"
           @click.stop="copyCode">
@@ -36,7 +36,7 @@
         </button>
         <!-- 下载图片按钮：把当前代码块连同配色、语法高亮保存为 PNG 图片。
              导出过程中按钮禁用，鼠标指针改为禁用样式，避免重复触发。 -->
-        <button type="button" title="下载为图片" :disabled="exportingImage"
+        <button type="button" :title="t('codeBlock.downloadImage')" :disabled="exportingImage"
           class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded opacity-0 outline-none focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed group-hover:opacity-100"
           :class="[activeCodeBlockStyle.headerControlClass, activeCodeBlockStyle.headerHoverClass]"
           @click.stop="downloadAsImage">
@@ -63,13 +63,14 @@
          面板不属于代码块内容，留在组件里会被截图克隆带进图片，
          也避免编辑器把它当成正文节点、或被祖先元素的 transform 影响定位。 -->
     <Teleport to="body">
-      <ExportProgress :visible="exportingImage" format-label="PNG 图片" :message="imageExportMessage"
+      <ExportProgress :visible="exportingImage" :format-label="t('fileDialog.pngImage')" :message="imageExportMessage"
         :progress="imageExportPercent" />
     </Teleport>
   </node-view-wrapper>
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import type { ComponentPublicInstance } from 'vue'
 import type { NodeViewProps } from '@tiptap/core'
 import { Selection } from '@tiptap/pm/state'
@@ -127,7 +128,7 @@ const codeBlockWrapper = ref<ComponentPublicInstance | null>(null)
 // 避免同时产生多个屏幕外克隆容器与保存对话框；同时驱动导出进度面板。
 const exportingImage = ref(false)
 // 导出进度文案与百分比，阶段与文档导出保持一致（准备 / 生成 / 写入 / 完成）。
-const imageExportMessage = ref('正在准备导出')
+const imageExportMessage = ref(t('export.preparing'))
 const imageExportPercent = ref(0)
 
 /*
@@ -145,30 +146,34 @@ const downloadAsImage = async (): Promise<void> => {
   const languageLabel = getCodeBlockLanguageLabel(currentLanguage.value).replace(/[\\/]/g, '-')
   exportingImage.value = true
   imageExportPercent.value = 5
-  imageExportMessage.value = '请选择保存位置'
+  imageExportMessage.value = t('export.chooseSaveLocationShort')
   try {
-    const filePath = await exportService.choosePngSavePath(`代码块-${languageLabel}`)
+    const filePath = await exportService.choosePngSavePath(t('fileName.codeBlock', { label: languageLabel }))
     // 用户在保存对话框里取消：直接结束，不生成图片。
     if (!filePath) return
     imageExportPercent.value = 20
-    imageExportMessage.value = '正在生成图片'
+    imageExportMessage.value = t('codeBlock.generating')
     // 让进度面板先绘制出来，再开始同步占用主线程的克隆与栅格化。
     await nextTick()
     const slices = await codeBlockToPngSlices(root, settings.codeWrap, (progress) => {
       imageExportPercent.value = 20 + Math.round((progress.completed / progress.total) * 60)
       imageExportMessage.value = progress.total > 1
-        ? `正在生成图片 ${progress.completed}/${progress.total}`
-        : '正在生成图片'
+        ? t('codeBlock.generatingProgress', { completed: progress.completed, total: progress.total })
+        : t('codeBlock.generating')
     })
     imageExportPercent.value = 90
-    imageExportMessage.value = slices.length > 1 ? `正在写入 ${slices.length} 张图片` : '正在写入文件'
+    imageExportMessage.value = slices.length > 1
+      ? t('codeBlock.writingMultiple', { count: slices.length })
+      : t('codeBlock.writingFile')
     await exportService.writePngFiles(filePath, slices)
     imageExportPercent.value = 100
-    imageExportMessage.value = slices.length > 1 ? `已导出 ${slices.length} 张图片` : '导出完成'
+    imageExportMessage.value = slices.length > 1
+      ? t('codeBlock.exportedMultiple', { count: slices.length })
+      : t('export.completed')
     // 短暂保留完成状态，让用户明确看到导出已成功。
     await new Promise((resolve) => setTimeout(resolve, 450))
   } catch (error) {
-    await window.electronAPI.showErrorMessage('导出图片失败', (error as Error).message)
+    await window.electronAPI.showErrorMessage(t('codeBlock.exportFailed'), (error as Error).message)
   } finally {
     exportingImage.value = false
   }

@@ -5,7 +5,7 @@
     :data-file-size="node.attrs.fileSize"
     :data-file-type="node.attrs.fileType"
     :data-url="node.attrs.url"
-    :title="isMissing ? `文件不存在：${node.attrs.url}` : undefined"
+    :title="isMissing ? t('attachment.missingTitle', { path: node.attrs.url }) : undefined"
     class="xmd-attachment my-2 flex h-16 w-[400px] max-w-full items-center gap-3 rounded-lg border px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     :class="isMissing ? 'border-line bg-toolbar' : 'border-line bg-paper hover:border-muted hover:bg-toolbar'"
     contenteditable="false"
@@ -25,7 +25,7 @@
         {{ node.attrs.fileName }}
       </span>
       <span class="text-[11px] leading-4" :class="isMissing ? 'text-danger' : 'text-muted'">
-        {{ isMissing ? '文件已丢失' : sizeLabel }}
+        {{ isMissing ? t('attachment.missing') : sizeLabel }}
       </span>
     </span>
 
@@ -33,7 +33,7 @@
       v-if="isMissing"
       class="flex h-6 shrink-0 items-center rounded-md border border-danger/30 bg-paper px-2 text-[10px] font-medium text-danger"
     >
-      缺失
+      {{ t('attachment.missingBadge') }}
     </span>
 
     <!-- 只有右侧按钮负责打开文件，点击卡片其他区域仍可正常选中附件节点。 -->
@@ -45,7 +45,7 @@
       type="button"
       data-xmd-attachment-open
       class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted hover:bg-control hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-      title="使用默认应用打开"
+      :title="t('attachment.openWithDefault')"
       @mousedown.stop
     >
       <Icon icon="lucide:external-link" :size="15" />
@@ -54,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'

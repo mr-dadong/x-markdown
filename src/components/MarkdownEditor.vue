@@ -52,7 +52,7 @@
       class="fixed z-20 flex h-7 items-center text-muted/45" :style="blockControlStyle" contenteditable="false"
       @mousemove.stop @mouseleave="handleBlockControlLeave">
       <!-- 标题层级标签：鼠标悬停时显示 H1/H2 等，帮助用户快速识别标题层级，无需切换到源码页或查看左侧大纲。 -->
-      <button type="button" draggable="true" title="拖动内容块"
+      <button type="button" draggable="true" :title="t('editor.dragBlock')"
         class="flex h-7 w-6 cursor-grab items-center justify-center rounded hover:bg-control-hover hover:text-secondary active:cursor-grabbing focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         @click.stop="toggleBlockMenu" @dragstart="handleBlockDragStart" @dragend="finishBlockDrag">
         <Icon icon="lucide:grip-vertical" :size="14" />
@@ -60,7 +60,7 @@
       <!-- 折叠箭头靠近标题，拖拽柄留在外侧，操作层级更符合阅读方向。 -->
       <button v-if="activeBlock.isHeading" type="button"
         class="flex h-7 w-7 items-center justify-center rounded text-muted/70 hover:bg-control-hover hover:text-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-        :title="activeBlockCollapsed ? '展开章节' : '折叠章节'" @click="toggleActiveHeading">
+        :title="activeBlockCollapsed ? t('editor.expandSection') : t('editor.collapseSection')" @click="toggleActiveHeading">
         <Icon :icon="activeBlockCollapsed ? 'lucide:chevron-right' : 'lucide:chevron-down'" :size="14" />
       </button>
     </div>
@@ -101,30 +101,30 @@
       <div class="flex h-7 items-center justify-between px-1">
         <span class="flex items-center gap-2 text-[12px] font-semibold text-ink">
           <Icon icon="lucide:sparkles" :size="15" class="text-accent" />
-          AI 实时编写
+          {{ t('editor.aiWriteTitle') }}
         </span>
         <span class="font-mono text-[10px] text-muted/60">ESC</span>
       </div>
       <!-- 输入区沿用链接面板的内嵌样式：灰底区分层级，聚焦时提亮为纸色。 -->
       <div class="flex flex-col overflow-hidden rounded-md border border-line bg-toolbar focus-within:bg-paper">
         <textarea ref="aiWriterInputRef" v-model="aiWriterInstruction" rows="3"
-          placeholder="描述你想让 AI 写的内容，例如：写一首关于春天的诗、续写这个故事"
+          :placeholder="t('editor.aiWritePlaceholder')"
           class="w-full resize-none bg-transparent px-2.5 py-2 text-[12px] leading-5 text-ink outline-none placeholder:text-muted/50"
           @keydown.enter.exact.prevent="startAiWriting" @keydown.esc.prevent="closeAiWriterInput" />
       </div>
       <div class="flex h-8 items-center justify-between">
-        <span class="px-1 text-[10px] text-muted/60">Enter 开始</span>
+        <span class="px-1 text-[10px] text-muted/60">{{ t('editor.enterToStart') }}</span>
         <div class="flex items-center gap-1">
           <button type="button"
             class="flex h-7 items-center rounded-md px-2.5 text-[11px] text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
             @mousedown.prevent="closeAiWriterInput">
-            取消
+            {{ t('common.cancel') }}
           </button>
           <button type="button" :disabled="!aiWriterInstruction.trim()"
             class="flex h-7 items-center gap-1 rounded-md bg-ink px-3 text-[11px] font-medium text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
             @mousedown.prevent="startAiWriting">
             <Icon icon="lucide:play" :size="12" />
-            开始编写
+            {{ t('editor.startWriting') }}
           </button>
         </div>
       </div>
@@ -141,17 +141,17 @@
       :style="linkMenuStyle" contenteditable="false" @mouseenter="cancelLinkMenuClose"
       @mouseleave="scheduleLinkMenuClose">
       <div v-if="editingLink" class="flex w-[360px] items-center gap-1 p-1">
-        <input ref="linkInput" v-model="linkDraft" type="url" placeholder="粘贴或输入链接"
+        <input ref="linkInput" v-model="linkDraft" type="url" :placeholder="t('editor.linkPlaceholder')"
           class="h-8 min-w-0 flex-1 rounded-md border border-line bg-paper px-2.5 text-[13px] text-ink outline-none focus:border-link"
           @keydown.enter.prevent="saveLink" @keydown.esc.prevent="cancelEditLink">
-        <button type="button" title="保存链接"
+        <button type="button" :title="t('editor.saveLink')"
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="saveLink">
           <Icon icon="lucide:check" :size="16" />
         </button>
       </div>
       <div v-else class="flex max-w-[440px] items-center gap-1">
-        <button type="button" title="打开链接"
+        <button type="button" :title="t('editor.openLink')"
           class="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-control-hover focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="openActiveLink">
           <Icon icon="lucide:link-2" :size="15" class="shrink-0 text-link" />
@@ -159,17 +159,17 @@
           <Icon icon="lucide:external-link" :size="13" class="shrink-0 text-muted" />
         </button>
         <span class="h-5 w-px bg-line" />
-        <button type="button" title="编辑链接"
+        <button type="button" :title="t('editor.editLink')"
           class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="startEditLink">
           <Icon icon="lucide:pen-line" :size="15" />
         </button>
-        <button type="button" title="复制链接"
+        <button type="button" :title="t('editor.copyLink')"
           class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="copyActiveLink">
           <Icon :icon="linkCopied ? 'lucide:check' : 'lucide:copy'" :size="15" />
         </button>
-        <button type="button" title="取消链接"
+        <button type="button" :title="t('editor.unlink')"
           class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-danger focus-visible:outline focus-visible:outline-1 focus-visible:outline-link"
           @mousedown.prevent="removeActiveLink">
           <Icon icon="lucide:unlink" :size="15" />
@@ -193,7 +193,7 @@
             <div v-if="group.commands.length" class="flex flex-col">
               <div class="flex h-6 shrink-0 items-center gap-2 px-3">
                 <span class="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/70">
-                  {{ group.name }}
+                  {{ t(slashCommandGroupKeys[group.name]) }}
                 </span>
                 <span class="h-px min-w-0 flex-1 bg-line/60" />
               </div>
@@ -210,10 +210,10 @@
                 </span>
                 <!-- 名称 + 描述。 -->
                 <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
-                  <span class="shrink-0 text-[12px] font-medium leading-5 text-ink">{{ command.item.label }}</span>
+                  <span class="shrink-0 text-[12px] font-medium leading-5 text-ink">{{ t(command.item.labelKey) }}</span>
                   <span v-if="settings.showSlashCommandDescriptions"
                     class="min-w-0 flex-1 truncate text-[11px] leading-5 text-muted">
-                    {{ command.item.description }}
+                    {{ t(command.item.descriptionKey) }}
                   </span>
                 </span>
               </button>
@@ -228,8 +228,8 @@
           <Icon icon="lucide:search-x" :size="18" />
         </span>
         <div class="flex flex-col items-center gap-0.5">
-          <span class="text-[12px] font-medium text-secondary">没有匹配的命令</span>
-          <span class="text-[11px] text-muted">换个关键词，或按 Esc / Enter 关闭</span>
+          <span class="text-[12px] font-medium text-secondary">{{ t('editor.noMatchingCommands') }}</span>
+          <span class="text-[11px] text-muted">{{ t('editor.noMatchingCommandsHint') }}</span>
         </div>
       </div>
     </div>
@@ -255,6 +255,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
+import { slashCommandGroupKeys } from '../modules/slashCommands'
 import { EditorContent } from '@tiptap/vue-3'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 import type { BubbleMenuPluginProps } from '@tiptap/extension-bubble-menu'
@@ -468,10 +470,10 @@ const imageMenuItems = computed<
 >(() => {
   const local = imageMenu.value ? isLocalImageSource(imageMenu.value.src) : false
   return [
-    { action: 'rename', label: '重命名图片', danger: false, disabled: !local },
-    { action: 'move', label: '移动图片到…', danger: false, disabled: !local },
-    { action: 'delete-reference', label: '删除引用', danger: false, disabled: false },
-    { action: 'delete-file', label: '删除图片文件', danger: true, disabled: !local },
+    { action: 'rename', label: t('editor.image.rename'), danger: false, disabled: !local },
+    { action: 'move', label: t('editor.image.move'), danger: false, disabled: !local },
+    { action: 'delete-reference', label: t('editor.image.deleteReference'), danger: false, disabled: false },
+    { action: 'delete-file', label: t('editor.image.deleteFile'), danger: true, disabled: !local },
   ]
 })
 
@@ -510,7 +512,7 @@ const runImageMenuAction = async (action: ImageMenuAction): Promise<void> => {
     }
 
     if (action === 'rename') {
-      const newName = window.prompt('请输入新的文件名', fileNameOfImageSource(menu.src))
+      const newName = window.prompt(t('error.file.nameRequired'), fileNameOfImageSource(menu.src))
       if (newName === null) return
       const result = await mediaService.editImage({ ...request, action: 'rename', newName })
       if (result.url) rewriteImageSource(instance, menu.src, result.url)
@@ -519,7 +521,7 @@ const runImageMenuAction = async (action: ImageMenuAction): Promise<void> => {
 
     if (action === 'delete-file') {
       // 删除磁盘文件不可撤销，必须让用户明确确认。
-      const confirmed = window.confirm(`确认删除磁盘上的图片文件？\n\n${menu.src}\n\n文件将被永久删除，无法撤销。`)
+      const confirmed = window.confirm(t('editor.confirmDeleteImage', { src: menu.src }))
       if (!confirmed) return
       await mediaService.editImage({ ...request, action: 'delete-file' })
       removeImageReferences(instance, menu.src)
@@ -530,7 +532,7 @@ const runImageMenuAction = async (action: ImageMenuAction): Promise<void> => {
     if (result.url) rewriteImageSource(instance, menu.src, result.url)
   } catch (error) {
     void windowService.showErrorMessage(
-      '图片整理失败',
+      t('editor.imageTidyFailed'),
       error instanceof Error ? error.message : String(error),
     )
   }
@@ -780,13 +782,13 @@ interface BlockAction {
   disabled?: () => boolean
 }
 
-const blockActions: BlockAction[] = [
-  { icon: 'lucide:message-square-plus', label: '问问AI', title: '把内容块文本发送到 AI 聊天', run: askAiAboutBlock },
-  { icon: 'lucide:arrow-up', label: '上移', title: '上移内容块', run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
-  { icon: 'lucide:arrow-down', label: '下移', title: '下移内容块', run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
-  { icon: 'lucide:copy', label: '复制', title: '复制内容块文本到剪贴板', run: copyActiveBlockText },
-  { icon: 'lucide:trash-2', label: '删除', title: '删除内容块', run: deleteActiveBlock, danger: true },
-]
+const blockActions = computed<BlockAction[]>(() => [
+  { icon: 'lucide:message-square-plus', label: t('editor.askAi'), title: t('editor.askAiTitle'), run: askAiAboutBlock },
+  { icon: 'lucide:arrow-up', label: t('editor.moveUp'), title: t('editor.moveUpTitle'), run: () => moveActiveBlock('up'), disabled: () => activeBlockIsFirst.value },
+  { icon: 'lucide:arrow-down', label: t('editor.moveDown'), title: t('editor.moveDownTitle'), run: () => moveActiveBlock('down'), disabled: () => activeBlockIsLast.value },
+  { icon: 'lucide:copy', label: t('menu.edit.copy'), title: t('editor.copyBlockTitle'), run: copyActiveBlockText },
+  { icon: 'lucide:trash-2', label: t('sidebar.delete'), title: t('editor.deleteBlockTitle'), run: deleteActiveBlock, danger: true },
+])
 
 // 分隔“问问AI、移动、复制、删除”四组操作，AI 询问放在最左边置顶，
 // 复制与删除各自独立成组，避免性质不同的功能混在同一组里。
@@ -844,20 +846,20 @@ const linkInsertStyle = computed(() => ({
 }))
 
 // 表格工具栏按“行、列、对齐、单元格、整表”排列，标签保持短小，完整含义放在悬停提示中。
-const tableActions = [
-  { icon: 'mdi:table-row-plus-before', title: '在上方添加一行', canRun: () => editor.value?.can().addRowBefore() ?? false, run: () => editor.value?.chain().focus().addRowBefore().run(), danger: false },
-  { icon: 'mdi:table-row-plus-after', title: '在下方添加一行', canRun: () => editor.value?.can().addRowAfter() ?? false, run: () => editor.value?.chain().focus().addRowAfter().run(), danger: false },
-  { icon: 'mdi:table-row-remove', title: '删除当前行', canRun: () => editor.value?.can().deleteRow() ?? false, run: () => editor.value?.chain().focus().deleteRow().run(), danger: true },
-  { icon: 'mdi:table-column-plus-before', title: '在左侧添加一列', canRun: () => editor.value?.can().addColumnBefore() ?? false, run: () => editor.value?.chain().focus().addColumnBefore().run(), danger: false },
-  { icon: 'mdi:table-column-plus-after', title: '在右侧添加一列', canRun: () => editor.value?.can().addColumnAfter() ?? false, run: () => editor.value?.chain().focus().addColumnAfter().run(), danger: false },
-  { icon: 'mdi:table-column-remove', title: '删除当前列', canRun: () => editor.value?.can().deleteColumn() ?? false, run: () => editor.value?.chain().focus().deleteColumn().run(), danger: true },
-  { icon: 'lucide:panel-top', title: '切换首行为表头', canRun: () => editor.value?.can().toggleHeaderRow() ?? false, run: () => editor.value?.chain().focus().toggleHeaderRow().run(), danger: false },
-  { icon: 'lucide:align-left', title: '当前列左对齐', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('left').run(), danger: false },
-  { icon: 'lucide:align-center', title: '当前列居中', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('center').run(), danger: false },
-  { icon: 'lucide:align-right', title: '当前列右对齐', canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('right').run(), danger: false },
-  { icon: () => editor.value?.can().mergeCells() ? 'lucide:combine' : 'lucide:split-square-horizontal', title: '合并或拆分单元格', canRun: () => editor.value?.can().mergeOrSplit() ?? false, run: () => editor.value?.chain().focus().mergeOrSplit().run(), danger: false },
-  { icon: 'lucide:trash-2', title: '删除整个表格', canRun: () => editor.value?.can().deleteTable() ?? false, run: () => editor.value?.chain().focus().deleteTable().run(), danger: true },
-]
+const tableActions = computed(() => [
+  { icon: 'mdi:table-row-plus-before', title: t('editor.table.addRowBefore'), canRun: () => editor.value?.can().addRowBefore() ?? false, run: () => editor.value?.chain().focus().addRowBefore().run(), danger: false },
+  { icon: 'mdi:table-row-plus-after', title: t('editor.table.addRowAfter'), canRun: () => editor.value?.can().addRowAfter() ?? false, run: () => editor.value?.chain().focus().addRowAfter().run(), danger: false },
+  { icon: 'mdi:table-row-remove', title: t('editor.table.deleteRow'), canRun: () => editor.value?.can().deleteRow() ?? false, run: () => editor.value?.chain().focus().deleteRow().run(), danger: true },
+  { icon: 'mdi:table-column-plus-before', title: t('editor.table.addColumnBefore'), canRun: () => editor.value?.can().addColumnBefore() ?? false, run: () => editor.value?.chain().focus().addColumnBefore().run(), danger: false },
+  { icon: 'mdi:table-column-plus-after', title: t('editor.table.addColumnAfter'), canRun: () => editor.value?.can().addColumnAfter() ?? false, run: () => editor.value?.chain().focus().addColumnAfter().run(), danger: false },
+  { icon: 'mdi:table-column-remove', title: t('editor.table.deleteColumn'), canRun: () => editor.value?.can().deleteColumn() ?? false, run: () => editor.value?.chain().focus().deleteColumn().run(), danger: true },
+  { icon: 'lucide:panel-top', title: t('editor.table.toggleHeaderRow'), canRun: () => editor.value?.can().toggleHeaderRow() ?? false, run: () => editor.value?.chain().focus().toggleHeaderRow().run(), danger: false },
+  { icon: 'lucide:align-left', title: t('editor.table.alignLeft'), canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('left').run(), danger: false },
+  { icon: 'lucide:align-center', title: t('editor.table.alignCenter'), canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('center').run(), danger: false },
+  { icon: 'lucide:align-right', title: t('editor.table.alignRight'), canRun: () => editor.value?.isActive('table') ?? false, run: () => editor.value?.chain().focus().alignTableColumn('right').run(), danger: false },
+  { icon: () => editor.value?.can().mergeCells() ? 'lucide:combine' : 'lucide:split-square-horizontal', title: t('editor.table.mergeOrSplit'), canRun: () => editor.value?.can().mergeOrSplit() ?? false, run: () => editor.value?.chain().focus().mergeOrSplit().run(), danger: false },
+  { icon: 'lucide:trash-2', title: t('editor.table.deleteTable'), canRun: () => editor.value?.can().deleteTable() ?? false, run: () => editor.value?.chain().focus().deleteTable().run(), danger: true },
+])
 
 // 分隔“行、列、对齐、单元格、整表”四类操作，图标紧凑但功能层级仍然清晰。
 const tableActionSeparators = [3, 6, 10]
@@ -1049,7 +1051,7 @@ const openMarkdownLink = async (href: string): Promise<void> => {
     console.error('打开本地链接失败:', error)
     // 失败原因（如文件不存在）弹窗告知，不能只留在控制台
     await documentService.showErrorMessage(
-      '打开本地链接失败',
+      t('error.openLocalLink'),
       error instanceof Error ? error.message : String(error),
     )
   }

@@ -6,12 +6,20 @@
       "date": "2026-08-17",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复更新检查可能命中历史版本清单缓存的问题，支持从旧版本直接下载并更新至最新版本。",
         "添加自动保存功能",
         "添加最近打开文件列表功能",
         "添加 macOS/Linux 文件关联功能",
         "新增「排版」设置页,包含正文字号、正文字体、行宽、预览模式缩放功能"
+      ],
+      "contentEn": [
+        "Fixed update checks sometimes hitting a cached historical manifest; older versions can now download and update directly to the latest release.",
+        "Added auto save.",
+        "Added a recent files list.",
+        "Added file associations for macOS and Linux.",
+        "Added a Typography settings section with body size, body font, line width, and preview zoom."
       ],
       "downloads": {
         "windows": {

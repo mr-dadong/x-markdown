@@ -11,20 +11,14 @@ export const FIND_REPLACE_EDIT_META = "xmd-find-replace-edit";
 // 避免各处各写一份后悄悄不一致。
 export const OPENABLE_FILE_EXTENSIONS = [".md", ".markdown", ".txt", ".zip"] as const;
 
-// 打开对话框的文件过滤器，与 OPENABLE_FILE_EXTENSIONS 保持同步。
-export const OPEN_FILE_DIALOG_FILTERS: Array<{
-  name: string;
-  extensions: string[];
-}> = [
-    { name: "Markdown / 压缩包", extensions: ["md", "markdown", "txt", "zip"] },
-    { name: "所有文件", extensions: ["*"] },
-  ];
+// 打开对话框的文件过滤器与扩展名保持同步；文案由调用方按当前界面语言提供。
+export const OPEN_FILE_DIALOG_EXTENSIONS = ["md", "markdown", "txt", "zip"] as const;
 
 // 侧边栏配置：标签页清单被 Sidebar.vue 使用，是侧栏结构的唯一来源。
 // 宽度由 Sidebar.vue 的 Tailwind 类直接给出，此处不再重复维护，避免两处不一致。
 export const SIDEBAR_CONFIG = {
   tabs: [
-    { id: "outline" as const, label: "大纲", icon: "lucide:list-tree" },
-    { id: "files" as const, label: "文件", icon: "lucide:files" },
+    { id: "outline" as const, icon: "lucide:list-tree" },
+    { id: "files" as const, icon: "lucide:files" },
   ],
 } as const;

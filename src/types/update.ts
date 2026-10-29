@@ -12,6 +12,9 @@ export interface UpdateLog {
   date: string
   title: string
   content: string[]
+  // 英文发布说明；历史数据可能缺失，渲染层会明确标注「仅提供中文」。
+  titleEn?: string
+  contentEn?: string[]
 }
 
 export interface UpdateLogsResult {
@@ -26,6 +29,8 @@ export interface UpdateInfo {
   date: string
   channel: string
   content: string[]
+  titleEn?: string
+  contentEn?: string[]
   download: UpdatePackage
 }
 

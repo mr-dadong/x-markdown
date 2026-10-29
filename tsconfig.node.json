@@ -34,7 +34,15 @@
     // 主进程也会组装 AI 聊天引用，需将共用工具纳入 Node 项目检查。
     "src/utils/aiChatContext.ts",
     "src/constants/ipcChannels.ts",
+    // 主进程与渲染层共用同一份界面词表与语言解析规则，纳入 Node 项目检查。
+    "src/i18n/locale.ts",
+    "src/i18n/translate.ts",
+    "src/i18n/current.ts",
+    "src/i18n/messages/zh-CN.ts",
+    "src/i18n/messages/en.ts",
     // 主进程与渲染层共用可打开扩展名与打开对话框过滤器，纳入 Node 项目检查。
-    "src/constants/index.ts"
+    "src/constants/index.ts",
+    // 标题栏与原生菜单共用同一份有序菜单 key，纳入 Node 项目检查。
+    "src/constants/applicationMenu.ts"
   ]
 }

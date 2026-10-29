@@ -6,10 +6,16 @@
       "date": "2026-10-15",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复：复制列表时产生多余空行的问题，粘贴到纯文本软件不再出现大量空行",
         "修复：通过块菜单复制或拖拽列表时，列表项粘成一行的问题",
         "修复：复制包含段内换行（Shift+Enter）的选区时，换行被跳过导致文字粘连的问题"
+      ],
+      "contentEn": [
+        "Fixed extra blank lines when copying lists; pasting into plain-text apps no longer produces many blank lines.",
+        "Fixed list items pasting as a single line when copying or dragging lists via the block menu.",
+        "Fixed line breaks being skipped and text merging when copying selections containing soft breaks (Shift+Enter)."
       ],
       "downloads": {
         "windows": {

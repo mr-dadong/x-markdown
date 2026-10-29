@@ -36,23 +36,23 @@
                         <!-- 使用正式应用图标建立品牌识别，按钮内仍保留“新建文档”的功能图标。 -->
                         <!-- 图片元素默认允许原生拖拽，显式关闭以免拖出品牌图标的半透明预览。 -->
                         <img :src="appIcon" alt="XMD" draggable="false" class="h-20 w-20 rounded-[22px]" />
-                        <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">开始编辑</p>
-                        <p class="mt-1.5 text-[13px] leading-5 text-muted">新建一份 Markdown 文稿，或继续编辑本地文档</p>
+                        <p class="mt-5 text-[18px] font-semibold tracking-tight text-ink">{{ t('welcome.title') }}</p>
+                        <p class="mt-1.5 text-[13px] leading-5 text-muted">{{ t('welcome.subtitle') }}</p>
                         <div class="mt-6 flex items-center gap-3">
                             <button type="button"
                                 class="flex h-9 items-center justify-center gap-2 rounded-md bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                                 @click="handleNewFile">
                                 <Icon icon="lucide:file-plus-2" :size="16" />
-                                <span>新建文档</span>
+                                <span>{{ t('welcome.newDocument') }}</span>
                             </button>
                             <button type="button"
                                 class="flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-paper px-4 text-[13px] font-medium text-secondary hover:border-accent hover:bg-selected hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                                 @click="handleOpenFile">
                                 <Icon icon="lucide:folder-open" :size="16" />
-                                <span>打开文档</span>
+                                <span>{{ t('welcome.openDocument') }}</span>
                             </button>
                         </div>
-                        <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">支持 .md、.markdown、.txt 和 .zip</p>
+                        <p class="mt-4 font-mono text-[10px] tracking-wide text-muted">{{ t('welcome.formats') }}</p>
 
                         <!-- 最近打开：点击直接打开，悬停可移除单项或清空全部。
                              首页默认只展示最近 5 条，避免挤占品牌区；完整记录仍可在
@@ -62,11 +62,11 @@
                                 <span
                                     class="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted">
                                     <Icon icon="lucide:history" :size="13" />
-                                    <span>最近打开</span>
+                                    <span>{{ t('welcome.recent') }}</span>
                                 </span>
                                 <button type="button"
                                     class="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-control-hover hover:text-secondary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
-                                    @click="handleClearRecentFiles">清空</button>
+                                    @click="handleClearRecentFiles">{{ t('common.clear') }}</button>
                             </div>
                             <div
                                 class="editor-scroll flex max-h-[min(45vh,340px)] flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1">
@@ -80,7 +80,7 @@
                                                 getFileName(filePath) }}</span>
                                         <span class="block truncate text-[11px] text-muted">{{ filePath }}</span>
                                     </span>
-                                    <span role="button" tabindex="-1" title="从最近列表移除"
+                                    <span role="button" tabindex="-1" :title="t('welcome.removeRecent')"
                                         class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-control hover:text-ink"
                                         @click.stop="handleRemoveRecentFile(filePath)">
                                         <Icon icon="lucide:x" :size="13" />
@@ -113,6 +113,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import appIcon from '../../build/icons/256x256.png'
@@ -167,17 +168,17 @@ type ExportType = 'html' | 'pdf' | 'zip' | 'text' | 'docx' | 'image'
 
 const isExporting = ref(false)
 const exportProgressPercent = ref(0)
-const exportProgressMessage = ref('正在准备导出')
+const exportProgressMessage = ref(t('export.preparing'))
 const exportFormatLabel = ref('')
 
-const exportFormatLabels: Record<ExportType, string> = {
+const exportFormatLabels = computed<Record<ExportType, string>>(() => ({
     html: 'HTML',
     pdf: 'PDF',
-    zip: 'ZIP 包',
-    text: '纯文本',
-    docx: 'Word 文档',
-    image: '图片',
-}
+    zip: t('export.format.zip'),
+    text: t('export.format.text'),
+    docx: t('export.format.docx'),
+    image: t('export.format.image'),
+}))
 
 // 构建阶段占总进度的 75%，剩余部分用于保存对话框和主进程落盘。
 const reportBuildProgress: ExportProgressReporter = ({ percent, message }) => {
@@ -240,7 +241,7 @@ const applyAgentDocument = (expected: string, next: string): void => {
     // 源码编辑器 doc.toString() 始终是 \n 换行，而 expected 可能是磁盘原文的 \r\n 换行，
     // 归一化后再比较，否则未改动的 Windows 文档也会被误判为“编辑器内容已变化”。
     if (!view || currentContent.value !== expected || view.state.doc.toString() !== toLfLineEndings(expected)) {
-        throw new Error('编辑器内容已变化，请重新读取文档后执行')
+        throw new Error(t('error.editor.changed'))
     }
     const richEditor = editorRef.value?.getEditor()
     if (richEditor) richEditor.view.dispatch(closeHistory(richEditor.state.tr))
@@ -387,7 +388,7 @@ const showDocumentInExplorer = async (documentId: number): Promise<void> => {
         await fileSystemService.showEntry(document.filePath)
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        await window.electronAPI.showErrorMessage('打开文件所在位置失败', message)
+        await window.electronAPI.showErrorMessage(t('error.file.showInFolderFailed'), message)
     }
 }
 
@@ -646,10 +647,10 @@ const handleSourceActiveHeading = (headingIndex: number): void => {
 // 从文档路径提取不带扩展名的文件名，用于导出保存对话框的默认文件名。
 const getSuggestedName = (): string => {
     const filePath = currentFilePath.value
-    if (!filePath) return '未命名'
+    if (!filePath) return t('document.untitled')
     const segments = filePath.split(/[\\/]/)
-    const fileName = segments[segments.length - 1] ?? '未命名'
-    return fileName.replace(/\.[^.]+$/, '') || '未命名'
+    const fileName = segments[segments.length - 1] ?? t('document.untitled')
+    return fileName.replace(/\.[^.]+$/, '') || t('document.untitled')
 }
 
 // 统一导出入口：HTML/PDF/图片先渲染内容，TXT 直接输出原文，ZIP 打包 Markdown 与本地图片。
@@ -657,9 +658,9 @@ const handleExport = async (type: ExportType): Promise<void> => {
     if (!isDocumentOpen.value || isExporting.value) return
     const suggestedName = getSuggestedName()
     isExporting.value = true
-    exportFormatLabel.value = exportFormatLabels[type]
+    exportFormatLabel.value = exportFormatLabels.value[type]
     exportProgressPercent.value = 5
-    exportProgressMessage.value = '正在准备导出'
+    exportProgressMessage.value = t('export.preparing')
 
     try {
         // 先让 Vue 把进度窗口绘制出来，再开始文档渲染或资源打包。
@@ -672,11 +673,11 @@ const handleExport = async (type: ExportType): Promise<void> => {
             const fileName = filePath ? filePath.split(/[\\/]/).pop()! : 'untitled.md'
             const zipData = await buildExportZip(currentContent.value, filePath, fileName, reportBuildProgress)
             exportProgressPercent.value = 80
-            exportProgressMessage.value = '请选择保存位置并完成导出'
+            exportProgressMessage.value = t('export.chooseSaveLocation')
             result = await exportService.exportZip(zipData, suggestedName)
         } else if (type === 'text') {
             exportProgressPercent.value = 75
-            exportProgressMessage.value = '请选择保存位置并完成导出'
+            exportProgressMessage.value = t('export.chooseSaveLocation')
             result = await exportService.exportText(buildExportText(currentContent.value), suggestedName)
         } else if (type === 'docx') {
             const docxData = await buildExportDocx(
@@ -686,7 +687,7 @@ const handleExport = async (type: ExportType): Promise<void> => {
                 reportBuildProgress,
             )
             exportProgressPercent.value = 80
-            exportProgressMessage.value = '请选择保存位置并完成导出'
+            exportProgressMessage.value = t('export.chooseSaveLocation')
             result = await exportService.exportDocx(docxData, suggestedName)
         } else {
             const printOptions = resolvePdfPrintOptions(settings)
@@ -699,7 +700,7 @@ const handleExport = async (type: ExportType): Promise<void> => {
                 { breakBetweenH1: type === 'pdf' && settings.pdfBreakBetweenH1 },
             )
             exportProgressPercent.value = 80
-            exportProgressMessage.value = '请选择保存位置并完成导出'
+            exportProgressMessage.value = t('export.chooseSaveLocation')
             if (type === 'html') result = await exportService.exportHtml(html, suggestedName)
             else if (type === 'image') result = await exportService.exportImage(html, suggestedName)
             else result = await exportService.exportPdf(html, suggestedName, printOptions)
@@ -707,13 +708,13 @@ const handleExport = async (type: ExportType): Promise<void> => {
 
         if (!result.canceled) {
             exportProgressPercent.value = 100
-            exportProgressMessage.value = '导出完成'
+            exportProgressMessage.value = t('export.completed')
             // 短暂保留完成状态，让用户明确看到导出已成功。
             await new Promise((resolve) => setTimeout(resolve, 450))
         }
     } catch (error) {
         isExporting.value = false
-        await window.electronAPI.showErrorMessage('导出失败', (error as Error).message)
+        await window.electronAPI.showErrorMessage(t('export.failed'), (error as Error).message)
         return
     }
     isExporting.value = false

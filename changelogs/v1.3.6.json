@@ -6,6 +6,7 @@
       "date": "2026-09-18",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：支持直接打开 .zip 压缩包进行编辑，保存时自动将修改写回原压缩包",
         "新增：打开或写回压缩包失败（损坏、无文档、超出大小上限等）时给出明确提示，避免静默失败或修改丢失",
@@ -16,6 +17,17 @@
         "修复：HTML 预览中的本地相对路径图片被内容安全策略拦截，导致图片无法显示的问题",
         "修复：视频播放按钮显示为蓝色方块表情或图标缺失的问题",
         "修复：在渲染视图与源码视图之间反复切换时，阅读位置逐次向段落开头偏移的问题"
+      ],
+      "contentEn": [
+        "Open .zip archives directly for editing; saving writes changes back to the archive.",
+        "Clear errors when opening or writing back archives fails (corrupt, no documents, size limit exceeded), preventing silent failures or lost changes.",
+        "Selected image blocks show the full rounded highlight border and translucent background, matching video blocks.",
+        "Standalone img HTML tags use normal image nodes for display and editing, preserving src, alt, title, width, and height.",
+        "Fixed New, Text Document and .txt icons incorrectly showing the Markdown icon after installing XMD on Windows.",
+        "Fixed the editor occasionally jumping to the bottom or elsewhere after deleting a block selection.",
+        "Fixed local relative images in HTML previews being blocked by Content Security Policy.",
+        "Fixed video play buttons appearing as blue square emojis or missing icons.",
+        "Fixed reading position drifting toward paragraph starts when switching repeatedly between rendered and source views."
       ],
       "downloads": {
         "windows": {

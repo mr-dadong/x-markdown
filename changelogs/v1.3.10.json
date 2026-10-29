@@ -6,12 +6,20 @@
       "date": "2026-10-03",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：AI 设置页支持添加多个模型连接，同一厂商可配置多个账号或服务地址，自定义连接名称，列表化管理",
         "优化：AI 聊天上下文检索，短文档直接给模型全文，长文档先提供标题目录再按相关性取片段，概述类问题均匀采样全文片段",
         "优化：HTML 隔离预览中的网络图片由主进程下载后转成数据加载，不再被 CSP 拦截导致图片无法显示",
         "优化：包含嵌套容器、表格或列表的完整 HTML 块作为整体进入隔离预览，不再被拆成多段源码文字",
         "修复：百分比宽度的图片（如 width=\"48%\"）在编辑视图里按百分比显示，拖动调整大小后自动切换为像素宽度"
+      ],
+      "contentEn": [
+        "AI settings support multiple model connections: one provider can have multiple accounts or service addresses, each with a custom name in a list.",
+        "Improved AI chat context retrieval: short documents are sent in full, long documents provide an outline first then relevant chunks, and overview questions sample chunks evenly.",
+        "Network images in isolated HTML previews are downloaded by the main process and embedded as data URLs, no longer blocked by CSP.",
+        "Complete HTML blocks with nested containers, tables, or lists enter isolated preview as a whole instead of being split into source text.",
+        "Percentage-width images display by percentage in the editor and switch to pixel width after resizing."
       ],
       "downloads": {
         "windows": {

@@ -1,3 +1,4 @@
+import { currentT } from "../../src/i18n/current";
 import { Agent } from "@mastra/core/agent";
 import type {
   DocumentAgentEvent,
@@ -51,6 +52,15 @@ function extractDraftString(json: string, field: string): string {
 export function extractDraftAfter(json: string): string {
   return extractDraftString(json, "after");
 }
+
+// 阶段标题在超时提示里也要本地化，用稳定阶段 id 映射到词表 key。
+const STAGE_NAME_KEYS = {
+  understand: "agent.stageName.understand",
+  locate: "agent.stageName.locate",
+  edit: "agent.stageName.edit",
+  check: "agent.stageName.check",
+  review: "agent.stageName.review",
+} as const;
 
 export type DocumentAgentExecutionProfile = "fast" | "standard" | "large";
 
@@ -124,25 +134,25 @@ export function createAgentDeadline(
   let step: ReturnType<typeof setTimeout> | undefined;
   const abort = (message: string): void => {
     const error = new Error(
-      `${describe()}：${message}。任务未完成，已生成建议保留供查看`,
+      currentT("agent.abort", { reason: describe(), message }),
     );
     error.name = "TimeoutError";
     controller.abort(error);
   };
-  const task = setTimeout(() => abort("已达到任务总时间预算"), limits.taskMs);
+  const task = setTimeout(() => abort(currentT("agent.error.budgetTime")), limits.taskMs);
   const activity = (): void => {
     clearTimeout(idle);
     if (!controller.signal.aborted)
       idle = setTimeout(
         () =>
-          abort(`模型连续 ${Math.round(limits.idleMs / 1000)} 秒未返回数据`),
+          abort(currentT("agent.error.idle", { seconds: Math.round(limits.idleMs / 1000) })),
         limits.idleMs,
       );
   };
   const startStep = (): void => {
     clearTimeout(step);
     if (!controller.signal.aborted)
-      step = setTimeout(() => abort("本轮请求超过时间限制"), limits.stepMs);
+      step = setTimeout(() => abort(currentT("agent.error.stepTimeout")), limits.stepMs);
     activity();
   };
   const dispose = (): void => {
@@ -194,7 +204,7 @@ export async function runDocumentAgent(
     !Number.isFinite(taskMs) ||
     taskMs <= 0
   )
-    throw new Error("Agent 轮数和任务时长必须为正数");
+    throw new Error(currentT("agent.error.invalidLimits"));
   let currentStage: DocumentAgentStage = "understand";
   let steps = 0;
   let finalText = "";
@@ -204,7 +214,7 @@ export async function runDocumentAgent(
   let terminationReason = "error";
   const report = (event: DocumentAgentEvent): void => {
     controller.signal.throwIfAborted();
-    if (settled) throw new Error("文档任务已经结束");
+    if (settled) throw new Error(currentT("agent.error.alreadySettled"));
     if (event.type === "stage") currentStage = event.stage;
     options.report(event);
   };
@@ -241,7 +251,7 @@ export async function runDocumentAgent(
       stepMs: Math.min(options.timeoutMs * 3, taskMs),
       taskMs,
     },
-    () => `${currentStage} · 第 ${steps} 轮`,
+    () => `${currentT(STAGE_NAME_KEYS[currentStage])} · ${currentT("agent.round", { step: steps })}`,
   );
   let onAbort = () => {};
   const aborted = new Promise<never>((_, reject) => {
@@ -267,7 +277,7 @@ export async function runDocumentAgent(
       type: "stage",
       stage: "understand",
       state: "done",
-      message: "已准备当前文档工作草稿",
+      message: currentT("agent.stage.draftReady"),
     });
     const stream = await agent.stream(
       `用户请求：${request.instruction}\n\n当前文档（资料）：${JSON.stringify(initial)}\n\n选区（资料）：${JSON.stringify(request.selection)}`,
@@ -297,8 +307,8 @@ export async function runDocumentAgent(
           report({
             requestId: request.requestId,
             type: "activity",
-            title: "正在处理文档",
-            detail: `当前草稿第 ${runtime.draft.revision()} 版`,
+            title: currentT("agent.activity.processing"),
+            detail: currentT("agent.activity.draftRevision", { revision: runtime.draft.revision() }),
           });
           // 参数损坏的错误历史不会自解释，本轮末尾追加恢复提示并消费掉。
           if (recoveryNotice) {
@@ -345,11 +355,11 @@ export async function runDocumentAgent(
       if (chunk.type === "text-delta" || chunk.type === "reasoning-delta") {
         outputCharacters += chunk.payload.text.length;
         if (outputCharacters > 80000)
-          throw new Error("模型输出超过任务长度预算");
+          throw new Error(currentT("agent.error.outputBudget"));
         if (chunk.type === "text-delta") {
           finalText += chunk.payload.text;
           if (/<tool_call>|<function=/.test(finalText))
-            throw new Error("模型把工具调用输出成了正文，未执行该调用");
+            throw new Error(currentT("agent.error.toolAsText"));
           report({
             requestId: request.requestId,
             type: "text",
@@ -419,7 +429,7 @@ export async function runDocumentAgent(
         report({
           requestId: request.requestId,
           type: "progress",
-          message: `工具执行失败：${message}`,
+          message: currentT("agent.progress.toolFailed", { error: message }),
         });
       } else if (chunk.type === "finish")
         finishReason = chunk.payload.stepResult.reason;
@@ -436,15 +446,15 @@ export async function runDocumentAgent(
     if (finishReason === "length") {
       terminationReason = "output-limit";
       throw new Error(
-        "模型达到单次输出限制，任务未完成；已完成的草稿修改保留供审阅",
+        currentT("agent.error.outputLimit"),
       );
     }
     if (finishReason === "tool-calls") {
       terminationReason = "budget";
-      throw new Error("达到最大模型请求轮数，任务未完成");
+      throw new Error(currentT("agent.error.stepBudget"));
     }
     if (finishReason !== "stop" || !finalText.trim())
-      throw new Error(`模型未正常完成回复（${finishReason || "unknown"}）`);
+      throw new Error(currentT("agent.error.finishReason", { reason: finishReason || "unknown" }));
   };
   let failure: unknown;
   try {
@@ -494,8 +504,8 @@ export async function runDocumentAgent(
     stage: "check",
     state: "done",
     message: issues.length
-      ? `发现 ${issues.length} 个结构问题`
-      : "最终草稿结构检查通过",
+      ? currentT("agent.stage.issuesFound", { count: issues.length })
+      : currentT("agent.stage.checkPassed"),
   });
   options.report({
     requestId: request.requestId,
@@ -503,8 +513,8 @@ export async function runDocumentAgent(
     stage: "review",
     state: "running",
     message: patches.length
-      ? `${patches.length} 处最终修改等待审阅`
-      : "没有待应用的修改",
+      ? currentT("agent.stage.patchesWaiting", { count: patches.length })
+      : currentT("agent.review.none"),
   });
   options.report({
     requestId: request.requestId,

@@ -12,10 +12,10 @@
       <span class="flex min-w-0 flex-1 flex-col gap-0.5">
         <span class="truncate text-[13px] font-medium text-ink">{{ node.attrs.fileName }}</span>
         <span v-if="isFailed" class="truncate text-[11px] text-danger">
-          复制失败 · {{ node.attrs.error || '请重新插入文件' }}
+          {{ t('attachment.copyFailed') }} · {{ node.attrs.error || t('attachment.reinsert') }}
         </span>
         <span v-else class="flex items-center gap-1 text-[11px] text-muted">
-          <span class="shrink-0">复制到 assets</span>
+          <span class="shrink-0">{{ t('attachment.copying') }}</span>
           <span class="shrink-0">·</span>
           <span class="truncate">{{ copiedSize }} / {{ totalSize }}</span>
         </span>
@@ -37,6 +37,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../composables/useI18n'
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'

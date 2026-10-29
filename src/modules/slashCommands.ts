@@ -1,3 +1,5 @@
+import type { MessageKey } from "../i18n/messages/zh-CN";
+import { t } from "../composables/useI18n";
 import type { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { useSettings } from "../composables/useSettings";
@@ -9,11 +11,13 @@ export interface SlashRange {
   to: number;
 }
 
+export type SlashCommandGroup = "basic" | "list" | "media" | "callout" | "extended";
+
 export interface SlashCommand {
   id: string;
-  group: "基础" | "列表与内容" | "媒体与链接" | "提示块" | "扩展内容";
-  label: string;
-  description: string;
+  group: SlashCommandGroup;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
   icon: string;
   iconClass: string;
   keywords: string[];
@@ -29,13 +33,22 @@ export interface SlashCommand {
 
 // 组序固定：提示块紧跟媒体与链接，扩展内容始终是最后一个组，
 // 便于后续接入外部扩展时保持“扩展组垫底”的稳定预期。
-export const slashCommandGroups: SlashCommand["group"][] = [
-  "基础",
-  "列表与内容",
-  "媒体与链接",
-  "提示块",
-  "扩展内容",
+export const slashCommandGroups: SlashCommandGroup[] = [
+  "basic",
+  "list",
+  "media",
+  "callout",
+  "extended",
 ];
+
+// 分组 id 保持稳定，显示文案随界面语言切换。
+export const slashCommandGroupKeys: Record<SlashCommandGroup, MessageKey> = {
+  basic: "slash.group.basic",
+  list: "slash.group.list",
+  media: "slash.group.media",
+  callout: "slash.group.callout",
+  extended: "slash.group.extended",
+};
 
 const insertMarkdownModule = (
   editor: Editor,
@@ -67,9 +80,9 @@ const getNextFootnoteIdentifier = (editor: Editor): string => {
 export const slashCommands: SlashCommand[] = [
   {
     id: "paragraph",
-    group: "基础",
-    label: "文本",
-    description: "切换为普通段落",
+    group: "basic",
+    labelKey: "slash.paragraph.label",
+    descriptionKey: "slash.paragraph.description",
     icon: "lucide:pilcrow",
     iconClass: "bg-selected text-accent",
     keywords: ["文本", "段落", "正文", "text", "paragraph", "wenben", "wb"],
@@ -78,9 +91,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "heading-1",
-    group: "基础",
-    label: "一级标题",
-    description: "插入 Markdown 一级标题",
+    group: "basic",
+    labelKey: "slash.heading1.label",
+    descriptionKey: "slash.heading1.description",
     icon: "lucide:heading-1",
     iconClass: "bg-toolbar text-accent",
     keywords: ["一级标题", "标题1", "h1", "heading1", "yijibiaoti", "yjbt"],
@@ -89,9 +102,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "heading-2",
-    group: "基础",
-    label: "二级标题",
-    description: "插入 Markdown 二级标题",
+    group: "basic",
+    labelKey: "slash.heading2.label",
+    descriptionKey: "slash.heading2.description",
     icon: "lucide:heading-2",
     iconClass: "bg-toolbar text-accent",
     keywords: ["二级标题", "标题2", "h2", "heading2", "erjibiaoti", "ejbt"],
@@ -100,9 +113,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "heading-3",
-    group: "基础",
-    label: "三级标题",
-    description: "插入 Markdown 三级标题",
+    group: "basic",
+    labelKey: "slash.heading3.label",
+    descriptionKey: "slash.heading3.description",
     icon: "lucide:heading-3",
     iconClass: "bg-toolbar text-accent",
     keywords: ["三级标题", "标题3", "h3", "heading3", "sanjibiaoti", "sjbt"],
@@ -111,9 +124,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "emoji",
-    group: "基础",
-    label: "插入 Emoji",
-    description: "打开表情选择器",
+    group: "basic",
+    labelKey: "slash.emoji.label",
+    descriptionKey: "slash.emoji.description",
     icon: "lucide:smile-plus",
     iconClass: "bg-selected text-accent",
     keywords: ["表情", "emoji", "符号", "笑脸", "biaoqing", "bq"],
@@ -121,9 +134,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "bullet-list",
-    group: "列表与内容",
-    label: "无序列表",
-    description: "创建项目符号列表",
+    group: "list",
+    labelKey: "slash.bulletList.label",
+    descriptionKey: "slash.bulletList.description",
     icon: "lucide:list",
     iconClass: "bg-toolbar text-secondary",
     keywords: ["无序列表", "项目符号", "列表", "bullet", "unordered", "ul", "wuxuliebiao", "wxlb"],
@@ -132,9 +145,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "ordered-list",
-    group: "列表与内容",
-    label: "有序列表",
-    description: "创建数字编号列表",
+    group: "list",
+    labelKey: "slash.orderedList.label",
+    descriptionKey: "slash.orderedList.description",
     icon: "lucide:list-ordered",
     iconClass: "bg-toolbar text-secondary",
     keywords: ["有序列表", "编号", "数字列表", "ordered", "list", "ol", "youxuliebiao", "yxlb"],
@@ -143,9 +156,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "task-list",
-    group: "列表与内容",
-    label: "任务列表",
-    description: "创建可勾选的待办事项",
+    group: "list",
+    labelKey: "slash.taskList.label",
+    descriptionKey: "slash.taskList.description",
     icon: "lucide:list-checks",
     iconClass: "bg-toolbar text-secondary",
     keywords: ["任务列表", "待办", "清单", "todo", "task", "checklist", "renwuliebiao", "rwlb"],
@@ -154,9 +167,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "blockquote",
-    group: "列表与内容",
-    label: "引用",
-    description: "创建 Markdown 引用块",
+    group: "list",
+    labelKey: "slash.blockquote.label",
+    descriptionKey: "slash.blockquote.description",
     icon: "lucide:quote",
     iconClass: "bg-toolbar text-folder",
     keywords: ["引用", "引言", "quote", "blockquote", "yinyong", "yy"],
@@ -165,9 +178,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "code-block",
-    group: "列表与内容",
-    label: "代码块",
-    description: "插入带语法高亮的代码块",
+    group: "list",
+    labelKey: "slash.codeBlock.label",
+    descriptionKey: "slash.codeBlock.description",
     icon: "lucide:code-2",
     iconClass: "bg-toolbar text-danger",
     keywords: ["代码块", "代码", "code", "codeblock", "daimakuai", "dmk"],
@@ -176,9 +189,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "horizontal-rule",
-    group: "列表与内容",
-    label: "分割线",
-    description: "插入一条 Markdown 分割线",
+    group: "list",
+    labelKey: "slash.horizontalRule.label",
+    descriptionKey: "slash.horizontalRule.description",
     icon: "lucide:minus",
     iconClass: "bg-toolbar text-muted",
     keywords: ["分割线", "水平线", "divider", "rule", "hr", "fengexian", "fgx"],
@@ -187,9 +200,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "page-break",
-    group: "列表与内容",
-    label: "分页符",
-    description: "插入分页符，打印与导出 PDF 时从新的一页开始",
+    group: "list",
+    labelKey: "slash.pageBreak.label",
+    descriptionKey: "slash.pageBreak.description",
     icon: "lucide:separator-horizontal",
     iconClass: "bg-toolbar text-muted",
     keywords: ["分页", "分页符", "换页", "pagebreak", "page-break", "fenye", "fenyefu", "fyf"],
@@ -198,9 +211,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "table",
-    group: "列表与内容",
-    label: "表格",
-    description: "插入 3 × 3 表格",
+    group: "list",
+    labelKey: "slash.table.label",
+    descriptionKey: "slash.table.description",
     icon: "lucide:table-2",
     iconClass: "bg-selected text-accent-strong",
     keywords: ["表格", "table", "grid", "biaoge", "bg"],
@@ -209,9 +222,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "table-of-contents",
-    group: "扩展内容",
-    label: "文档目录",
-    description: "根据标题自动生成目录",
+    group: "extended",
+    labelKey: "slash.toc.label",
+    descriptionKey: "slash.toc.description",
     icon: "lucide:list-tree",
     iconClass: "bg-selected text-accent",
     keywords: ["目录", "大纲", "toc", "contents", "mulu", "ml"],
@@ -219,9 +232,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "mermaid",
-    group: "扩展内容",
-    label: "Mermaid 图表",
-    description: "插入可编辑的流程图",
+    group: "extended",
+    labelKey: "slash.mermaid.label",
+    descriptionKey: "slash.mermaid.description",
     icon: "lucide:braces",
     iconClass: "bg-toolbar text-link",
     keywords: ["流程图", "图表", "mermaid", "diagram", "liuchengtu", "lct"],
@@ -232,9 +245,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "math-block",
-    group: "扩展内容",
-    label: "数学公式",
-    description: "插入 KaTeX 块级公式",
+    group: "extended",
+    labelKey: "slash.mathBlock.label",
+    descriptionKey: "slash.mathBlock.description",
     icon: "lucide:code-2",
     iconClass: "bg-toolbar text-accent",
     keywords: ["公式", "数学", "katex", "latex", "math", "gongshi", "gs"],
@@ -244,9 +257,9 @@ export const slashCommands: SlashCommand[] = [
   // 提示块拆成 5 种类型命令：类型在插入时定死，编辑弹层只改正文。
   {
     id: "callout-note",
-    group: "提示块",
-    label: "备注块",
-    description: "插入 Callout 备注块",
+    group: "callout",
+    labelKey: "slash.calloutNote.label",
+    descriptionKey: "slash.calloutNote.description",
     icon: "lucide:info",
     iconClass: "bg-toolbar text-secondary",
     keywords: ["备注", "callout", "admonition", "beizhu", "bz"],
@@ -260,9 +273,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "callout",
-    group: "提示块",
-    label: "提示块",
-    description: "插入 Callout 提示块",
+    group: "callout",
+    labelKey: "slash.calloutTip.label",
+    descriptionKey: "slash.calloutTip.description",
     icon: "lucide:check",
     iconClass: "bg-toolbar text-link",
     keywords: ["提示块", "警告", "callout", "admonition", "tishikuai", "tsk"],
@@ -276,9 +289,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "callout-important",
-    group: "提示块",
-    label: "重要块",
-    description: "插入 Callout 重要块",
+    group: "callout",
+    labelKey: "slash.calloutImportant.label",
+    descriptionKey: "slash.calloutImportant.description",
     icon: "lucide:alert-triangle",
     iconClass: "bg-toolbar text-folder",
     keywords: ["重要", "callout", "admonition", "zhongyao", "zy"],
@@ -292,9 +305,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "callout-warning",
-    group: "提示块",
-    label: "警告块",
-    description: "插入 Callout 警告块",
+    group: "callout",
+    labelKey: "slash.calloutWarning.label",
+    descriptionKey: "slash.calloutWarning.description",
     icon: "lucide:file-warning",
     iconClass: "bg-toolbar text-folder",
     keywords: ["警告", "callout", "admonition", "jinggao", "jg"],
@@ -308,9 +321,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "callout-caution",
-    group: "提示块",
-    label: "注意块",
-    description: "插入 Callout 注意块",
+    group: "callout",
+    labelKey: "slash.calloutCaution.label",
+    descriptionKey: "slash.calloutCaution.description",
     icon: "lucide:alert-triangle",
     iconClass: "bg-toolbar text-danger",
     keywords: ["注意", "callout", "admonition", "zhuyi", "zyi"],
@@ -324,9 +337,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "footnote",
-    group: "扩展内容",
-    label: "脚注",
-    description: "插入脚注引用和定义",
+    group: "extended",
+    labelKey: "slash.footnote.label",
+    descriptionKey: "slash.footnote.description",
     icon: "lucide:file-text",
     iconClass: "bg-toolbar text-folder",
     keywords: ["脚注", "注释", "footnote", "reference", "jiaozhu", "jz"],
@@ -349,9 +362,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "image",
-    group: "媒体与链接",
-    label: "插入图片",
-    description: "选择本地图片",
+    group: "media",
+    labelKey: "slash.image.label",
+    descriptionKey: "slash.image.description",
     icon: "lucide:image",
     iconClass: "bg-selected text-accent",
     keywords: ["图片", "照片", "图像", "image", "photo", "charutupian", "crtp"],
@@ -363,9 +376,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "attachment",
-    group: "媒体与链接",
-    label: "插入文件",
-    description: "插入可打开的本地文件卡片",
+    group: "media",
+    labelKey: "slash.attachment.label",
+    descriptionKey: "slash.attachment.description",
     icon: "lucide:paperclip",
     iconClass: "bg-toolbar text-folder",
     keywords: ["附件", "文件", "压缩包", "attachment", "file", "charuwenjian", "crwj"],
@@ -435,9 +448,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "video",
-    group: "媒体与链接",
-    label: "插入视频",
-    description: "选择本地视频",
+    group: "media",
+    labelKey: "slash.video.label",
+    descriptionKey: "slash.video.description",
     icon: "lucide:video",
     iconClass: "bg-toolbar text-danger",
     keywords: ["视频", "影片", "video", "movie", "mp4", "charushipin", "crsp"],
@@ -463,9 +476,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "link",
-    group: "媒体与链接",
-    label: "插入超链接",
-    description: "添加文字与网址",
+    group: "media",
+    labelKey: "slash.link.label",
+    descriptionKey: "slash.link.description",
     icon: "lucide:link-2",
     iconClass: "bg-toolbar text-accent",
     keywords: ["超链接", "链接", "网址", "link", "url", "href", "charuchaolianjie", "crclj"],
@@ -473,9 +486,9 @@ export const slashCommands: SlashCommand[] = [
   },
   {
     id: "ai-write",
-    group: "扩展内容",
-    label: "AI 实时编写",
-    description: "让 AI 在光标处实时生成内容",
+    group: "extended",
+    labelKey: "slash.aiWrite.label",
+    descriptionKey: "slash.aiWrite.description",
     icon: "lucide:sparkles",
     iconClass: "bg-selected text-accent",
     keywords: ["AI", "实时编写", "生成", "写作", "续写", "shishi", "ssbx"],
@@ -489,7 +502,11 @@ export const filterSlashCommands = (query: string): SlashCommand[] => {
 
   return slashCommands
     .map((command, index) => {
-      const searchableTexts = [command.label, command.description, ...command.keywords]
+      const searchableTexts = [
+        t(command.labelKey),
+        t(command.descriptionKey),
+        ...command.keywords,
+      ]
         .map((text) => text.toLocaleLowerCase());
       const exactMatch = searchableTexts.some((text) => text === normalizedQuery);
       const prefixMatch = searchableTexts.some((text) => text.startsWith(normalizedQuery));

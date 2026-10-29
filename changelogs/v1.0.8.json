@@ -6,12 +6,20 @@
       "date": "2026-08-07",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "优化编辑器后台任务调度，减少长文档输入、查找、字数统计和大纲更新时的卡顿。",
         "优化恢复草稿监听与保存频率，降低多文档编辑时的资源占用。",
         "支持 Markdown 文档内目录锚点跳转，可正确识别中文、空格、标点及重复标题。",
         "优化文档内目录样式，保留点击跳转能力，同时取消普通超链接样式和链接操作浮层。",
         "修复 Windows 安装后右键“新建”菜单可能不显示 Markdown 文档的问题。"
+      ],
+      "contentEn": [
+        "Improved background task scheduling to reduce lag while typing in long documents, finding, counting words, and updating the outline.",
+        "Improved draft recovery watching and save frequency to reduce resource usage when editing multiple documents.",
+        "Added TOC anchor navigation in Markdown documents, correctly handling Chinese, spaces, punctuation, and duplicate headings.",
+        "Improved in-document TOC styling: click-to-jump remains, while link styling and the link action popover are removed.",
+        "Fixed the Windows Explorer New menu sometimes not showing Markdown Document after installation."
       ],
       "downloads": {
         "windows": {

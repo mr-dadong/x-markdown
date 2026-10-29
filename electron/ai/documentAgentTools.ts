@@ -1,3 +1,4 @@
+import { currentT } from "../../src/i18n/current";
 import { createTool } from "@mastra/core/tools";
 import type {
   DocumentAgentEvent,
@@ -40,7 +41,10 @@ export function createDocumentAgentTools(
       : [];
     if (invented.length)
       throw new Error(
-        `修改引入了用户未提供的版本号 ${[...new Set(invented)].join("、")}；保留原文版本 ${originalVersions.join("、")}，不要猜测补全。`,
+        currentT("agent.error.inventedVersions", {
+          invented: [...new Set(invented)].join(", "),
+          original: originalVersions.join(", "),
+        }),
       );
     if (protectedCode.length) {
       const remaining = indexDocumentBlocks(next)
@@ -132,7 +136,7 @@ export function createDocumentAgentTools(
     }
   };
   const assertObserved = (): void => {
-    if (!observed) throw new Error("修改前必须先 read 当前文档");
+    if (!observed) throw new Error(currentT("agent.error.readFirst"));
   };
   const modified = () => {
     observed = true;
@@ -180,7 +184,7 @@ export function createDocumentAgentTools(
           column < 1 ||
           column > lines[offset - 1].length + 1
         )
-          throw new Error("read 的行号、行数或列号无效");
+          throw new Error(currentT("agent.error.readRange"));
         let remaining = 12000;
         let position =
           lines

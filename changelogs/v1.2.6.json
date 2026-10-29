@@ -6,12 +6,20 @@
       "date": "2026-09-02",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "优化：保存文档时只重新生成改动过的块，未编辑的段落保持与文件原文逐字节一致，原始空行、列表间距等排版细节不再被编辑器改写",
         "优化：大文档编辑保存更快，编辑器通过块指纹比对定位改动，未变部分直接复用原文",
         "优化：点击「立即安装」后显示“正在准备安装…”加载状态，准备期间更新窗口暂不可关闭，避免误操作",
         "修复：重复点击「立即安装」可能同时启动多个安装程序的问题",
         "修复：安装程序启动失败时在更新窗口显示明确的失败原因，可直接重试"
+      ],
+      "contentEn": [
+        "Saving regenerates only changed blocks; untouched paragraphs stay byte-for-byte identical to the file, preserving blank lines, list spacing, and other formatting details.",
+        "Faster saving for large documents: block fingerprints locate changes and unchanged parts reuse the original text.",
+        "Clicking Install Now shows a Preparing to install… state, and the update window cannot be closed during preparation.",
+        "Fixed repeated clicks on Install Now starting multiple installers.",
+        "Installer launch failures now show a clear reason in the update window and can be retried directly."
       ],
       "downloads": {
         "windows": {

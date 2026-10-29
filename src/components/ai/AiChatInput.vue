@@ -18,13 +18,13 @@
             @click="previewIndex = previewIndex === index ? null : index"
           >
             <Icon icon="lucide:quote" :size="10" />
-            <span class="shrink-0">引用 {{ index + 1 }} ·</span>
+            <span class="shrink-0">{{ t('ai.reference', { index: index + 1 }) }}</span>
             <span class="max-w-[120px] truncate">{{ truncateText(selection) }}</span>
           </button>
           <button
             type="button"
             class="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-muted hover:bg-control-hover hover:text-ink"
-            title="移除"
+            :title="t('common.remove')"
             :disabled="isStreaming"
             @click="removeSelection(index)"
           >
@@ -34,7 +34,7 @@
       </div>
       <!-- 预览使用原始文本，正文中的 Markdown 或 HTML 不会被当作界面代码。 -->
       <div v-if="previewIndex !== null && pendingSelections?.[previewIndex] !== undefined" class="mx-3 mt-2 flex flex-col gap-1 rounded-lg border border-line px-2.5 py-2">
-        <span class="text-[11px] text-muted">引用 {{ previewIndex + 1 }} · {{ pendingSelections[previewIndex].length }} 字符</span>
+        <span class="text-[11px] text-muted">{{ t('ai.referenceChars', { index: previewIndex + 1, count: pendingSelections[previewIndex].length }) }}</span>
         <div class="max-h-40 select-text overflow-y-auto whitespace-pre-wrap break-words text-[12px] leading-5 text-secondary">{{ pendingSelections[previewIndex] }}</div>
       </div>
 
@@ -61,7 +61,7 @@
             v-if="isStreaming"
             type="button"
             class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-danger text-inverse hover:opacity-80"
-            title="停止生成"
+            :title="t('ai.stopGenerating')"
             @mousedown.prevent="$emit('cancel')"
           >
             <Icon icon="lucide:square" :size="14" />
@@ -71,7 +71,7 @@
             type="button"
             class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-inverse hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!canSend"
-            title="发送 (Enter)"
+            :title="t('ai.send')"
             @mousedown.prevent="handleSend"
           >
             <Icon icon="lucide:arrow-up" :size="16" />
@@ -83,6 +83,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, nextTick, ref } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 
@@ -115,8 +116,8 @@ const truncateText = (text: string): string => {
 }
 
 const placeholder = computed(() => {
-  if (props.isStreaming) return '正在生成…'
-  return '输入消息…'
+  if (props.isStreaming) return t('ai.generating')
+  return t('ai.inputPlaceholder')
 })
 
 const handleSend = (): void => {

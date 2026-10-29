@@ -13,11 +13,11 @@
           @click="referencesOpen = !referencesOpen"
         >
           <Icon :icon="referencesOpen ? 'lucide:chevron-down' : 'lucide:chevron-right'" :size="12" />
-          <span>引用了 {{ message.references.length }} 处正文</span>
+          <span>{{ t('ai.message.references', { count: message.references.length }) }}</span>
         </button>
         <div v-if="referencesOpen" class="flex max-h-64 w-full flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-panel p-2.5">
           <div v-for="(reference, index) in message.references" :key="index" class="flex min-w-0 flex-col gap-1">
-            <span class="text-[11px] text-muted">引用 {{ index + 1 }} · {{ reference.length }} 字符</span>
+            <span class="text-[11px] text-muted">{{ t('ai.message.referenceChars', { index: index + 1, count: reference.length }) }}</span>
             <div class="whitespace-pre-wrap break-words text-[12px] leading-5 text-secondary">{{ reference }}</div>
           </div>
         </div>
@@ -54,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { AiChatMessage } from '../../types/ai'

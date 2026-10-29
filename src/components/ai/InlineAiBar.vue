@@ -15,7 +15,7 @@
               <span>.</span><span>.</span><span>.</span>
             </span>
           </div>
-          <button type="button" class="inline-ai-btn inline-ai-stop" title="停止" @mousedown.prevent.stop="$emit('cancel')">
+          <button type="button" class="inline-ai-btn inline-ai-stop" :title="t('ai.stop')" @mousedown.prevent.stop="$emit('cancel')">
             <Icon icon="lucide:square" :size="10" />
           </button>
         </div>
@@ -25,12 +25,12 @@
           <div class="inline-ai-result-header">
             <div class="inline-ai-result-badge">
               <Icon icon="lucide:sparkles" :size="12" />
-              <span>AI 结果</span>
+              <span>{{ t('ai.result') }}</span>
             </div>
             <div class="inline-ai-result-actions">
               <button type="button" class="inline-ai-btn inline-ai-accept" @mousedown.prevent.stop="$emit('accept')">
                 <Icon icon="lucide:check" :size="13" />
-                <span>接受</span>
+                <span>{{ t('ai.accept') }}</span>
               </button>
               <button type="button" class="inline-ai-btn inline-ai-reject" @mousedown.prevent.stop="$emit('reject')">
                 <Icon icon="lucide:x" :size="13" />
@@ -40,7 +40,7 @@
           <div class="inline-ai-result-content" ref="resultRef">
             <div class="inline-ai-result-text">{{ displayedResult }}</div>
             <div v-if="result.length > maxPreviewLength" class="inline-ai-result-more">
-              共 {{ result.length }} 字符
+              {{ t('ai.characters', { count: result.length }) }}
             </div>
           </div>
         </div>
@@ -51,7 +51,7 @@
           <span class="inline-ai-error-text">{{ error }}</span>
           <button type="button" class="inline-ai-btn inline-ai-retry" @mousedown.prevent.stop="$emit('retry')">
             <Icon icon="lucide:rotate-ccw" :size="12" />
-            <span>重试</span>
+            <span>{{ t('ai.retry') }}</span>
           </button>
         </div>
       </Transition>
@@ -60,6 +60,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
+import type { MessageKey } from '../../i18n/messages/zh-CN'
 import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import type { AiEditAction } from '../../types/ai'
@@ -83,25 +85,25 @@ const resultRef = ref<HTMLElement | null>(null)
 
 const visible = computed(() => props.isStreaming || !!props.result || !!props.error)
 
-const actionLabels: Record<AiEditAction, string> = {
-  polish: '润色',
-  rewrite: '重写',
-  summarize: '总结',
-  translate: '翻译',
-  continue: '续写',
-  'explain-code': '解释代码',
-  'fix-code': '修复代码',
-  outline: '生成大纲',
-  toc: '生成目录',
-  table: '生成表格',
-  callout: '生成提示框',
-  mermaid: '生成图表',
-  frontmatter: '生成元数据',
-  'ai-write': 'AI 实时编写',
+const actionLabels: Record<AiEditAction, MessageKey> = {
+  polish: 'ai.action.polish',
+  rewrite: 'ai.action.rewrite',
+  summarize: 'ai.action.summarize',
+  translate: 'ai.action.translate',
+  continue: 'ai.action.continue',
+  'explain-code': 'ai.action.explainCode',
+  'fix-code': 'ai.action.fixCode',
+  outline: 'ai.action.outline',
+  toc: 'ai.action.toc',
+  table: 'ai.action.table',
+  callout: 'ai.action.callout',
+  mermaid: 'ai.action.mermaid',
+  frontmatter: 'ai.action.frontmatter',
+  'ai-write': 'ai.action.aiWrite',
 }
 
 const actionLabel = computed(() => {
-  return props.currentAction ? actionLabels[props.currentAction] : '处理'
+  return props.currentAction ? t(actionLabels[props.currentAction]) : t('ai.processing')
 })
 
 const displayedResult = computed(() => {

@@ -17,7 +17,7 @@
           <Icon icon="lucide:sparkles" :size="15" />
         </span>
         <div class="min-w-0">
-          <h2 class="text-[13px] font-semibold leading-tight text-ink">{{ mode === 'agent' ? '文档 Agent' : 'AI Chat' }}</h2>
+          <h2 class="text-[13px] font-semibold leading-tight text-ink">{{ mode === 'agent' ? t('ai.agent.title') : t('ai.chat.title') }}</h2>
           <span class="text-[11px] leading-tight text-muted">{{ statusText }}</span>
         </div>
       </div>
@@ -25,7 +25,7 @@
         <button
           type="button"
           class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-          :title="mode === 'agent' ? '清空 Agent 记录' : '清空对话'"
+          :title="mode === 'agent' ? t('ai.agent.clear') : t('ai.chat.clear')"
           :disabled="mode === 'agent' && agentBusy"
           @mousedown.prevent="handleClear"
         >
@@ -34,7 +34,7 @@
         <button
           type="button"
           class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-toolbar hover:text-ink"
-          title="关闭"
+          :title="t('common.close')"
           @mousedown.prevent="emit('close')"
         >
           <Icon icon="lucide:x" :size="14" />
@@ -47,15 +47,15 @@
       <span class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-selected text-muted">
         <Icon icon="lucide:sparkles" :size="28" />
       </span>
-      <p class="mb-1.5 text-[14px] font-semibold text-ink">尚未配置 AI</p>
-      <p class="mb-4 text-[12px] leading-relaxed text-secondary">需要先设置模型提供方和 API Key，才能使用 AI Chat。</p>
+      <p class="mb-1.5 text-[14px] font-semibold text-ink">{{ t('ai.notConfigured.title') }}</p>
+      <p class="mb-4 text-[12px] leading-relaxed text-secondary">{{ t('ai.notConfigured.description') }}</p>
       <button
         type="button"
         class="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-semibold text-inverse hover:bg-accent-strong"
         @mousedown.prevent="emit('open-settings')"
       >
         <Icon icon="lucide:settings" :size="15" />
-        <span>前往设置</span>
+        <span>{{ t('ai.goToSettings') }}</span>
       </button>
     </div>
 
@@ -84,9 +84,9 @@
           <span class="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-accent text-inverse">
             <Icon icon="lucide:sparkles" :size="30" />
           </span>
-          <p class="mb-1.5 text-[16px] font-semibold text-ink">开始对话</p>
+          <p class="mb-1.5 text-[16px] font-semibold text-ink">{{ t('ai.startChat.title') }}</p>
           <p class="mb-5 max-w-[240px] text-[12px] leading-relaxed text-secondary">
-            输入问题或点击下方快捷动作，AI 将基于当前文档内容提供帮助。
+            {{ t('ai.startChat.description') }}
           </p>
           <!-- 快捷提问：单列卡片更舒展，点击直接发送，文档上下文由后端自动注入 -->
           <div class="flex w-full max-w-[260px] flex-col gap-2">
@@ -120,7 +120,7 @@
         <div v-if="isStreaming && !streamingContent && !streamingReasoning" class="flex flex-col items-start px-3">
           <div class="flex items-center gap-2 rounded-2xl rounded-bl-md bg-toolbar px-3.5 py-2.5 text-[12px] text-muted">
             <Icon icon="lucide:loader-2" :size="13" class="animate-spin text-accent" />
-            <span>正在思考…</span>
+            <span>{{ t('ai.thinking') }}</span>
           </div>
         </div>
 
@@ -147,11 +147,11 @@
               <button
                 type="button"
                 class="flex h-6 cursor-pointer items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted hover:bg-danger hover:text-inverse"
-                title="停止"
+                :title="t('ai.stop')"
                 @mousedown.prevent="cancel"
               >
                 <Icon icon="lucide:square" :size="10" />
-                <span>停止</span>
+                <span>{{ t('ai.stop') }}</span>
               </button>
             </div>
           </div>
@@ -165,7 +165,7 @@
           @mousedown.prevent="jumpToBottom"
         >
           <Icon icon="lucide:arrow-down" :size="12" />
-          <span>回到底部</span>
+          <span>{{ t('ai.backToBottom') }}</span>
         </button>
       </div>
 
@@ -203,6 +203,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { normalizeAiMarkdown } from '../../utils/aiMarkdown'
@@ -407,7 +408,7 @@ watch(
 
 // 状态文本：仅展示流式生成状态，其余保持默认（不显示消息数量）
 const statusText = computed(() => {
-  if (isStreaming.value) return streamingContent.value || !streamingReasoning.value ? '正在生成…' : '正在思考…'
+  if (isStreaming.value) return streamingContent.value || !streamingReasoning.value ? t('ai.generating') : t('ai.thinking')
   return ''
 })
 
@@ -448,12 +449,12 @@ const retry = async (): Promise<void> => {
 }
 
 // 空状态快捷提问：提示词均围绕当前文档，点击即发送
-const quickActions = [
-  { icon: 'lucide:file-text', label: '总结这篇文档', prompt: '请用简洁的几句话总结这篇文档的核心内容。' },
-  { icon: 'lucide:list-tree', label: '生成大纲', prompt: '请为这篇文档生成一份层级结构大纲。' },
-  { icon: 'lucide:spell-check', label: '校对错别字', prompt: '请检查这篇文档中的错别字和语句不通顺的地方，逐条列出。' },
-  { icon: 'lucide:lightbulb', label: '改进建议', prompt: '请指出这篇文档在结构或内容上可以改进的地方。' },
-]
+const quickActions = computed(() => [
+  { icon: 'lucide:file-text', label: t('ai.quick.summarize'), prompt: '请用简洁的几句话总结这篇文档的核心内容。' },
+  { icon: 'lucide:list-tree', label: t('ai.quick.outline'), prompt: '请为这篇文档生成一份层级结构大纲。' },
+  { icon: 'lucide:spell-check', label: t('ai.quick.proofread'), prompt: '请检查这篇文档中的错别字和语句不通顺的地方，逐条列出。' },
+  { icon: 'lucide:lightbulb', label: t('ai.quick.improve'), prompt: '请指出这篇文档在结构或内容上可以改进的地方。' },
+])
 
 const handleQuickAction = (prompt: string): void => {
   sendMessage(prompt)

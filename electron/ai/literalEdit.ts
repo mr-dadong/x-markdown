@@ -1,3 +1,4 @@
+import { currentT } from "../../src/i18n/current";
 /** 统计 needle 在 content 中不重叠出现的次数。 */
 function countOccurrences(content: string, needle: string): number {
   let count = 0;
@@ -24,17 +25,17 @@ export function applyLiteralEdit(
 ): { content: string; replacements: number } {
   const oldNorm = normalizeLineEndings(oldString);
   if (oldNorm.length === 0)
-    throw new Error("old_string 不能为空；新建或全文改写请使用 write");
+    throw new Error(currentT("error.edit.oldStringEmpty"));
   const newNorm = normalizeLineEndings(newString);
-  if (oldNorm === newNorm) throw new Error("old_string 和 new_string 必须不同");
+  if (oldNorm === newNorm) throw new Error(currentT("error.edit.oldStringSame"));
   const replacements = countOccurrences(content, oldNorm);
   if (replacements === 0)
     throw new Error(
-      "old_string 在当前草稿中不存在；read 返回的是最新正文，请读取后重新定位，不要重复已完成的修改",
+      currentT("error.edit.oldStringMissing"),
     );
   if (!replaceAll && replacements > 1)
     throw new Error(
-      `old_string 匹配 ${replacements} 次；提供更完整的上下文，或明确设置 replace_all 为 true`,
+      currentT("error.edit.ambiguousMatch", { count: replacements }),
     );
   return { content: content.split(oldNorm).join(newNorm), replacements };
 }

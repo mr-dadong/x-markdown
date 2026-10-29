@@ -6,6 +6,7 @@
       "date": "2026-09-01",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "新增：AI 实时编写等待阶段显示请求进度，模型思考过程实时展示",
         "新增：AI 编写完成显示输出 tokens 统计，输出被截断或被内容过滤终止时给出明确提示",
@@ -18,6 +19,19 @@
         "优化：AI 设置测试连接结果自动滚动至可见位置",
         "修复：Mermaid 语法错误不再额外渲染整张错误图，并清理渲染异常残留的临时节点",
         "修复：欢迎页应用图标不再被拖拽出半透明预览"
+      ],
+      "contentEn": [
+        "AI live writing shows request progress while waiting and streams the model's reasoning.",
+        "AI writing completion shows output token counts and warns when output is truncated or stopped by content filtering.",
+        "HTML blocks now use sandboxed isolated previews: embedded styles no longer leak into the document, and scripts and external resources are blocked.",
+        "When AI rewrites a selection, the original stays until the model starts output; discarding restores the original completely.",
+        "The body is temporarily locked during AI streaming, Esc stops at any time, and the writing position scrolls to follow.",
+        "Streaming rendering adapts its throttle to content length for smoother long generations; the status bar now shows a richer status card.",
+        "HTML blocks have a module header; click to edit the source, and the preview height adapts to content.",
+        "Slash command search ranks by match quality, so /ai hits AI live writing directly.",
+        "AI settings scroll the connection test result into view automatically.",
+        "Mermaid syntax errors no longer render a full extra error diagram, and temporary nodes left by failed renders are cleaned up.",
+        "The welcome screen app icon can no longer be dragged out as a translucent preview."
       ],
       "downloads": {
         "windows": {

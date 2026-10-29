@@ -154,7 +154,9 @@ async function createChangelog() {
         date: getShanghaiDate(),
         channel: "stable",
         title: "版本更新",
+        titleEn: "Version Update",
         content: [],
+        contentEn: [],
         downloads: createDownloads(version),
       },
     ],
@@ -178,6 +180,15 @@ async function syncChangelogs() {
   const changelog = await readJson(path.join(changelogDirectory, fileName));
   if (!Array.isArray(changelog.releases) || changelog.releases.length !== 1) {
     throw new Error(`${fileName} 必须且只能包含一条 releases 记录`);
+  }
+
+  // 新版本必须同时提供中文与英文说明，避免再次出现英文界面只有中文日志。
+  const currentRelease = changelog.releases[0];
+  if (!currentRelease.titleEn || !currentRelease.titleEn.trim()) {
+    throw new Error(`${fileName} 缺少英文标题 titleEn`);
+  }
+  if (!Array.isArray(currentRelease.contentEn) || currentRelease.contentEn.length !== currentRelease.content.length) {
+    throw new Error(`${fileName} 的 contentEn 必须与 content 条数一致`);
   }
 
   const release = changelog.releases[0];
@@ -231,6 +242,15 @@ async function fillReleaseHashes() {
   const changelog = await readJson(changelogFile);
   if (!Array.isArray(changelog.releases) || changelog.releases.length !== 1) {
     throw new Error(`${fileName} 必须且只能包含一条 releases 记录`);
+  }
+
+  // 新版本必须同时提供中文与英文说明，避免再次出现英文界面只有中文日志。
+  const currentRelease = changelog.releases[0];
+  if (!currentRelease.titleEn || !currentRelease.titleEn.trim()) {
+    throw new Error(`${fileName} 缺少英文标题 titleEn`);
+  }
+  if (!Array.isArray(currentRelease.contentEn) || currentRelease.contentEn.length !== currentRelease.content.length) {
+    throw new Error(`${fileName} 的 contentEn 必须与 content 条数一致`);
   }
 
   const release = changelog.releases[0];

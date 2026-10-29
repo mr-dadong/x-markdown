@@ -1,7 +1,7 @@
 <template>
   <button
     type="button"
-    :title="modelValue ? '点击关闭' : '点击开启'"
+    :title="modelValue ? t('toggle.clickToDisable') : t('toggle.clickToEnable')"
     class="flex h-6 w-11 items-center rounded-full p-0.5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-accent"
     :class="modelValue ? 'justify-end bg-ink' : 'justify-start bg-control'"
     @click="emit('update:modelValue', !modelValue)"
@@ -11,6 +11,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 </script>

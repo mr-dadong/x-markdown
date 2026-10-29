@@ -1,4 +1,5 @@
 // 快捷键目录：设置页展示、默认值与各处理点共用的唯一来源。
+import type { MessageKey } from '../i18n/messages/zh-CN'
 import { isMacPlatform } from '../utils/shortcuts'
 
 export const SHORTCUT_IDS = [
@@ -14,17 +15,17 @@ export type ShortcutId = (typeof SHORTCUT_IDS)[number]
 
 export interface ShortcutDefinition {
   id: ShortcutId
-  label: string
-  description: string
+  labelKey: MessageKey
+  descriptionKey: MessageKey
 }
 
 export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
-  { id: 'newFile', label: '新建文档', description: '创建一个空白 Markdown 文档' },
-  { id: 'openFile', label: '打开文档', description: '从本地选择并打开文档' },
-  { id: 'saveFile', label: '保存文档', description: '保存当前文档的修改' },
-  { id: 'toggleSidebar', label: '显示 / 隐藏侧边栏', description: '切换项目文件与大纲面板' },
-  { id: 'toggleSource', label: '切换编辑模式', description: '在 MD 预览和源码展示间切换' },
-  { id: 'openSettings', label: '打开设置', description: '打开应用设置中心' },
+  { id: 'newFile', labelKey: 'settings.shortcut.newFile.label', descriptionKey: 'settings.shortcut.newFile.description' },
+  { id: 'openFile', labelKey: 'settings.shortcut.openFile.label', descriptionKey: 'settings.shortcut.openFile.description' },
+  { id: 'saveFile', labelKey: 'settings.shortcut.saveFile.label', descriptionKey: 'settings.shortcut.saveFile.description' },
+  { id: 'toggleSidebar', labelKey: 'settings.shortcut.toggleSidebar.label', descriptionKey: 'settings.shortcut.toggleSidebar.description' },
+  { id: 'toggleSource', labelKey: 'settings.shortcut.toggleSource.label', descriptionKey: 'settings.shortcut.toggleSource.description' },
+  { id: 'openSettings', labelKey: 'settings.shortcut.openSettings.label', descriptionKey: 'settings.shortcut.openSettings.description' },
 ]
 
 const DEFAULT_KEYS: Record<ShortcutId, string> = {

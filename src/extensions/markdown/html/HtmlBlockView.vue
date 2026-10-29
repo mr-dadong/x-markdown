@@ -2,18 +2,19 @@
   <!-- HTML 块按普通渲染内容展示，不提供任何编辑交互入口。 -->
   <NodeViewWrapper class="relative my-2 flex w-full flex-col" data-xmd-html-view contenteditable="false">
     <iframe v-if="previewDocument" ref="previewFrame" :srcdoc="previewDocument" sandbox="allow-same-origin" data-xmd-html-preview-frame
-      tabindex="-1" title="HTML 隔离预览" class="flex w-full border-0 bg-transparent" :style="previewFrameStyle"
+      tabindex="-1" :title="t('html.previewTitle')" class="flex w-full border-0 bg-transparent" :style="previewFrameStyle"
       @load="handlePreviewLoad" />
     <div v-else-if="previewError" class="flex min-h-4 w-full items-center text-[12px] text-danger" data-xmd-html-preview-status>
       {{ previewError }}
     </div>
     <div v-else class="flex min-h-4 w-full items-center text-[12px] text-muted" data-xmd-html-preview-status>
-      {{ source.trim() ? '正在加载 HTML 预览' : '这段 HTML 没有可见内容' }}
+      {{ source.trim() ? t('html.loading') : t('html.empty') }}
     </div>
   </NodeViewWrapper>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
@@ -48,7 +49,7 @@ const refreshPreviewDocument = async (value: string): Promise<void> => {
     if (requestId === previewRequestId) previewDocument.value = document
   } catch (error) {
     if (requestId !== previewRequestId) return
-    previewError.value = `HTML 预览加载失败：${error instanceof Error ? error.message : String(error)}`
+    previewError.value = t('html.loadFailed', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 const previewFrameStyle = computed(() => ({ height: `${previewHeight.value}px` }))

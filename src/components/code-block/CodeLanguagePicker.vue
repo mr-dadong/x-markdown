@@ -2,7 +2,7 @@
   <div ref="picker" class="relative flex min-w-0" @focusout="closeMenu">
     <button
       type="button"
-      title="选择代码语言"
+      :title="t('codeBlock.selectLanguage')"
       class="flex h-7 max-w-36 items-center gap-1.5 rounded px-2 text-[11px] font-medium outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
       :class="[style.headerTextClass, style.headerHoverClass]"
       @click.stop="toggleMenu"
@@ -24,8 +24,8 @@
           ref="searchInput"
           v-model="search"
           type="text"
-          title="搜索代码语言"
-          placeholder="搜索语言"
+          :title="t('codeBlock.searchLanguageTitle')"
+          :placeholder="t('codeBlock.searchLanguage')"
           class="min-w-0 flex-1 bg-transparent text-[11px] outline-none placeholder:text-current placeholder:opacity-60"
           @click.stop
         />
@@ -46,12 +46,12 @@
           @mouseenter="highlightedIndex = index"
           @click.stop="selectLanguage(language.value)"
         >
-          <span class="min-w-0 truncate">{{ language.label }}</span>
+          <span class="min-w-0 truncate">{{ localizedLabel(language) }}</span>
           <Icon v-if="language.value === modelValue" icon="lucide:check" :size="12" class="ml-2 shrink-0" />
         </button>
 
         <div v-if="!filteredLanguages.length" class="flex h-16 shrink-0 items-center justify-center text-[10.5px] opacity-70">
-          没有匹配的语言
+          {{ t('codeBlock.noLanguage') }}
         </div>
       </div>
     </div>
@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '../../composables/useI18n'
 import { Icon } from '@iconify/vue/offline'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { CodeBlockStyle } from '../../modules/codeBlockStyles'
@@ -75,7 +76,13 @@ const search = ref('')
 // 键盘上下键与鼠标悬停共用同一个高亮索引，保证两种操作的高亮视觉一致。
 const highlightedIndex = ref(0)
 
-const selectedLabel = computed(() => getCodeBlockLanguageLabel(props.modelValue))
+const localizedLabel = (language: CodeBlockLanguage): string =>
+  language.value === 'plaintext' ? t('codeBlock.language.plaintext') : language.label
+
+const selectedLabel = computed(() => {
+  const current = codeBlockLanguages.find((language) => language.value === props.modelValue)
+  return current ? localizedLabel(current) : getCodeBlockLanguageLabel(props.modelValue)
+})
 const visibleLanguages = computed(() => {
   if (codeBlockLanguages.some((language) => language.value === props.modelValue)) return codeBlockLanguages
   return [{ value: props.modelValue, label: props.modelValue }, ...codeBlockLanguages]
@@ -85,9 +92,9 @@ const filteredLanguages = computed(() => {
   if (!query) return visibleLanguages.value
   // 首字母匹配：语言名称或标识以查询词开头（不区分大小写）。
   const isPrefixMatch = (language: CodeBlockLanguage): boolean =>
-    language.label.toLocaleLowerCase().startsWith(query) || language.value.toLocaleLowerCase().startsWith(query)
+    localizedLabel(language).toLocaleLowerCase().startsWith(query) || language.value.toLocaleLowerCase().startsWith(query)
   const matched = visibleLanguages.value.filter((language) => {
-    const label = language.label.toLocaleLowerCase()
+    const label = localizedLabel(language).toLocaleLowerCase()
     const value = language.value.toLocaleLowerCase()
     return label.includes(query) || value.includes(query)
   })

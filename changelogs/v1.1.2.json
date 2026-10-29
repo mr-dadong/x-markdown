@@ -6,6 +6,7 @@
       "date": "2026-08-22",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "修复代码块尾随空行的解析与保存问题",
         "支持表格单元格左、中、右对齐",
@@ -17,6 +18,18 @@
         "修复加载文档时可能误触发自动保存的问题",
         "优化状态栏相邻按钮的间距",
         "修复表格内竖线和反引号在打开、保存后内容异常的问题"
+      ],
+      "contentEn": [
+        "Fixed parsing and saving of trailing blank lines in code blocks.",
+        "Added left, center, and right alignment for table cells.",
+        "Fixed content misalignment and duplication when serializing tables.",
+        "Compatible with pipes in inline code inside Typora tables.",
+        "Preserved the original meaning of table pipes and backticks.",
+        "Added reverse typing of backticks to create inline code.",
+        "Fixed ordinary characters before backticks sometimes being deleted when typing inline code.",
+        "Fixed automatic save sometimes triggering while a document loads.",
+        "Improved spacing between adjacent status bar buttons.",
+        "Fixed table pipes and backticks being corrupted after opening and saving."
       ],
       "downloads": {
         "windows": {

@@ -6,12 +6,20 @@
       "date": "2026-08-25",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "表格：在单元格内按 Ctrl+A 只选中当前单元格内容，不再框选整表或整篇文档",
         "表格：粘贴到单元格时改为追加到内容末尾，不再覆盖原内容",
         "表格：跨单元格/整表选中时粘贴会收敛到起始格插入，避免整行或整表被整体替换",
         "表格：操作工具栏改为在选中表格或单元格时才显示，不再每次点击正文都弹出遮挡内容",
         "新增：表格工具栏支持当前列左/中/右对齐，再次点击相同对齐可取消对齐"
+      ],
+      "contentEn": [
+        "Tables: Ctrl+A inside a cell selects only that cell instead of the whole table or document.",
+        "Tables: pasting into a cell appends to the end instead of replacing its content.",
+        "Tables: pasting with a cross-cell or whole-table selection inserts at the starting cell instead of replacing entire rows or the table.",
+        "Tables: the toolbar now appears only when a table or cell is selected, so it no longer covers content on every click.",
+        "Added left, center, and right alignment for the current column in the table toolbar; clicking the same alignment again clears it."
       ],
       "downloads": {
         "windows": {

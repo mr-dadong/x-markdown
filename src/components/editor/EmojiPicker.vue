@@ -8,7 +8,7 @@
         <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded bg-ink/10 text-[11px] font-bold text-ink">
           <Icon icon="lucide:smile-plus" :size="13" />
         </span>
-        <input ref="searchInput" v-model="searchDraft" type="text" placeholder="搜索表情…"
+        <input ref="searchInput" v-model="searchDraft" type="text" :placeholder="t('emoji.searchPlaceholder')"
           class="h-7 min-w-0 flex-1 rounded-md bg-transparent text-[12px] text-ink outline-none placeholder:text-muted/50"
           @keydown="handleSearchKeydown" @blur="handleSearchBlur">
         <span class="shrink-0 font-mono text-[10px] text-muted/60">ESC</span>
@@ -20,7 +20,7 @@
           class="h-6 shrink-0 rounded-md px-2 text-[11px] transition-colors"
           :class="activeCategory === category ? 'bg-control-active font-medium text-ink' : 'text-muted hover:bg-control-hover hover:text-secondary'"
           @mousedown.prevent="selectCategory(category)">
-          {{ category }}
+          {{ t(EMOJI_CATEGORY_KEYS[category]) }}
         </button>
       </div>
 
@@ -36,7 +36,7 @@
         </button>
         <div v-if="visibleItems.length === 0" class="col-span-8 flex flex-col items-center gap-1 py-8 text-muted">
           <Icon icon="lucide:search-x" :size="18" class="text-muted/50" />
-          <span class="text-[11px]">没有匹配的表情</span>
+          <span class="text-[11px]">{{ t('emoji.noMatches') }}</span>
         </div>
       </div>
 
@@ -46,12 +46,12 @@
           {{ selectedItem?.emoji ?? '' }}
         </span>
         <span class="min-w-0 flex-1 truncate text-[12px] text-secondary">
-          {{ selectedItem ? `${selectedItem.name}  :${selectedItem.shortcode}:` : '' }}
+          {{ selectedItem ? `${emojiDisplayName(selectedItem, locale)}  :${selectedItem.shortcode}:` : '' }}
         </span>
         <button type="button"
           class="flex h-7 shrink-0 items-center rounded-md bg-ink px-3 text-[11px] font-medium text-inverse hover:bg-accent-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-30"
           :disabled="!selectedItem" @mousedown.prevent="selectedItem && emitSelect(selectedItem)">
-          插入
+          {{ t('emoji.insert') }}
         </button>
       </div>
     </template>
@@ -66,7 +66,7 @@
             :class="index === activeIndex ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
             @mouseenter="emit('selectIndex', index)" @mousedown.prevent="emitSelect(item)">
             <span class="w-6 shrink-0 text-center text-[16px] leading-none">{{ item.emoji }}</span>
-            <span class="min-w-0 flex-1 truncate text-[12px]">{{ item.name }}</span>
+            <span class="min-w-0 flex-1 truncate text-[12px]">{{ emojiDisplayName(item, locale) }}</span>
             <span class="shrink-0 font-mono text-[10px] text-muted/60">:{{ item.shortcode }}:</span>
           </button>
         </div>
@@ -78,7 +78,8 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue/offline";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { emojiCategories, type EmojiItem } from "../../modules/emojis";
+import { EMOJI_CATEGORY_KEYS, emojiCategories, emojiDisplayName, type EmojiItem } from "../../modules/emojis";
+import { t, useI18n } from "../../composables/useI18n";
 
 const props = defineProps<{
   mode: "grid" | "list";
@@ -97,6 +98,7 @@ const emit = defineEmits<{
 
 const GRID_COLUMNS = 8;
 
+const { locale } = useI18n();
 const searchInput = ref<HTMLInputElement | null>(null);
 const searchDraft = ref(props.query);
 const activeCategory = ref<string | null>(null);

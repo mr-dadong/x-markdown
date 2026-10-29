@@ -1,3 +1,4 @@
+import { t } from "../composables/useI18n";
 import { Extension, Node, mergeAttributes, type MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import AttachmentView from "../components/AttachmentView.vue";
@@ -70,7 +71,7 @@ const decodeAttachmentMetadata = (
 };
 
 export const formatAttachmentSize = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes < 0) return "未知大小";
+  if (!Number.isFinite(bytes) || bytes < 0) return t("attachment.unknownSize");
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024)
@@ -81,7 +82,7 @@ export const formatAttachmentSize = (bytes: number): string => {
 // 附件卡片展示用的大小文案：0 表示来源是手写链接、磁盘大小未知。
 // 传输进度视图里的 0 字节是真实数值，仍使用 formatAttachmentSize。
 export const formatAttachmentCardSize = (bytes: number): string =>
-  bytes > 0 ? formatAttachmentSize(bytes) : "未知大小";
+  bytes > 0 ? formatAttachmentSize(bytes) : t("attachment.unknownSize");
 
 // 手写文件链接按后缀识别为附件卡片；图片与视频已有专门视图，不在此列。
 const plainAttachmentExtensions = new Set([
@@ -146,7 +147,7 @@ export const Attachment = Node.create<AttachmentOptions>({
         getAttrs: (element) => {
           if (!(element instanceof HTMLElement)) return false;
           return {
-            fileName: element.dataset.fileName ?? "未命名文件",
+            fileName: element.dataset.fileName ?? t("attachment.untitledFile"),
             fileSize: Number(element.dataset.fileSize ?? 0),
             fileType: element.dataset.fileType ?? "",
             url: element.dataset.url ?? "",
@@ -189,7 +190,7 @@ export const Attachment = Node.create<AttachmentOptions>({
           "data-xmd-attachment-open": "",
           class:
             "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-[13px] text-muted hover:bg-control hover:text-ink focus:outline focus:outline-2 focus:outline-accent",
-          title: "使用默认应用打开",
+          title: t("attachment.openWithDefault"),
         },
         "↗",
       ],
@@ -198,7 +199,7 @@ export const Attachment = Node.create<AttachmentOptions>({
 
   // 磁盘中保存标准 Markdown 链接，其他编辑器可直接打开，XMD 再增强为附件卡片。
   renderMarkdown: (node) => {
-    const fileName = String(node.attrs?.fileName ?? "未命名文件");
+    const fileName = String(node.attrs?.fileName ?? t("attachment.untitledFile"));
     const url = String(node.attrs?.url ?? "");
     const label = escapeMarkdownLabel(fileName);
     const destination = escapeMarkdownDestination(url);
@@ -265,7 +266,7 @@ export const AttachmentLinkParser = Extension.create({
     return {
       type: "attachment",
       attrs: {
-        fileName: label || "未命名文件",
+        fileName: label || t("attachment.untitledFile"),
         // 手写链接没有大小信息，记 0 让卡片显示「未知大小」；类型从地址后缀推导。
         fileSize: metadata?.fileSize ?? 0,
         fileType: metadata?.fileType ?? getExtensionFromUrl(href),

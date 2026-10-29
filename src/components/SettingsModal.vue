@@ -9,11 +9,11 @@
             <Icon icon="lucide:settings" :size="17" />
           </div>
           <div class="flex flex-col">
-            <h2 class="text-[15px] font-semibold tracking-tight text-ink">设置</h2>
-            <span class="text-[10px] text-muted">XMD 工作区偏好</span>
+            <h2 class="text-[15px] font-semibold tracking-tight text-ink">{{ t('settings.title') }}</h2>
+            <span class="text-[10px] text-muted">{{ t('settings.subtitle') }}</span>
           </div>
         </div>
-        <button type="button" title="关闭设置"
+        <button type="button" :title="t('settings.closeTitle')"
           class="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
           @click="closeSettings">
           <Icon icon="lucide:x" :size="18" />
@@ -22,7 +22,7 @@
 
       <div class="flex min-h-0 flex-1">
         <nav class="flex w-52 shrink-0 flex-col gap-2 border-r border-line bg-panel p-3">
-          <span class="px-3 pb-2 pt-1 text-[10px] font-semibold tracking-[0.15em] text-muted">偏好设置</span>
+          <span class="px-3 pb-2 pt-1 text-[10px] font-semibold tracking-[0.15em] text-muted">{{ t('settings.preferences') }}</span>
           <button v-for="item in navigationItems" :key="item.id" type="button"
             class="flex h-10 items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
             :class="activeSection === item.id ? 'bg-control-active text-ink' : 'text-secondary hover:bg-control-hover hover:text-ink'"
@@ -32,60 +32,64 @@
               <span>{{ item.label }}</span>
               <span v-if="item.id === 'ai' && aiPanelRef?.isDirty"
                 class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                title="AI 分区有未保存的更改" />
+                :title="t('settings.aiUnsaved')" />
             </span>
           </button>
           <div class="mt-auto flex items-center gap-2 border-t border-line px-3 pt-3 text-[10px] text-muted">
             <span class="h-1.5 w-1.5 rounded-full bg-[#46a758]" />
-            <span>设置自动保存</span>
+            <span>{{ t('settings.autoSaveBadge') }}</span>
           </div>
         </nav>
 
         <main class="editor-scroll flex min-w-0 flex-1 flex-col overflow-y-auto px-10 py-8">
           <template v-if="activeSection === 'general'">
-            <SectionTitle title="通用" description="配置文档打开方式、资源位置和代码阅读体验。" />
-            <SettingGroup title="默认编辑模式" description="打开文档时使用的默认视图。">
+            <SectionTitle :title="t('settings.general.title')" :description="t('settings.general.description')" />
+            <SettingGroup :title="t('settings.language.title')" :description="t('settings.language.description')">
+              <ChoiceControl :model-value="settings.language" :options="languageOptions"
+                @update:model-value="changeLanguage" />
+            </SettingGroup>
+            <SettingGroup :title="t('settings.editorMode.title')" :description="t('settings.editorMode.description')">
               <ChoiceControl v-model="settings.editorMode" :options="editorModeOptions" />
             </SettingGroup>
-            <SettingGroup title="自动保存" description="停止输入一段时间后自动写入磁盘；未命名的新文档仍需手动选择保存位置。">
+            <SettingGroup :title="t('settings.autoSave.title')" :description="t('settings.autoSave.description')">
               <ToggleSwitch v-model="settings.autoSave" />
             </SettingGroup>
-            <SettingGroup v-if="settings.autoSave" title="自动保存间隔" description="从停止输入到自动保存之间的等待时间。">
+            <SettingGroup v-if="settings.autoSave" :title="t('settings.autoSaveInterval.title')" :description="t('settings.autoSaveInterval.description')">
               <ChoiceControl v-model="autoSaveIntervalModel" :options="autoSaveIntervalOptions" />
             </SettingGroup>
-            <SettingGroup title="显示功能菜单说明" description="在斜杠功能菜单中显示每个命令的辅助说明。">
+            <SettingGroup :title="t('settings.slashHints.title')" :description="t('settings.slashHints.description')">
               <ToggleSwitch v-model="settings.showSlashCommandDescriptions" />
             </SettingGroup>
-            <SettingGroup title="插入文件方式" description="引用原文件不会产生副本；复制到 assets 时会在编辑区显示实时进度，完成后可随文档目录一起打包。">
+            <SettingGroup :title="t('settings.attachment.title')" :description="t('settings.attachment.description')">
               <ChoiceControl v-model="settings.attachmentHandling" :options="attachmentHandlingOptions" />
             </SettingGroup>
-            <SettingGroup title="代码块内自动换行" description="较长的代码会在编辑区宽度内折行显示。">
+            <SettingGroup :title="t('settings.codeWrap.title')" :description="t('settings.codeWrap.description')">
               <ToggleSwitch v-model="settings.codeWrap" />
             </SettingGroup>
-            <SettingGroup title="显示代码块内的行号" description="在每行代码左侧显示连续编号。">
+            <SettingGroup :title="t('settings.codeLineNumbers.title')" :description="t('settings.codeLineNumbers.description')">
               <ToggleSwitch v-model="settings.codeLineNumbers" />
             </SettingGroup>
           </template>
 
           <template v-else-if="activeSection === 'typography'">
-            <SectionTitle title="排版" description="调整编辑器的阅读体验：正文字号、字体、行宽与预览缩放。" />
-            <SettingGroup title="正文字号" description="预览模式正文的基准字号，标题、列表等元素会按比例跟随缩放。">
+            <SectionTitle :title="t('settings.typography.title')" :description="t('settings.typography.description')" />
+            <SettingGroup :title="t('settings.fontSize.title')" :description="t('settings.fontSize.description')">
               <ChoiceControl v-model="settings.bodyFontSize" :options="bodyFontSizeOptions" />
             </SettingGroup>
-            <SettingGroup title="正文字体" description="预览模式正文使用的字体族，源码模式始终使用等宽字体。">
+            <SettingGroup :title="t('settings.fontFamily.title')" :description="t('settings.fontFamily.description')">
               <ChoiceControl v-model="settings.bodyFont" :options="bodyFontOptions" />
             </SettingGroup>
-            <SettingGroup title="行宽" description="编辑区正文列的最大宽度；全宽时保留现有的左右边距。">
+            <SettingGroup :title="t('settings.lineWidth.title')" :description="t('settings.lineWidth.description')">
               <ChoiceControl v-model="settings.lineWidth" :options="lineWidthOptions" />
             </SettingGroup>
-            <SettingGroup title="预览模式缩放" description="整体放大或缩小 Markdown 预览视图，源码模式不受影响。">
+            <SettingGroup :title="t('settings.previewZoom.title')" :description="t('settings.previewZoom.description')">
               <ChoiceControl v-model="settings.previewZoom" :options="previewZoomOptions" />
             </SettingGroup>
           </template>
 
           <template v-else-if="activeSection === 'theme'">
-            <SectionTitle title="主题" description="选择最适合当前环境的阅读配色。" />
-            <SettingGroup title="配色" description="跟随系统会自动响应操作系统的外观变化。">
+            <SectionTitle :title="t('settings.theme.title')" :description="t('settings.theme.description')" />
+            <SettingGroup :title="t('settings.palette.title')" :description="t('settings.palette.description')">
               <div class="flex gap-3">
                 <button v-for="theme in themeOptions" :key="theme.value" type="button"
                   class="flex w-36 flex-col gap-3 rounded-lg border p-3 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
@@ -104,14 +108,14 @@
                 </button>
               </div>
             </SettingGroup>
-            <SettingGroup title="代码块样式" description="选择代码窗口与语法高亮的外观，修改后会立即应用。">
+            <SettingGroup :title="t('settings.codeBlockStyle.title')" :description="t('settings.codeBlockStyle.description')">
               <CodeBlockStylePicker v-model="settings.codeBlockStyle" />
             </SettingGroup>
           </template>
 
           <template v-else-if="activeSection === 'export'">
-            <SectionTitle title="导出" description="导出 PDF 时使用的纸张、页边距与页眉页脚；HTML 与图片导出不受影响。" />
-            <SettingGroup title="纸张大小" description="自定义尺寸按英寸填写，1 英寸约 2.54 厘米。">
+            <SectionTitle :title="t('settings.export.title')" :description="t('settings.export.description')" />
+            <SettingGroup :title="t('settings.pageSize.title')" :description="t('settings.pageSize.description')">
               <ChoiceControl v-model="settings.pdfPageSize" :options="pdfPageSizeOptions" />
               <div v-if="settings.pdfPageSize === 'custom'" class="mt-3 flex items-center gap-2">
                 <input v-model.number="settings.pdfPageWidth" type="number" min="1" max="200" step="0.01"
@@ -119,35 +123,35 @@
                 <span class="text-[12px] text-muted">×</span>
                 <input v-model.number="settings.pdfPageHeight" type="number" min="1" max="200" step="0.01"
                   class="h-8 w-24 rounded-md border border-line bg-paper px-2 text-[13px] text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
-                <span class="text-[12px] text-muted">英寸（宽 × 高）</span>
+                <span class="text-[12px] text-muted">{{ t('settings.inches') }}</span>
               </div>
             </SettingGroup>
-            <SettingGroup title="页边距" description="四边统一使用同一个边距，单位英寸。">
+            <SettingGroup :title="t('settings.margin.title')" :description="t('settings.margin.description')">
               <input v-model.number="settings.pdfMargin" type="number" min="0" max="20" step="0.05"
                 class="h-8 w-24 rounded-md border border-line bg-paper px-2 text-[13px] text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
             </SettingGroup>
-            <SettingGroup title="页眉与页脚" description="留空表示不打印。可用 ${pageNo}、${pageCount}、${title}、${date} 占位符。">
+            <SettingGroup :title="t('settings.headerFooter.title')" :description="t('settings.headerFooter.description')">
               <div class="flex flex-col gap-2">
-                <input v-model="settings.pdfHeaderText" type="text" placeholder="页眉（例如：${title}）"
+                <input v-model="settings.pdfHeaderText" type="text" :placeholder="t('settings.headerPlaceholder')"
                   class="h-8 w-full rounded-md border border-line bg-paper px-2 text-[13px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
-                <input v-model="settings.pdfFooterText" type="text" placeholder="页脚（例如：第 ${pageNo} / ${pageCount} 页）"
+                <input v-model="settings.pdfFooterText" type="text" :placeholder="t('settings.footerPlaceholder')"
                   class="h-8 w-full rounded-md border border-line bg-paper px-2 text-[13px] text-ink placeholder:text-placeholder focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-accent" />
               </div>
             </SettingGroup>
-            <SettingGroup title="一级标题前分页" description="每个一级标题都从新的一页开始，文档开头的标题不分页。">
+            <SettingGroup :title="t('settings.breakH1.title')" :description="t('settings.breakH1.description')">
               <ToggleSwitch v-model="settings.pdfBreakBetweenH1" />
             </SettingGroup>
           </template>
 
           <template v-else-if="activeSection === 'shortcuts'">
             <!-- 下方列表已有完整边框，关闭标题分隔线，避免顶部出现重叠的细横线。 -->
-            <SectionTitle title="快捷键" description="点击右侧按键组合，再直接按下新的组合键；退格或删除可清除。" :show-divider="false" />
+            <SectionTitle :title="t('settings.shortcuts.title')" :description="t('settings.shortcuts.description')" :show-divider="false" />
             <div class="flex flex-col overflow-hidden rounded-lg border border-line">
               <div v-for="shortcut in shortcutItems" :key="shortcut.id"
                 class="flex min-h-14 items-center justify-between gap-5 border-b border-line px-4 py-3 last:border-b-0">
                 <div class="flex min-w-0 flex-col gap-0.5">
-                  <span class="text-[14px] font-medium text-ink">{{ shortcut.label }}</span>
-                  <span class="text-[12px] leading-5 text-muted">{{ shortcut.description }}</span>
+                  <span class="text-[14px] font-medium text-ink">{{ t(shortcut.labelKey) }}</span>
+                  <span class="text-[12px] leading-5 text-muted">{{ t(shortcut.descriptionKey) }}</span>
                 </div>
                 <ShortcutRecorder v-model="settings.shortcuts[shortcut.id]"
                   :conflict-label="conflictLabel(shortcut.id)" :validate="(value) => validateShortcut(shortcut.id, value)" />
@@ -156,7 +160,7 @@
             <button type="button"
               class="mt-4 flex h-9 w-fit items-center rounded-md border border-line px-3 text-[13px] text-secondary hover:bg-control-hover hover:text-ink"
               @click="resetShortcuts">
-              恢复默认快捷键
+              {{ t('settings.shortcuts.reset') }}
             </button>
           </template>
 
@@ -166,20 +170,20 @@
 
           <template v-else-if="activeSection === 'changelog'">
             <div class="flex min-h-0 flex-1 flex-col">
-              <SectionTitle title="更新日志" description="查看 XMD 各版本的功能更新与改进。" :show-divider="false" />
+              <SectionTitle :title="t('settings.changelog.title')" :description="t('settings.changelog.description')" :show-divider="false" />
               <div v-if="updateLogsLoading" class="flex flex-1 items-center justify-center py-16 text-[13px] text-muted">
-                正在获取更新日志...
+                {{ t('settings.changelog.loading') }}
               </div>
               <div v-else-if="updateLogsError" class="flex flex-col items-center justify-center gap-4 py-16">
                 <div class="flex flex-col items-center gap-1 text-center">
-                  <span class="text-[14px] font-medium text-ink">更新日志加载失败</span>
+                  <span class="text-[14px] font-medium text-ink">{{ t('settings.changelog.failed') }}</span>
                   <span class="text-[12px] text-muted">{{ updateLogsError }}</span>
                 </div>
                 <button type="button"
                   class="flex h-9 items-center gap-2 rounded-md border border-line px-3 text-[13px] font-medium text-secondary hover:bg-control-hover hover:text-ink"
                   @click="loadUpdateLogs">
                   <Icon icon="lucide:refresh-cw" :size="13" />
-                  重新加载
+                  {{ t('externalChange.reload') }}
                 </button>
               </div>
               <!-- 懒加载列表：默认只渲染前 20 条，滚动接近底部时再追加一页 -->
@@ -193,12 +197,15 @@
                         class="flex h-6 shrink-0 items-center rounded-full bg-selected px-2.5 font-mono text-[10px] font-semibold tracking-wide text-accent">
                         V{{ log.version }}
                       </span>
-                      <h3 class="truncate text-[16px] font-semibold tracking-tight text-ink">{{ log.title }}</h3>
+                      <h3 class="truncate text-[16px] font-semibold tracking-tight text-ink">{{ releaseNotesFor(log).title }}</h3>
+                      <span v-if="releaseNotesFor(log).untranslated" class="shrink-0 text-[11px] text-muted">
+                        {{ t('update.chineseOnly') }}
+                      </span>
                     </div>
                     <time class="shrink-0 text-[11px] font-medium text-muted">{{ log.date }}</time>
                   </div>
                   <div class="flex flex-col gap-2.5 border-t border-line pt-4">
-                    <div v-for="item in log.content" :key="item" class="flex items-start gap-3">
+                    <div v-for="item in releaseNotesFor(log).content" :key="item" class="flex items-start gap-3">
                       <span class="mt-[9px] flex h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                       <span class="text-[13px] leading-6 text-secondary">{{ item }}</span>
                     </div>
@@ -206,41 +213,41 @@
                 </article>
                 <!-- 列表底部状态：追加中、还有更多或已全部加载 -->
                 <div class="flex items-center justify-center py-3 text-[12px] text-muted">
-                  <span v-if="changelogLoadingMore">加载中…</span>
-                  <span v-else-if="updateLogs.length === 0">暂无更新日志</span>
-                  <span v-else-if="changelogAllLoaded">已显示全部 {{ updateLogs.length }} 条更新日志</span>
-                  <span v-else>继续滚动加载更多</span>
+                  <span v-if="changelogLoadingMore">{{ t('settings.changelog.loadingMore') }}</span>
+                  <span v-else-if="updateLogs.length === 0">{{ t('settings.changelog.empty') }}</span>
+                  <span v-else-if="changelogAllLoaded">{{ t('settings.changelog.allLoaded', { count: updateLogs.length }) }}</span>
+                  <span v-else>{{ t('settings.changelog.scrollMore') }}</span>
                 </div>
               </div>
             </div>
           </template>
 
           <template v-else>
-            <SectionTitle title="关于 XMD" description="专注、本地优先的 Markdown 写作工具。" />
+            <SectionTitle :title="t('settings.about.title')" :description="t('settings.about.description')" />
             <div class="flex items-center gap-4 rounded-lg border border-line bg-panel p-5">
               <img :src="appIcon" alt="XMD" class="h-16 w-16 rounded-xl" />
               <div class="flex flex-col gap-1">
                 <strong class="text-[18px] tracking-tight text-ink">XMD</strong>
-                <span class="text-[13px] text-muted">让 Markdown 写作回归内容本身</span>
-                <span class="text-[12px] text-muted">作者：{{ appAuthor }}</span>
+                <span class="text-[13px] text-muted">{{ t('settings.about.tagline') }}</span>
+                <span class="text-[12px] text-muted">{{ t('settings.about.author', { author: appAuthor }) }}</span>
               </div>
               <span
                 class="ml-auto rounded border border-line bg-paper px-2 py-1 font-mono text-[10px] text-muted">v{{ appVersion }}</span>
             </div>
             <!-- 项目简介采用纵向阅读顺序，避免短标题与长正文被挤成不均衡的多列。 -->
             <div class="flex flex-col gap-2 border-b border-line py-5">
-              <h4 class="text-[14px] font-semibold text-ink">项目简介</h4>
-              <p class="text-[12px] leading-5 text-muted">文档始终保存在本地。</p>
+              <h4 class="text-[14px] font-semibold text-ink">{{ t('settings.about.intro') }}</h4>
+              <p class="text-[12px] leading-5 text-muted">{{ t('settings.about.local') }}</p>
               <p class="max-w-2xl text-[13px] leading-6 text-secondary">
-                轻量编辑、源码模式、项目大纲与代码高亮，都被收纳在同一个安静的工作区中。
+                {{ t('settings.about.summary') }}
               </p>
             </div>
-            <SettingGroup title="检测更新" :description="checkMessage || '手动检查 XMD 是否有可用的新版本。'">
+            <SettingGroup :title="t('settings.update.title')" :description="checkMessage || t('settings.update.description')">
               <button type="button"
                 class="flex h-9 items-center gap-2 rounded-md border border-line px-3 text-[13px] font-medium text-secondary hover:bg-control-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="isChecking" @click="checkForUpdates(true)">
                 <Icon icon="lucide:refresh-cw" :size="13" />
-                {{ isChecking ? '正在检查…' : '检查更新' }}
+                {{ isChecking ? t('settings.update.checking') : t('settings.update.check') }}
               </button>
             </SettingGroup>
           </template>
@@ -254,6 +261,9 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue/offline'
 import { useSettings, type SettingsSection } from '../composables/useSettings'
+import { locale, setLanguagePreference, t } from '../composables/useI18n'
+import { resolveReleaseNotes } from '../utils/releaseNotes'
+import { isLanguagePreference } from '../i18n/locale'
 import { useUpdater } from '../composables/useUpdater'
 import { SHORTCUT_DEFINITIONS, type ShortcutId } from '../constants/shortcuts'
 import type { UpdateLog } from '../types/update'
@@ -289,6 +299,18 @@ const appAuthor = packageInfo.author
 const { settings, resetShortcuts } = useSettings()
 const { isChecking, checkMessage, checkForUpdates } = useUpdater()
 const activeSection = ref<SettingsSection>(settingsSection.value)
+
+// 语言选项在每次渲染时取词表，切换语言后选项文案随之更新。
+const languageOptions = computed(() => [
+  { value: 'system', label: t('settings.language.system') },
+  { value: 'zh-CN', label: t('settings.language.zhCN') },
+  { value: 'en', label: t('settings.language.en') },
+])
+
+// ChoiceControl 只传出字符串，这里收敛到受支持的偏好值再写入设置。
+const changeLanguage = (value: string): void => {
+  if (isLanguagePreference(value)) setLanguagePreference(value)
+}
 
 // 设置页常驻挂载以避免生产环境首次动态创建时错过呈现；每次打开前同步目标分区。
 watch(settingsOpen, (open) => {
@@ -330,17 +352,17 @@ const handleChangelogScroll = (): void => {
   }
 }
 
-const navigationItems = [
-  { id: 'general' as const, label: '通用', icon: 'lucide:sliders-horizontal' },
-  { id: 'typography' as const, label: '排版', icon: 'lucide:type' },
-  { id: 'theme' as const, label: '主题', icon: 'lucide:palette' },
+const navigationItems = computed(() => [
+  { id: 'general' as const, label: t('settings.nav.general'), icon: 'lucide:sliders-horizontal' },
+  { id: 'typography' as const, label: t('settings.nav.typography'), icon: 'lucide:type' },
+  { id: 'theme' as const, label: t('settings.nav.theme'), icon: 'lucide:palette' },
   // 图标必须是 src/icons.ts 里注册过的离线图标，否则 Icon 会退化成匿名组件并告警。
-  { id: 'export' as const, label: '导出', icon: 'lucide:download' },
-  { id: 'shortcuts' as const, label: '快捷键', icon: 'lucide:keyboard' },
+  { id: 'export' as const, label: t('settings.nav.export'), icon: 'lucide:download' },
+  { id: 'shortcuts' as const, label: t('settings.nav.shortcuts'), icon: 'lucide:keyboard' },
   { id: 'ai' as const, label: 'AI', icon: 'lucide:sparkles' },
-  { id: 'changelog' as const, label: '更新日志', icon: 'lucide:history' },
-  { id: 'about' as const, label: '关于', icon: 'lucide:info' },
-]
+  { id: 'changelog' as const, label: t('settings.nav.changelog'), icon: 'lucide:history' },
+  { id: 'about' as const, label: t('settings.nav.about'), icon: 'lucide:info' },
+])
 
 const loadUpdateLogs = async (): Promise<void> => {
   updateLogsLoading.value = true
@@ -348,7 +370,7 @@ const loadUpdateLogs = async (): Promise<void> => {
 
   const result = await updateService.getLogs()
   if (!result.success || !result.releases) {
-    updateLogsError.value = result.error || '版本信息内容为空'
+    updateLogsError.value = result.error || t('settings.changelog.emptyError')
     updateLogsLoading.value = false
     return
   }
@@ -374,21 +396,18 @@ const tryChangeSection = async (section: SettingsSection): Promise<void> => {
   }
   activeSection.value = section
 }
-const editorModeOptions = [
-  { value: 'preview', label: 'MD 预览' },
-  { value: 'source', label: '源码展示' },
-]
-const attachmentHandlingOptions = [
-  { value: 'reference', label: '引用原文件' },
-  { value: 'copy-to-assets', label: '复制到 assets' },
-]
-const autoSaveIntervalOptions = [
-  { value: '1', label: '1 秒' },
-  { value: '3', label: '3 秒' },
-  { value: '5', label: '5 秒' },
-  { value: '10', label: '10 秒' },
-  { value: '30', label: '30 秒' },
-]
+const editorModeOptions = computed(() => [
+  { value: 'preview', label: t('settings.option.preview') },
+  { value: 'source', label: t('settings.option.source') },
+])
+const attachmentHandlingOptions = computed(() => [
+  { value: 'reference', label: t('settings.option.reference') },
+  { value: 'copy-to-assets', label: t('settings.option.copyAssets') },
+])
+const autoSaveIntervalOptions = computed(() => ['1', '3', '5', '10', '30'].map((value) => ({
+  value,
+  label: t('settings.option.seconds', { count: value }),
+})))
 const bodyFontSizeOptions = [
   { value: '14', label: '14 px' },
   { value: '15', label: '15 px' },
@@ -396,32 +415,32 @@ const bodyFontSizeOptions = [
   { value: '17', label: '17 px' },
   { value: '18', label: '18 px' },
 ]
-const bodyFontOptions = [
-  { value: 'system', label: '系统默认' },
-  { value: 'serif', label: '衬线' },
-  { value: 'sans', label: '无衬线' },
-  { value: 'mono', label: '等宽' },
-]
-const lineWidthOptions = [
-  { value: 'narrow', label: '窄' },
-  { value: 'medium', label: '中' },
-  { value: 'wide', label: '宽' },
-  { value: 'full', label: '全宽' },
-]
-const previewZoomOptions = [
-  { value: 'small', label: '小' },
-  { value: 'standard', label: '标准' },
-  { value: 'large', label: '大' },
-  { value: 'xlarge', label: '特大' },
-]
+const bodyFontOptions = computed(() => [
+  { value: 'system', label: t('settings.option.systemFont') },
+  { value: 'serif', label: t('settings.option.serif') },
+  { value: 'sans', label: t('settings.option.sans') },
+  { value: 'mono', label: t('settings.option.mono') },
+])
+const lineWidthOptions = computed(() => [
+  { value: 'narrow', label: t('settings.option.narrow') },
+  { value: 'medium', label: t('settings.option.medium') },
+  { value: 'wide', label: t('settings.option.wide') },
+  { value: 'full', label: t('settings.option.full') },
+])
+const previewZoomOptions = computed(() => [
+  { value: 'small', label: t('settings.option.small') },
+  { value: 'standard', label: t('settings.option.standard') },
+  { value: 'large', label: t('settings.option.large') },
+  { value: 'xlarge', label: t('settings.option.xlarge') },
+])
 // 纸张按打印常见规格给出，其余尺寸走「自定义」。
-const pdfPageSizeOptions: { value: PdfPageSize; label: string }[] = [
+const pdfPageSizeOptions = computed<{ value: PdfPageSize; label: string }[]>(() => [
   { value: 'A4', label: 'A4' },
   { value: 'A3', label: 'A3' },
   { value: 'Letter', label: 'Letter' },
   { value: 'Legal', label: 'Legal' },
-  { value: 'custom', label: '自定义' },
-]
+  { value: 'custom', label: t('settings.option.custom') },
+])
 // ChoiceControl 只接受字符串值，设置内部仍以数字保存间隔，便于直接换算成毫秒。
 const autoSaveIntervalModel = computed({
   get: () => String(settings.autoSaveInterval),
@@ -429,12 +448,15 @@ const autoSaveIntervalModel = computed({
     settings.autoSaveInterval = Number(value)
   },
 })
-const themeOptions = [
-  { value: 'system' as const, label: '跟随系统', preview: 'bg-[#e9e9e9] text-[#333333]' },
-  { value: 'light' as const, label: '浅色', preview: 'bg-[#ffffff] text-[#222222]' },
-  { value: 'dark' as const, label: '深色', preview: 'bg-[#26272b] text-[#e4e6eb]' },
-]
+const themeOptions = computed(() => [
+  { value: 'system' as const, label: t('settings.theme.followSystem'), preview: 'bg-[#e9e9e9] text-[#333333]' },
+  { value: 'light' as const, label: t('settings.theme.light'), preview: 'bg-[#ffffff] text-[#222222]' },
+  { value: 'dark' as const, label: t('settings.theme.dark'), preview: 'bg-[#26272b] text-[#e4e6eb]' },
+])
 const shortcutItems = SHORTCUT_DEFINITIONS
+
+// 更新日志按当前界面语言选择中文或英文，远程数据缺英文时标记为未翻译。
+const releaseNotesFor = (log: UpdateLog) => resolveReleaseNotes(log, locale.value)
 
 // 保留给系统功能（查找、导出、窗口等）的组合，不允许用户占用。
 const RESERVED_SHORTCUTS = [
@@ -455,7 +477,7 @@ const conflictLabel = (id: ShortcutId): string => {
   const other = SHORTCUT_DEFINITIONS.find(
     (item) => item.id !== id && settings.shortcuts[item.id] === value,
   )
-  return other ? other.label : ''
+  return other ? t(other.labelKey) : ''
 }
 
 // 录制到新组合后提交前校验：重复或占用系统功能时拒绝。
@@ -464,8 +486,8 @@ const validateShortcut = (id: ShortcutId, value: string): string | null => {
   const other = SHORTCUT_DEFINITIONS.find(
     (item) => item.id !== id && settings.shortcuts[item.id] === value,
   )
-  if (other) return `该组合已分配给「${other.label}」`
-  if (RESERVED_SHORTCUTS.includes(value)) return '该组合被系统功能占用，请换一个'
+  if (other) return t('settings.shortcuts.conflict', { label: t(other.labelKey) })
+  if (RESERVED_SHORTCUTS.includes(value)) return t('settings.shortcuts.reserved')
   return null
 }
 

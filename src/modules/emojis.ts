@@ -1,3 +1,5 @@
+import type { MessageKey } from "../i18n/messages/zh-CN";
+import type { UiLocale } from "../i18n/locale";
 export type EmojiCategory =
   | "表情"
   | "手势"
@@ -1017,6 +1019,26 @@ export const emojis: EmojiItem[] = [
 
 // 空查询时展示的常用表情（popular 标记项）
 export const popularEmojis: EmojiItem[] = emojis.filter((item) => item.popular);
+
+export const EMOJI_CATEGORY_KEYS: Record<EmojiCategory, MessageKey> = {
+  表情: "emoji.category.smileys",
+  手势: "emoji.category.gestures",
+  人物: "emoji.category.people",
+  动物: "emoji.category.animals",
+  自然: "emoji.category.nature",
+  食物: "emoji.category.food",
+  出行: "emoji.category.travel",
+  活动: "emoji.category.activities",
+  物体: "emoji.category.objects",
+  符号: "emoji.category.symbols",
+};
+
+// 英文界面不额外维护 960 个名称：用短代码生成可读名称，排序与搜索仍走 shortcode 和 keywords。
+export const emojiDisplayName = (item: EmojiItem, locale: UiLocale): string => {
+  if (locale !== "en") return item.name;
+  const words = item.shortcode.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
 
 const matchEmoji = (item: EmojiItem, query: string): boolean =>
   item.name.includes(query) ||

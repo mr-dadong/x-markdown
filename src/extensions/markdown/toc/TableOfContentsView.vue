@@ -3,24 +3,25 @@
     :class="props.selected ? 'bg-control' : ''" data-xmd-table-of-contents-view>
     <div class="flex h-7 items-center gap-2" contenteditable="false">
       <Icon icon="lucide:list-tree" :size="14" class="text-muted" />
-      <span class="text-[12px] font-semibold text-ink">目录</span>
-      <span v-if="headings.length" class="text-[10px] text-muted">{{ headings.length }} 项</span>
+      <span class="text-[12px] font-semibold text-ink">{{ t('toc.title') }}</span>
+      <span v-if="headings.length" class="text-[10px] text-muted">{{ t('toc.count', { count: headings.length }) }}</span>
     </div>
     <div v-if="headings.length" class="flex flex-col gap-0.5" contenteditable="false">
       <button v-for="heading in headings" :key="heading.position" type="button"
         class="flex h-7 w-full items-center rounded-md pr-2 text-left text-[12px] text-secondary hover:bg-control-hover hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         :style="{ paddingLeft: `${24 + (heading.level - minimumLevel) * 14}px` }"
-        :title="`跳转到：${heading.text}`" @click="scrollToHeading(heading.position)">
+        :title="t('toc.jumpTo', { text: heading.text })" @click="scrollToHeading(heading.position)">
         <span class="truncate">{{ heading.text }}</span>
       </button>
     </div>
     <div v-else class="flex h-7 items-center pl-6 text-[11px] text-muted" contenteditable="false">
-      添加标题后自动生成
+      {{ t('toc.empty') }}
     </div>
   </NodeViewWrapper>
 </template>
 
 <script setup lang="ts">
+import { t } from '../../../composables/useI18n'
 import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { Icon } from '@iconify/vue/offline'
@@ -45,7 +46,7 @@ const refreshHeadings = (): void => {
     nextHeadings.push({
       level: Number(node.attrs.level),
       position,
-      text: node.textContent || '未命名标题',
+      text: node.textContent || t('toc.untitledHeading'),
     })
   })
   headings.value = nextHeadings

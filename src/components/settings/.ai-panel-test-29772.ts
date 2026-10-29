@@ -549,7 +549,7 @@ const _hoisted_31 = {
   class: "break-all text-[12px] leading-5 text-secondary"
 }
 
-export function render(_ctx, _cache, $props, $setup, $data, $options) {
+export function render(_ctx, _cache, $props, $setup, _data, _options) {
   return (_openBlock(), _createElementBlock("fieldset", {
     disabled: $setup.saving || $setup.testing,
     class: "flex min-w-0 flex-col gap-5 border-0 p-0"
@@ -568,7 +568,7 @@ export function render(_ctx, _cache, $props, $setup, $data, $options) {
             key: connection.value,
             type: "button",
             class: _normalizeClass(["flex items-center gap-2 rounded-md border px-3 py-2 text-[13px]", $setup.provider === connection.value ? 'border-accent bg-selected text-accent' : 'border-line text-secondary hover:bg-selected']),
-            onClick: $event => ($setup.provider = connection.value as AiProvider)
+            onClick: _event => ($setup.provider = connection.value as AiProvider)
           }, [
             _createTextVNode(_toDisplayString(connection.label) + " ", 1 /* TEXT */),
             ($setup.provider === connection.value)
@@ -639,7 +639,7 @@ export function render(_ctx, _cache, $props, $setup, $data, $options) {
               key: 0,
               type: "button",
               class: "flex shrink-0 rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected",
-              onClick: _cache[4] || (_cache[4] = $event => ($setup.removeCustomModel($setup.currentModel)))
+              onClick: _cache[4] || (_cache[4] = _event => ($setup.removeCustomModel($setup.currentModel)))
             }, "删除当前模型"))
           : _createCommentVNode("v-if", true)
       ]),
@@ -658,7 +658,7 @@ export function render(_ctx, _cache, $props, $setup, $data, $options) {
               _createElementVNode("button", {
                 type: "button",
                 class: "flex shrink-0 rounded-md px-2 py-1 text-[12px] text-danger hover:bg-selected",
-                onClick: $event => ($setup.removeCustomModel(model))
+                onClick: _event => ($setup.removeCustomModel(model))
               }, "删除", 8 /* PROPS */, _hoisted_12)
             ]))
           }), 128 /* KEYED_FRAGMENT */))

@@ -6,6 +6,7 @@
       "date": "2026-08-21",
       "channel": "stable",
       "title": "版本更新",
+      "titleEn": "Version Update",
       "content": [
         "斜杠命令面板全新改版：每个命令的图标配以专属色调色块，列表一眼可扫；选中态收敛为单一高亮，删除多余的图标描边与右侧指示条。",
         "斜杠面板底部新增键盘操作提示（↑↓ 选择、回车插入、Esc 关闭），空状态补充下一步引导，面板弹出时带轻量入场动画。",
@@ -16,6 +17,17 @@
         "查找输入框持有焦点时 ProseMirror 不会滚动（滚动依赖浏览器选区位于编辑器内），现已通过 DOM 滚动绕过该限制。",
         "查找支持跨标签页：关键词不在当前文档时自动切换到包含匹配的标签页并定位。",
         "匹配计数改为统计全部打开的文档，源码模式同步修复滚动定位。"
+      ],
+      "contentEn": [
+        "Redesigned the slash command panel: each command icon has a dedicated color swatch for quick scanning; selection uses a single highlight, and redundant icon outlines and right-side indicators were removed.",
+        "Added keyboard hints at the bottom of the slash panel (up and down to select, Enter to insert, Esc to close), a next-step hint in the empty state, and a light entrance animation.",
+        "Fixed the slash menu drifting with scrolling: it now stays anchored to the caret and follows it while scrolling; it closes when the caret scrolls out of view.",
+        "Fixed long recent-file lists pushing the welcome brand area out of the viewport; the layout is safely centered and the list scrolls internally.",
+        "The welcome screen shows the five most recent files; the full list remains under File, Open Recent.",
+        "Fixed Find and Replace Next and Previous not jumping by switching to DOM scrolling, which works regardless of focus.",
+        "ProseMirror does not scroll while the find input has focus; DOM scrolling now bypasses that limitation.",
+        "Find works across tabs: when a keyword is not in the current document, the app switches to a tab containing a match and locates it.",
+        "Match counts now cover all open documents; source-mode scrolling navigation is fixed as well."
       ],
       "downloads": {
         "windows": {

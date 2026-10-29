@@ -1,3 +1,4 @@
+import { currentT } from "../../src/i18n/current";
 import type { DocumentPatch } from "../../src/types/documentAgent";
 import { applyDocumentPatches } from "../../src/utils/documentAgent";
 import { fingerprintDocument } from "../../src/utils/documentAgentBlocks";
@@ -46,12 +47,12 @@ export function createDocumentAgentDraft(
   };
   const assertSize = (value: string): void => {
     if (value.length > 300000)
-      throw new Error("草稿最多 30 万字符，请缩小修改范围");
+      throw new Error(currentT("error.agent.draftTooLarge"));
   };
   // 先在局部变量里完成全部替换；任何一项失败时，当前草稿和来源表都不改变。
   const editMany = (edits: DraftEdit[]) => {
     if (!edits.length || edits.length > 30)
-      throw new Error("一次 edit 提供 1–30 处修改");
+      throw new Error(currentT("error.agent.editCount"));
     let nextText = text;
     let nextOrigins = origins;
     let replacements = 0;
@@ -100,7 +101,7 @@ export function createDocumentAgentDraft(
       const next = normalizeLineEndings(content);
       assertSize(next);
       validateContent(next);
-      if (next === text) throw new Error("草稿内容没有变化，无需再次写入");
+      if (next === text) throw new Error(currentT("error.agent.draftUnchanged"));
       // 保留未变化的首尾来源，减少全文写入时审阅卡中的无关正文。
       let start = 0;
       while (
@@ -143,7 +144,7 @@ export function createDocumentAgentDraft(
             end: boundaries[sourceEnd],
             before,
             after,
-            reason: "根据文档目标调整内容",
+            reason: currentT("diff.reason.adjust"),
           });
       };
       // 未改字符是天然的分隔点，不需要在整篇长文档上运行平方复杂度的 diff。
@@ -159,7 +160,7 @@ export function createDocumentAgentDraft(
       if (
         normalizeLineEndings(applyDocumentPatches(original, patches)) !== text
       )
-        throw new Error("草稿与审阅差异不一致");
+        throw new Error(currentT("error.agent.draftMismatch"));
       return patches;
     },
   };

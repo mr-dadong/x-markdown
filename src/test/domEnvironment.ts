@@ -7,6 +7,18 @@ import { Window } from "happy-dom";
  */
 export const registeredHighlights = new Map<string, Range[]>();
 
+// 测试默认使用简体中文，保持既有断言稳定；需要英文场景的用例在加载模块前显式切换。
+export const setNavigatorLanguages = (languages: string[]): void => {
+  Object.defineProperty(globalThis.navigator, "languages", {
+    configurable: true,
+    value: languages,
+  });
+  Object.defineProperty(globalThis.navigator, "language", {
+    configurable: true,
+    value: languages[0] ?? "en",
+  });
+};
+
 class TestHighlight {
   readonly ranges: Range[];
 
@@ -55,6 +67,9 @@ export const installDomEnvironment = (): Window => {
       value,
     });
   }
+
+  // 本轮引入界面语言后，中文用例依赖测试环境为中文，避免默认跟随 happy-dom 的 en-US。
+  setNavigatorLanguages(["zh-CN"]);
 
   return window;
 };

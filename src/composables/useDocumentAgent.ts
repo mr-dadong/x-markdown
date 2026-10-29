@@ -1,3 +1,4 @@
+import { t } from './useI18n';
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import type { DocumentAgentApi, DocumentAgentEvent, DocumentAgentGoal, DocumentAgentOperation, DocumentAgentStage, DocumentAgentTimelineEntry, DocumentPatch } from '../types/documentAgent';
 import { applyDocumentPatches, toLfLineEndings, validateAgentDocument } from '../utils/documentAgent';
@@ -49,7 +50,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const timeline = ref<DocumentAgentTimelineEntry[]>([]);
   let timelineSeq = 0;
   const issues = ref<string[]>([]);
-  const checkTarget = ref('全部建议应用后');
+  const checkTarget = ref(t('agent.checkTarget.applied'));
   const error = ref('');
   // 完成事件携带的说明（如达到预算、任务停止）：属于部分完成提示，不占用红色错误位。
   const partialMessage = ref('');
@@ -87,8 +88,8 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     if (!requestId.value) return;
     api.cancel(requestId.value);
     status.value = 'stopping';
-    interruptProgress('正在停止任务');
-    logs.value.push('正在停止后台任务，结束后将保留已验证建议');
+    interruptProgress(t('agent.cancel.stopping'));
+    logs.value.push(t('agent.cancel.log'));
   };
 
   // 清除只重置 Agent 的本轮界面记录，已经接受并写入编辑器的内容保持不变。
@@ -122,7 +123,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     truncationRecoveries.value = 0;
     patches.value = [];
     issues.value = [];
-    checkTarget.value = '全部建议应用后';
+    checkTarget.value = t('agent.checkTarget.applied');
     error.value = '';
     partialMessage.value = '';
     requestId.value = '';
@@ -150,10 +151,10 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       });
       expected = content;
       issues.value = validateAgentDocument(expected);
-      checkTarget.value = '当前文档';
+      checkTarget.value = t('agent.checkTarget.current');
       status.value = 'review';
       error.value = '';
-      logs.value.push('检测到编辑器撤销了对应修改，建议已恢复待审阅');
+      logs.value.push(t('agent.undo.restored'));
       return;
     }
     // 编辑器 Ctrl+Shift+Z 重做了刚撤销的 AI 写入：按记录恢复接受状态。
@@ -167,17 +168,17 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       });
       expected = content;
       issues.value = validateAgentDocument(expected);
-      checkTarget.value = '当前文档';
+      checkTarget.value = t('agent.checkTarget.current');
       status.value = pending.value.length ? 'review' : 'done';
       error.value = '';
-      logs.value.push('检测到编辑器重做了对应修改');
+      logs.value.push(t('agent.redo.detected'));
       return;
     }
     if (requestId.value) api.cancel(requestId.value);
     requestId.value = '';
     status.value = 'conflict';
-    interruptProgress('文档已变化');
-    error.value = '文档已变化，本轮修改和任务撤销已停用。请重新读取并执行，已有正文不会被覆盖。';
+    interruptProgress(t('agent.conflict.title'));
+    error.value = t('agent.conflict.message');
   }, { flush: 'sync' });
 
   /**
@@ -188,7 +189,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
   const start = async (text: string, references: string[] = []): Promise<boolean> => {
     if (!canStart.value || !text.trim()) return false;
     if (options.getDocumentId() === null) {
-      error.value = '请先打开文档';
+      error.value = t('agent.error.openDocument');
       return false;
     }
     original = options.getDocument();
@@ -200,14 +201,14 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     reasoning.value = '';
     draft.value = '';
     phase.value = 'thinking';
-    currentActionTitle.value = '正在理解你的要求';
-    currentActionDetail.value = '准备文档快照并建立处理范围';
+    currentActionTitle.value = t('agent.action.understanding');
+    currentActionDetail.value = t('agent.action.understandingDetail');
     stages.value = [
-      { id: 'understand', title: '理解目标', state: 'running', detail: '正在准备任务' },
-      { id: 'locate', title: '定位内容', state: 'pending', detail: '' },
-      { id: 'edit', title: '生成修改', state: 'pending', detail: '' },
-      { id: 'check', title: '检查结果', state: 'pending', detail: '' },
-      { id: 'review', title: '审阅修改', state: 'pending', detail: '' },
+      { id: 'understand', title: t('agent.stage.understand'), state: 'running', detail: t('agent.stage.prepare') },
+      { id: 'locate', title: t('agent.stage.locate'), state: 'pending', detail: '' },
+      { id: 'edit', title: t('agent.stage.edit'), state: 'pending', detail: '' },
+      { id: 'check', title: t('agent.stage.check'), state: 'pending', detail: '' },
+      { id: 'review', title: t('agent.stage.review'), state: 'pending', detail: '' },
     ];
     operations.value = [];
     goals.value = [];
@@ -228,7 +229,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     logs.value = [];
     patches.value = [];
     issues.value = [];
-    checkTarget.value = '全部建议应用后';
+    checkTarget.value = t('agent.checkTarget.applied');
     error.value = '';
     partialMessage.value = '';
     status.value = 'running';
@@ -248,7 +249,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       });
       // 最终结果由 invoke 直接返回，事件即使稍后到达也不会误判任务失败。
       handleEvent(result);
-      if (requestId.value === id) throw new Error('任务连接已结束，但没有收到完成结果');
+      if (requestId.value === id) throw new Error(t('agent.noResult'));
     } catch (failure) {
       if (requestId.value === id) {
         requestId.value = '';
@@ -314,8 +315,10 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       logs.value.push(event.message);
       phase.value = 'executing';
       if (event.message.startsWith('工具参数需要修正')) {
-        currentActionTitle.value = '正在修正修改参数';
-        currentActionDetail.value = `${event.message.replace('工具参数需要修正：', '')}；下一轮将按要求重新提交`;
+        currentActionTitle.value = t('agent.fixArgs.title');
+        currentActionDetail.value = t('agent.fixArgs.detail', {
+          reason: event.message.replace('工具参数需要修正：', ''),
+        });
       }
       // 进展归入正在执行的工具行；没有归属工具时作为独立提示行。
       const tool = runningToolEntry();
@@ -351,7 +354,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       if (event.patches.some(patch => patch.baseVersion !== documentVersion)) {
         api.cancel(requestId.value);
         status.value = 'conflict';
-        error.value = 'Agent 返回的修改不属于当前文档版本，请重新执行任务。';
+        error.value = t('agent.invalidVersion');
         interruptProgress(error.value);
         requestId.value = '';
         return;
@@ -365,7 +368,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       if (event.patch.baseVersion !== documentVersion) {
         api.cancel(requestId.value);
         status.value = 'conflict';
-        error.value = 'Agent 返回的修改不属于当前文档版本，请重新执行任务。';
+        error.value = t('agent.invalidVersion');
         interruptProgress(error.value);
         requestId.value = '';
         return;
@@ -384,7 +387,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
         timeline.value.push({ id: `patch-${event.patch.id}`, kind: 'patch', patchId: event.patch.id });
       }
       const check = stages.value.find(stage => stage.id === 'check');
-      if (check) { check.state = 'pending'; check.detail = '修改已更新，等待最终检查'; }
+      if (check) { check.state = 'pending'; check.detail = t('agent.check.updated'); }
     }
     if (event.type === 'done') {
       issues.value = event.issues;
@@ -397,7 +400,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       operations.value.forEach(operation => {
         if (operation.state === 'running') {
           operation.state = 'error';
-          operation.detail = '任务已结束，该操作被中断';
+          operation.detail = t('agent.operation.interrupted');
           operation.endedAt = Date.now();
         }
       });
@@ -406,11 +409,11 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
         if (item.kind === 'tool') item.draft = '';
       });
       stages.value.forEach(stage => {
-        if (stage.state === 'running') { stage.state = 'interrupted'; stage.detail = '任务已结束'; }
-        if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = '本次未执行此阶段'; }
+        if (stage.state === 'running') { stage.state = 'interrupted'; stage.detail = t('agent.stage.ended'); }
+        if (stage.state === 'pending') { stage.state = 'skipped'; stage.detail = t('agent.stage.skipped'); }
       });
       const review = stages.value.find(stage => stage.id === 'review');
-      if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? '等待你接受或拒绝建议' : '没有待应用的修改'; }
+      if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? t('agent.review.waiting') : t('agent.review.none'); }
       status.value = pending.value.length ? 'review' : 'done';
       requestId.value = '';
       currentActionTitle.value = '';
@@ -429,15 +432,15 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
 
   const write = (next: string): boolean => {
     try {
-      if (options.getDocumentId() !== documentId || options.getDocument() !== expected) throw new Error('文档已变化，请重新执行任务');
+      if (options.getDocumentId() !== documentId || options.getDocument() !== expected) throw new Error(t('agent.error.docChanged'));
       ownWrite = true;
       options.applyDocument(expected, next);
       // 编辑器内部统一 \n 换行，回读内容是 next 的 LF 形式，按同一坐标系核对写入结果。
-      if (options.getDocument() !== toLfLineEndings(next)) throw new Error('编辑器未完成写入，请重新读取文档');
+      if (options.getDocument() !== toLfLineEndings(next)) throw new Error(t('agent.error.writeIncomplete'));
       // 写入后以编辑器实际内容为准（LF 形式），保证下一次接受或撤销的比较与编辑器逐字一致。
       expected = options.getDocument();
       issues.value = validateAgentDocument(next);
-      checkTarget.value = '当前文档';
+      checkTarget.value = t('agent.checkTarget.current');
       return true;
     } catch (failure) {
       status.value = 'conflict';
@@ -459,7 +462,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
       // 入栈本次写入：编辑器按基线撤销它时，这些建议恢复待审阅。
       redoSlot = null;
       writeStack.push({ before, after: expected, patchIds: selected.map(patch => patch.id) });
-      logs.value.push(`已接受 ${selected.length} 处修改，可撤销本次任务`);
+      logs.value.push(t('agent.accepted', { count: selected.length }));
       if (!pending.value.length) status.value = 'done';
     } catch (failure) {
       status.value = 'error';
@@ -471,7 +474,7 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     pending.value.filter(patch => id === undefined || patch.id === id).forEach(patch => { patch.decision = 'rejected'; });
     // 拒绝后重新检查真正保留的内容，不能沿用全部建议应用后的检查结果。
     issues.value = validateAgentDocument(expected);
-    checkTarget.value = '当前文档';
+    checkTarget.value = t('agent.checkTarget.current');
     if (!pending.value.length) status.value = 'done';
   };
   const undo = (): void => {
@@ -481,13 +484,13 @@ export function useDocumentAgent(options: DocumentAgentOptions, api: DocumentAge
     writeStack.length = 0;
     redoSlot = null;
     status.value = 'review';
-    logs.value.push('已撤销本次任务接受的全部修改');
+    logs.value.push(t('agent.undone'));
   };
   // 审阅进度跟随用户的真实决定，全部处理后才完成这一阶段。
   const offReviewWatch = watch([status, () => pending.value.length], () => {
     if (!canReview.value) return;
     const review = stages.value.find(stage => stage.id === 'review');
-    if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? `还有 ${pending.value.length} 处待审阅` : '所有建议已处理'; }
+    if (review) { review.state = pending.value.length ? 'running' : 'done'; review.detail = pending.value.length ? t('agent.review.pending', { count: pending.value.length }) : t('agent.review.allDone'); }
   });
   onScopeDispose(() => { offReviewWatch(); cancel(); offEvent(); offWatch(); });
   return { stages, operations, goals, outcome, startedAt, endedAt, step, maxSteps, taskMs, budgetMessage, batch, totalBatches, completedBlocks, remainingBlocks, truncationRecoveries, currentActionTitle, currentActionDetail, status, instruction, response, reasoning, draft, phase, logs, timeline, patches, issues, checkTarget, error, partialMessage, running, settling, pending, accepted, canReview, canStart, start, cancel, clear, accept, reject, undo };
