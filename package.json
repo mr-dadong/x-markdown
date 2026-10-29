@@ -177,6 +177,9 @@
         }
       ]
     },
+    "appImage": {
+      "compression": "gzip"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
