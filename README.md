@@ -1,93 +1,177 @@
-# XMD
+<div align="center">
+  <img src="docs/images/readme-banner.svg" alt="XMD — local-first Markdown editor" width="100%" />
+</div>
 
-[简体中文](README.zh-CN.md)
+<div align="center">
 
-Website: [https://www.x-markdown.com](https://www.x-markdown.com)
+<h1>XMD</h1>
 
-Author: dadong
+**A local-first Markdown editor with WYSIWYG, source mode, and an AI sidekick.**
 
-XMD is a local Markdown editor built with Electron, Vue 3, TipTap, and TypeScript. It offers both a what-you-see-is-what-you-get experience and a source editing mode.
+English · [简体中文](README.zh-CN.md)
 
-## Screenshots
+[![Release](https://img.shields.io/github/v/release/mr-dadong/x-markdown?style=for-the-badge&label=release&color=e8801f)](https://github.com/mr-dadong/x-markdown/releases)
+[![License](https://img.shields.io/github/license/mr-dadong/x-markdown?style=for-the-badge&color=3da639)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2b2b2b?style=for-the-badge)](https://www.x-markdown.com/download)
+[![Downloads](https://img.shields.io/github/downloads/mr-dadong/x-markdown/total?style=for-the-badge&color=4477dd)](https://github.com/mr-dadong/x-markdown/releases)
 
-### Welcome screen
+[![Stars](https://img.shields.io/github/stars/mr-dadong/x-markdown?style=for-the-badge&color=e8801f&logo=github)](https://github.com/mr-dadong/x-markdown/stargazers)
+[![Website](https://img.shields.io/badge/website-x--markdown.com-black?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.x-markdown.com)
 
-![XMD welcome screen](docs/images/welcome-screen.jpg)
+[**Download**](https://www.x-markdown.com/download) · [**Website**](https://www.x-markdown.com) · [**Changelog**](https://www.x-markdown.com/changelog) · [**Releases**](https://github.com/mr-dadong/x-markdown/releases)
 
-### Markdown preview
+</div>
 
-![Markdown document preview](docs/images/markdown-preview.jpg)
+---
 
-### Workspace and document outline
+## Why XMD
 
-![Workspace and document outline](docs/images/workspace-outline.jpg)
+- **Local-first, no account.** Your documents stay on disk; nothing is uploaded unless you explicitly use an AI feature with your own model provider.
+- **Two editors, one document.** Write in WYSIWYG or drop into source mode; every tab remembers its own mode and reading position.
+- **Markdown that behaves.** Standard Markdown plus tables, task lists, math, Mermaid, callouts, footnotes, a live table of contents, and block-level HTML that round-trips faithfully.
+- **Bring your own AI.** Chat with the document or let the Document Agent propose line-by-line edits for review — with your own API key, or fully offline without it.
 
-### General settings
+<br />
 
-![XMD general settings](docs/images/general-settings.jpg)
+## Highlights
 
-### Image preview
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>✍️ WYSIWYG + Source</h3>
+      Rich text and raw Markdown, one keystroke apart. Per-tab mode and reading position.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🗂️ Multi-tab Workspace</h3>
+      Tabs, recent files, folder workspaces, lazy file tree, and automatic refresh on external changes.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🧭 Outline & Typography</h3>
+      Live outline, line and character counts, themes, body fonts, line width, preview zoom, and code block styles.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🧩 Extended Markdown</h3>
+      TOC, Mermaid diagrams, KaTeX math, callouts, footnotes, HTML blocks, tables, task lists, and attachments.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🤖 AI Chat + Document Agent</h3>
+      Ask questions about the document, generate content inline, or review the Agent's proposed diffs before applying them.
+    </td>
+    <td width="50%" valign="top">
+      <h3>📤 Complete Export</h3>
+      HTML, PDF, Word (DOCX), PNG, plain text, and ZIP with local assets packed in. PDF supports headers, footers, and page breaks.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🗜️ Edit ZIP Archives</h3>
+      Open a .zip workspace directly and save changes back to the archive, with clear errors when something goes wrong.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🛡️ Safe by Default</h3>
+      Atomic writes, external-change detection, recoverable drafts, and file access limited to authorized paths.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🌍 Bilingual UI</h3>
+      Simplified Chinese and English, following the system language and switchable in settings.
+    </td>
+    <td width="50%" valign="top">
+      <h3>🖥️ Cross-platform</h3>
+      Windows, macOS, and Linux AppImage packages, with file associations and in-app update checks.
+    </td>
+  </tr>
+</table>
 
-![Markdown image preview](docs/images/image-preview.jpg)
-
-### Attachments and video
-
-![XMD attachments and video](docs/images/attachments-and-video.jpg)
-
-## Features
+<details>
+<summary><b>📋 Full feature list</b></summary>
 
 - WYSIWYG and Markdown source modes; each tab remembers its editing mode
 - Multi-tab documents: create, batch open, save, save as, and reorder tabs
-- Recent files list on the welcome screen and in the File menu; stale entries are cleaned up automatically
+- Recent files on the welcome screen and in the File menu; stale entries are cleaned up automatically
+- Standalone folder workspaces with lazy directory expansion and automatic refresh
+- Document outline with filtering, line/word/character counts, light and dark themes
 - Tables, task lists, syntax highlighting, links, images, video, and attachments
-- Standalone folder workspaces with lazy directory expansion and automatic refresh on external changes
-- Document outline, line/word/character counts, light and dark themes
-- Disk conflict detection and atomic writes, so external changes are never silently overwritten
-- Save all, discard changes, or cancel when quitting
-- Automatic recovery of unsaved drafts; drafts are cleaned up after saving or explicitly discarding
-- Configurable auto save after you stop typing; unnamed documents still need to be saved manually
-- Installers for Windows, macOS, and Linux, plus in-app update checks
-- File associations: after installation, double-click .md / .markdown / .txt files to open them with XMD; Windows also provides an "Open with XMD" context menu entry
+- Tables of contents, Mermaid diagrams, KaTeX math, callouts, footnotes, and isolated HTML blocks
+- AI Chat with document context, inline AI writing, and a reviewing Document Agent
+- Export to HTML, PDF, DOCX, PNG, plain text, and ZIP (with local images, attachments, and video)
+- PDF export with paper size, margins, custom headers and footers, and page breaks
+- Open .zip archives directly and write changes back to the archive
+- Safety nets: atomic writes, disk conflict detection, and recoverable drafts
+- Configurable auto save after you stop typing; unnamed documents still need a manual save
+- Code block line numbers, wrapping, language picker, copy, and PNG export
+- Block selection, drag-to-reorder blocks, and a table toolbar
+- File associations: double-click .md / .markdown / .txt to open with XMD; Windows context menu entry "Open with XMD"
+- Simplified Chinese and English UI that follows the system language
 
-## Development
+</details>
 
-The project uses Bun 1.3.14, matching CI.
+---
 
-```powershell
-bun install --frozen-lockfile
-bun run dev
-```
+## Screenshots
 
-Common checks:
+> Screenshots show the Chinese UI. The app ships with an English UI as well.
 
-```powershell
-# Renderer type check
-bun run typecheck
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/images/workspace-outline.jpg" alt="Workspace and outline" width="100%" />
+      <br /><sub><b>Workspace + outline</b> — file tree, live outline, and code blocks.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/images/markdown-preview.jpg" alt="Markdown preview" width="100%" />
+      <br /><sub><b>Markdown preview</b> — syntax highlighting and faithful rendering.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/images/general-settings.jpg" alt="General settings" width="100%" />
+      <br /><sub><b>Settings</b> — language, themes, typography, export, shortcuts, and AI.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/images/image-preview.jpg" alt="Image preview" width="100%" />
+      <br /><sub><b>Image preview</b> — zoom, pan, fit width, and open with the system viewer.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/images/attachments-and-video.jpg" alt="Attachments and video" width="100%" />
+      <br /><sub><b>Attachments and video</b> — cards, progress, and inline playback.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/images/welcome-screen.jpg" alt="Welcome screen" width="100%" />
+      <br /><sub><b>Welcome screen</b> — start a new document or jump back into a recent one.</sub>
+    </td>
+  </tr>
+</table>
 
-# Electron main process and preload type check
-bunx tsc --noEmit -p tsconfig.node.json
+---
 
-# Check without modifying files
-bun run lint
+## Quick Start
 
-# Automatically fix fixable lint issues
-bun run lint:fix
+<div align="center">
 
-# Production build
-bun run build
-```
+[![Download](https://img.shields.io/badge/Download_for-Windows%20%7C%20macOS%20%7C%20Linux-e8801f?style=for-the-badge&logo=github&logoColor=white)](https://www.x-markdown.com/download)
 
-## Installation
+</div>
 
-Installers are published on the [download page](https://www.x-markdown.com/download) and [GitHub Releases](https://github.com/mr-dadong/x-markdown/releases). Choose the file for your system and chip. On Windows, download the exe and follow the wizard. The macOS and Linux steps are below.
+- **Windows 10/11** — download the `.exe` installer and follow the wizard.
+- **macOS 12+** — Apple Silicon: `XMD-<version>-macOS-arm64.dmg`; Intel: `XMD-<version>-macOS-x64.dmg`.
+- **Linux x86_64 / arm64** — download the AppImage, `chmod +x`, and run.
+
+<details>
+<summary><b>Installation notes (Gatekeeper, FUSE, desktop integration)</b></summary>
 
 ### macOS
 
-Apple Silicon (M series) users should download `XMD-<version>-macOS-arm64.dmg`; Intel users should download `XMD-<version>-macOS-x64.dmg`. macOS 12 or later is required.
-
-1. Open the DMG and drag the XMD icon into the Applications folder.
-2. The first launch is blocked by Gatekeeper because the package is not code-signed. In Applications, Control-click the XMD icon, choose Open, and confirm in the dialog. If there is no Open item, go to System Settings → Privacy & Security and click Open Anyway.
-3. A message saying "XMD is damaged" means the system applied a quarantine attribute. Remove it in Terminal and open the app again:
+1. Open the DMG and drag XMD into the Applications folder.
+2. The first launch is blocked by Gatekeeper because the package is not code-signed. Control-click XMD in Applications, choose **Open**, and confirm. If there is no **Open** item, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+3. A “XMD is damaged” message means the app has a quarantine attribute. Remove it and reopen:
 
    ```bash
    xattr -dr com.apple.quarantine /Applications/XMD.app
@@ -95,75 +179,100 @@ Apple Silicon (M series) users should download `XMD-<version>-macOS-arm64.dmg`; 
 
 ### Linux
 
-On x86_64 machines, download `XMD-<version>-Linux-x86_64.AppImage`; on arm64, download `XMD-<version>-Linux-arm64.AppImage`. A mainstream 64-bit Linux distribution is required.
-
-1. Open a terminal in the folder containing the AppImage, make it executable, and run it:
+1. Make the AppImage executable and run it:
 
    ```bash
    chmod +x XMD-<version>-Linux-x86_64.AppImage
    ./XMD-<version>-Linux-x86_64.AppImage
    ```
 
-2. If FUSE is missing (Ubuntu 22.04 and newer do not include libfuse2 by default), install the dependency or start in FUSE-free mode:
+2. If FUSE is missing (Ubuntu 22.04+ does not ship libfuse2 by default), install it or use the FUSE-free mode:
 
    ```bash
    sudo apt install libfuse2
    ./XMD-<version>-Linux-x86_64.AppImage --appimage-extract-and-run
    ```
 
-3. To get a menu icon and .md file associations, move the AppImage to a stable directory such as `~/.local/bin` and use AppImageLauncher for desktop integration.
+3. For a menu icon and `.md` file associations, move the AppImage to a stable directory such as `~/.local/bin`, then use AppImageLauncher for desktop integration.
 
-## Usage
+</details>
 
-- `Ctrl+N`: new document
-- `Ctrl+O`: open one or more documents
-- `Ctrl+S`: save
-- `Ctrl+Shift+S`: save as
-- `Ctrl+B`: show or hide the sidebar
-- `Ctrl+,`: open settings
+---
 
-"Open Folder" in the sidebar creates a standalone workspace. The workspace path is stored in the Electron user data directory and restored on the next launch. The file tree refreshes automatically when files inside the workspace are added, deleted, or renamed.
+## Shortcuts
 
-Unsaved content is written to the Electron user data directory. After an abnormal exit, these tabs are restored on the next launch. Drafts are cleaned up after a normal save, closing and discarding, or quitting and discarding.
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+N` | New document |
+| `Ctrl+O` | Open one or more documents |
+| `Ctrl+S` | Save |
+| `Ctrl+Shift+S` | Save as |
+| `Ctrl+B` | Show or hide the sidebar |
+| `Ctrl+,` | Open settings |
 
-After installation, double-click a `.md`, `.markdown`, or `.txt` file to open it directly with XMD. In Windows Explorer you can also choose "Open with XMD" from the context menu. If the app is already running, newly opened files appear as new tabs in the existing window.
+Shortcuts are customizable in **Settings → Shortcuts** and sync with the native menu accelerators.
 
-## Building installers
+---
 
-```powershell
+## Tech Stack
+
+![Electron](https://img.shields.io/badge/Electron-44-47848F?style=flat-square&logo=electron&logoColor=white)
+![Vue](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![TipTap](https://img.shields.io/badge/TipTap-3-1a1a1a?style=flat-square)
+![Bun](https://img.shields.io/badge/Bun-1.3.14-fbf0df?style=flat-square&logo=bun&logoColor=black)
+
+## Development
+
+The project uses Bun 1.3.14, matching CI.
+
+```bash
+bun install --frozen-lockfile
+bun run dev
+```
+
+Common checks:
+
+```bash
+bun run typecheck                        # renderer
+bunx tsc --noEmit -p tsconfig.node.json  # main process + preload
+bun run lint
+bun test ./src
+bun run build
+```
+
+## Build & Release
+
+```bash
 bun run dist:win
 bun run dist:mac
 bun run dist:linux
 ```
 
-Artifacts are written to `release/`. Windows uses NSIS, macOS uses DMG, and Linux uses AppImage. Packages are not code-signed, so the operating system may show an unknown publisher warning.
+Artifacts are written to `release/` (NSIS, DMG, and AppImage). Packages are not code-signed, so the OS may show an unknown publisher warning.
 
-## Automated releases
+Pushing a `v*` tag triggers `.github/workflows/build.yml`, which builds all three platforms, creates a GitHub and CNB release, writes installer hashes, and syncs the update manifests. The version in `package.json` must match the tag before releasing:
 
-`.github/workflows/build.yml` supports manual builds and also builds all three platforms and creates a GitHub Release when a `v*` tag is pushed. The version in `package.json` must match the tag before releasing:
-
-```powershell
-git tag v1.0.3
-git push origin v1.0.3
+```bash
+git tag v1.3.12
+git push origin v1.3.12
 ```
 
-## Code signing policy
+## Code Signing Policy
 
-Free code signing is provided by [SignPath.io](https://signpath.io/), with a
-certificate issued by the [SignPath Foundation](https://signpath.org/).
+Free code signing is provided by [SignPath.io](https://signpath.io/), with a certificate issued by the [SignPath Foundation](https://signpath.org/).
 
 - Committer and reviewer: [mr-dadong](https://github.com/mr-dadong)
 - Approver: [mr-dadong](https://github.com/mr-dadong)
 - Full policy: [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)
 - Privacy policy: [PRIVACY.md](PRIVACY.md)
 
-## Directory layout
+## Directory Layout
 
 ```text
 electron/   Electron main process, preload, IPC, and path permissions
 src/        Vue UI, editor extensions, composable state, and services
 functions/  Cloudflare Pages Functions
-worker/     Cloudflare Worker
 site/       Project website
 build/      Installer resources
 changelogs/ App update manifests and release notes
@@ -172,3 +281,13 @@ changelogs/ App update manifests and release notes
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+<div align="center">
+
+**If XMD makes your writing a little smoother, consider giving it a star.**
+
+[![Star XMD](https://img.shields.io/github/stars/mr-dadong/x-markdown?style=for-the-badge&label=Star%20XMD&color=e8801f&logo=github)](https://github.com/mr-dadong/x-markdown/stargazers)
+
+<sub>Built with coffee and far too many open tabs by <a href="https://github.com/mr-dadong">dadong</a>.</sub>
+
+</div>
