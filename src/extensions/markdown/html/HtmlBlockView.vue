@@ -19,6 +19,7 @@ import type { NodeViewProps } from '@tiptap/core'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { createResolvedHtmlPreviewDocument } from './htmlPreview'
+import { resolvePreviewHeight } from './htmlPreviewHeight'
 import { mediaService } from '../../../services/mediaService'
 
 const props = defineProps<NodeViewProps>()
@@ -62,9 +63,12 @@ const disconnectPreviewObserver = (): void => {
 const updatePreviewHeight = (): void => {
   const frameDocument = previewFrame.value?.contentDocument
   if (!frameDocument) return
-  const bodyHeight = frameDocument.body?.scrollHeight ?? 0
-  const documentHeight = frameDocument.documentElement?.scrollHeight ?? 0
-  previewHeight.value = Math.max(32, bodyHeight, documentHeight)
+  /*
+   * 只取预览正文的高度。documentElement.scrollHeight 至少等于 iframe 自身的视口高度，
+   * 算进来会让高度只增不减：加载时宽度偏窄或布局尚未稳定量到的高度，之后即使内容
+   * 变矮也缩不回去，表现就是预览块下方一整片空白。
+   */
+  previewHeight.value = resolvePreviewHeight(frameDocument.body?.scrollHeight ?? 0)
 }
 
 const handlePreviewLoad = (): void => {
