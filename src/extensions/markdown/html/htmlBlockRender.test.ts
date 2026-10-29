@@ -226,12 +226,27 @@ describe("块级 HTML 子集渲染", () => {
 
   /*
    * README 里常用「开标签、空行、Markdown 表格、空行、闭标签」把表格居中。
-   * 这种标签在源码里被空行切成不同的块：开标签单独一块。它里面的内容不在同一块里，
-   * 认领成空段落既没有意义，又会和解析器补出的空段落撞车、让增量保存的块对账错位，
-   * 因此必须整段交回字面文本 —— 这也是改动前的行为。
+   * 带对齐信息的容器现在会被认领成一个容器节点（表格按 Markdown 解析成子节点）；
+   * 没有对齐信息的容器视觉上没有区别，仍按改动前的方式分块成字面文本。
    */
-  test("被空行隔开的容器开标签不认领，保持字面文本", async () => {
+  test("对齐容器包住 Markdown 表格时整段认领为容器节点", async () => {
     const markdown = '<div align="center">\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n</div>\n';
+    const editor = await createEditor(markdown);
+    try {
+      assert.deepEqual(topLevelTypes(editor), ["htmlContainer"]);
+      const container = editor.state.doc.child(0);
+      assert.equal(container.attrs.align, "center");
+      assert.equal(container.child(0).type.name, "table");
+
+      const { captureBaseline, serializePreservingSource } = await import("../../../editor/sourcePreservingSerializer");
+      assert.equal(serializePreservingSource(editor, captureBaseline(editor, markdown)), markdown);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  test("没有对齐信息的跨空行容器保持字面文本", async () => {
+    const markdown = "<div>\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n</div>\n";
     const editor = await createEditor(markdown);
     try {
       assert.deepEqual(topLevelTypes(editor), ["paragraph", "table", "paragraph"]);
@@ -240,7 +255,7 @@ describe("块级 HTML 子集渲染", () => {
        * 而 ProseMirror 的 white-space: break-spaces 会把它渲染成段落末尾的一个空行
        * （连续几行 HTML 注释看起来被空行隔开就是这么来的）。
        */
-      assert.equal(editor.state.doc.child(0).textContent, '<div align="center">');
+      assert.equal(editor.state.doc.child(0).textContent, "<div>");
     } finally {
       editor.destroy();
     }

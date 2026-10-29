@@ -1,7 +1,10 @@
 export { Callout } from "./callout/Callout";
 export { FootnoteDefinition, FootnoteReference } from "./footnote/Footnote";
 export { HtmlBlock } from "./html/HtmlBlock";
+export { HtmlBreak } from "./html/HtmlBreak";
 export { HtmlComment } from "./html/HtmlComment";
+export { HtmlContainer } from "./html/HtmlContainer";
+export { HtmlDetails } from "./html/HtmlDetails";
 export { PageBreak } from "./html/PageBreak";
 export { HtmlTextTag } from "./html/HtmlTextTag";
 export { MathBlock, MathInline } from "./math/Math";

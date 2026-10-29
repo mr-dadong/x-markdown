@@ -38,6 +38,10 @@ export const createHtmlPreviewDocument = (source: string): string => {
     body :where(*) { box-sizing: border-box; }
     /* 内容保留固有宽度：显式声明了宽度/min-width 的元素水平溢出并触发横向滚动，不再被视口压缩压扁。 */
     body :where(pre, table, video, canvas, svg) { max-width: none; }
+    /* 表格按 GitHub 的观感补边框与内边距，字号跟随正文，只读表格不再像一块没有格式的文本。 */
+    body :where(table) { border-collapse: collapse; border-spacing: 0; }
+    body :where(th, td) { border: 1px solid light-dark(#d0d7de, #3d444d); padding: 6px 13px; }
+    body :where(th) { font-weight: 600; text-align: left; }
   </style>
   <style data-xmd-user-css>${userCss}</style>
 </head>

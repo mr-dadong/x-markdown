@@ -268,6 +268,13 @@ const lastTextEndsWithBracket = (node: ProseMirrorNode): boolean => {
   return last?.isText === true && (last.text ?? "").endsWith(">");
 };
 
+/** 段落是不是独占一行的闭标签（`</div>`、`</details>`），是则返回标签名。 */
+const closingTagOfParagraph = (node: ProseMirrorNode): string | null => {
+  if (node.type.name !== "paragraph") return null;
+  const match = /^<\/\s*([a-z][\w-]*)\s*>$/iu.exec(node.textContent.trim());
+  return match ? match[1].toLowerCase() : null;
+};
+
 /**
  * 找出光标旁边「刚输入完」的块级 HTML 候选区间；不构成候选时返回 null。
  *
@@ -298,6 +305,27 @@ export const htmlBlockRangeAtCursor = (state: EditorState): HtmlBlockRange | nul
 
   let start = end;
   let length = doc.child(end).textContent.length;
+
+  /*
+   * 跨空行的块级 HTML（`<div align="center">` … `</div>`）：空行在文档里是空段落，
+   * 普通候选区间遇到空段落就停下，永远够不到开标签。闭标签独占一行时，向前跨过空段落
+   * 找到同名开标签行，把整段交给后面的平衡与解析判据校验。
+   */
+  const closingTag = closingTagOfParagraph(doc.child(end));
+  if (closingTag) {
+    const openingPattern = new RegExp(`^<${closingTag}\\b`, "iu");
+    for (let index = end - 1; index >= 0 && end - index <= MAX_RUN_PARAGRAPHS; index -= 1) {
+      const candidate = doc.child(index);
+      if (candidate.type.name !== "paragraph") break;
+      if (openingPattern.test(candidate.textContent.trim())) {
+        start = index;
+        length = 0;
+        for (let sum = start; sum <= end; sum += 1) length += doc.child(sum).textContent.length;
+        break;
+      }
+    }
+  }
+
   while (start > 0 && end - start < MAX_RUN_PARAGRAPHS && length < MAX_RUN_LENGTH) {
     const previous = doc.child(start - 1);
     if (previous.type.name !== "paragraph" || previous.content.size === 0) break;
@@ -323,11 +351,17 @@ const topLevelPosition = (doc: ProseMirrorNode, index: number): number => {
  * 块级认领（`<div align="center">`、`<hr>`、独占一行的 `<img>`）由
  * htmlBlockRender 产出，节点上带着源码形态属性；行内 HTML（如带 style 的 `<span>`）
  * 走的是行内解析，没有这些属性。两者的光标落点不同，靠这个信号区分。
+ *
+ * 容器类节点（对齐容器、折叠面板、独立 `<br />`）把源码记在自己的属性上，
+ * 没有 `xmdHtmlBlockOpen`，因此按节点类型一并识别。
  */
+const BLOCK_HTML_NODE_TYPES = new Set(["htmlContainer", "htmlDetails", "htmlBreak"]);
+
 const containsBlockLevelHtml = (nodes: readonly JSONContent[]): boolean =>
   nodes.some(
     (node) =>
-      node.attrs?.[HTML_BLOCK_CHUNK_ATTRIBUTE] != null
+      BLOCK_HTML_NODE_TYPES.has(String(node.type))
+      || node.attrs?.[HTML_BLOCK_CHUNK_ATTRIBUTE] != null
       || node.attrs?.[HTML_BLOCK_OPEN_ATTRIBUTE] != null,
   );
 

@@ -357,3 +357,60 @@ describe("手写 HTML 的认领", () => {
     }
   });
 });
+
+/*
+ * 跨空行的 HTML 容器：空行在文档里是空段落，普通候选区间遇到空段落就停下。
+ * 认领逻辑在闭标签独占一行时向前跨过空段落找到同名开标签行，
+ * 再把整段交给「平衡 + 解析结果不是字面文本」这两条判据校验。
+ */
+describe("跨空行 HTML 容器的认领", () => {
+  const CONTAINER = ['<div align="center">', "", "# XMD", "", "正文", "", "</div>"];
+  const DETAILS = ["<details>", "<summary>特性</summary>", "", "- 甲", "", "</details>"];
+
+  test("整段粘贴对齐容器：粘进来就渲染为容器节点", async () => {
+    const editor = await createEditor("");
+    try {
+      pasteLines(editor, CONTAINER);
+      assert.deepEqual(topLevelTypes(editor), ["htmlContainer"]);
+      assert.equal(editor.state.doc.child(0).attrs.align, "center");
+      assert.equal(editor.state.doc.child(0).child(1).textContent, "正文");
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  test("逐行敲完对齐容器：收尾标签敲完当场渲染", async () => {
+    const editor = await createEditor("");
+    try {
+      typeText(editor, CONTAINER.join("\n"));
+      assert.deepEqual(topLevelTypes(editor), ["htmlContainer"]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  test("粘贴折叠面板：渲染为 details 容器", async () => {
+    const editor = await createEditor("");
+    try {
+      pasteLines(editor, DETAILS);
+      assert.deepEqual(topLevelTypes(editor), ["htmlDetails"]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  test("撤销认领后不会立刻被插件重新认领", async () => {
+    const editor = await createEditor("");
+    try {
+      pasteLines(editor, CONTAINER);
+      assert.deepEqual(topLevelTypes(editor), ["htmlContainer"]);
+
+      editor.commands.undo();
+      assert.ok(!topLevelTypes(editor).includes("htmlContainer"));
+      // 认领事务附加在粘贴事务上，历史把两者视为同一个事件：一次撤销退回粘贴前的空文档。
+      assert.equal(editor.state.doc.textContent, "");
+    } finally {
+      editor.destroy();
+    }
+  });
+});

@@ -1,9 +1,11 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import type { JSONContent, MarkdownToken } from "@tiptap/core";
+import type { JSONContent, MarkdownLexerConfiguration, MarkdownToken } from "@tiptap/core";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import HtmlBlockView from "./HtmlBlockView.vue";
 import { renderBlockHtmlSubset } from "./htmlBlockRender";
 import { createHtmlBlockClaimPlugin, scanLineDepths } from "./htmlBlockClaim";
+import { scanHtmlContainer } from "./htmlContainerScan";
+import { HTML_BLOCK_OPEN_ATTRIBUTE } from "../../../editor/htmlBlockSourceForm";
 import { neverInterruptParagraph, stripTrailingNewlines, takeBlockRaw } from "../shared/officialMarkdown";
 import { readPageBreakStyle } from "./PageBreak";
 
@@ -18,8 +20,44 @@ const needsIsolatedHtmlPreview = (source: string): boolean => {
   return document.body.querySelector("div p, div div, table, ul, ol, section, article") !== null;
 };
 
+/** 块级 HTML 容器 token 上携带的解析结果。 */
+interface HtmlContainerTokenPayload {
+  kind: "aligned" | "details";
+  openSource: string;
+  closeSource: string;
+  align: string | null;
+  summarySource: string | null;
+  /** 内层 Markdown 预先词法化得到的块 token（parseMarkdown 阶段不能再从源码切块）。 */
+  innerTokens: MarkdownToken[];
+}
+
 /** 完整 HTML 容器跨空行读取，避免 README 的图片和徽章被拆成源码段落。 */
-const tokenizeCompleteHtml = (source: string): MarkdownToken | undefined => {
+const tokenizeCompleteHtml = (
+  source: string,
+  _tokens: MarkdownToken[],
+  lexer: MarkdownLexerConfiguration,
+): MarkdownToken | undefined => {
+  /*
+   * 先认领「开标签 + 空行 + Markdown + 空行 + 闭标签」的容器。
+   * 这类容器在 GitHub 上由 HTML 解析器自动配平标签，在 ProseMirror 里必须变成
+   * 一个带 block 内容的节点；内层源码在这里就用同一个 lexer 词法化，
+   * 因为 parseMarkdown 的 helpers 只能解析 token，拿不到源码分词能力。
+   */
+  const container = scanHtmlContainer(source);
+  if (container) {
+    const lines = source.split("\n");
+    const raw = takeBlockRaw(lines, container.lineCount);
+    const payload: HtmlContainerTokenPayload = {
+      kind: container.kind,
+      openSource: container.openSource,
+      closeSource: container.closeSource,
+      align: container.align,
+      summarySource: container.summarySource,
+      innerTokens: lexer.blockTokens(container.innerSource),
+    };
+    return { type: "html", raw, text: raw, htmlContainer: payload } as MarkdownToken;
+  }
+
   if (!/^ {0,3}<(?:div|p|center|table|ul|ol|section|article)\b/iu.test(source)) return undefined;
   const lines = source.split("\n");
   const depths = scanLineDepths(source);
@@ -33,6 +71,30 @@ const tokenizeCompleteHtml = (source: string): MarkdownToken | undefined => {
     if (Array.from(container.childNodes).some((child) => child.nodeType === 3 && child.textContent?.trim())) return undefined;
   }
   return { type: "html", raw, text: raw };
+};
+
+/** 独占一行、首尾标签同级的 HTML 标题；行内不再换行，写法与 GitHub 常见用法一致。 */
+const HTML_HEADING_PATTERN = /^ {0,3}<h([1-6])(?:\s[^>]*)?>([^\n]*)<\/h\1\s*>$/iu;
+
+/** 独占一行的 `<br />`（三种写法都算）。 */
+const HTML_BREAK_PATTERN = /^ {0,3}<br\s*\/?>$/iu;
+
+interface HtmlHeadingMatch {
+  level: number;
+  /** 用户写的开标签；写回 Markdown 时按原标签包住标题内容。 */
+  openSource: string;
+  inner: string;
+}
+
+const readHtmlHeading = (source: string): HtmlHeadingMatch | null => {
+  const line = stripTrailingNewlines(source).trim();
+  const match = HTML_HEADING_PATTERN.exec(line);
+  if (!match) return null;
+  return {
+    level: Number(match[1]),
+    openSource: line.slice(0, line.indexOf(">") + 1),
+    inner: match[2] ?? "",
+  };
 };
 
 // TipTap v3 会把扩展的 Options 泛型带进 Node 的公开类型，createEditorExtensions
@@ -125,6 +187,43 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
   },
 
   parseMarkdown: (token, helpers) => {
+    /*
+     * 跨空行的 HTML 容器：tokenizer 已经切出开/闭标签与内层块 token，
+     * 这里把它们还原成真正的编辑器节点。容器是 1 个源码块 ↔ 1 个顶层节点，
+     * 增量保存的块对账不需要额外分组。
+     */
+    const container = token.htmlContainer as HtmlContainerTokenPayload | undefined;
+    if (container) {
+      // 官方把 parseBlockChildren 标成可选，但管理器一定提供（见 MarkdownManager.createParseHelpers）。
+      const parseBlocks = helpers.parseBlockChildren as (tokens: MarkdownToken[]) => JSONContent[];
+      const children = parseBlocks(container.innerTokens);
+      if (children.length > 0) {
+        if (container.kind === "details") {
+          const open = /\sopen(?:\s|=|>)/iu.test(container.openSource);
+          return {
+            type: "htmlDetails",
+            attrs: {
+              summarySource: container.summarySource ?? "",
+              open,
+              openSource: container.openSource,
+              closeSource: container.closeSource,
+            },
+            content: children,
+          } as unknown as MarkdownToken;
+        }
+        return {
+          type: "htmlContainer",
+          attrs: {
+            align: container.align,
+            openSource: container.openSource,
+            closeSource: container.closeSource,
+          },
+          content: children,
+        } as unknown as MarkdownToken;
+      }
+      // 内层解析不出块（例如整段都是注释）时不认领，交回下面的字面文本分支。
+    }
+
     const source = String(token.text ?? token.raw ?? "");
     // 分页符走专用节点：编辑区显示可见的虚线标记，导出时输出真正的分页元素。
     const pageBreakStyle = readPageBreakStyle(source);
@@ -134,6 +233,32 @@ export const HtmlBlock = Node.create<HtmlBlockOptions>({
         attrs: { source: stripTrailingNewlines(source), style: pageBreakStyle },
       } as unknown as MarkdownToken;
     }
+
+    /*
+     * HTML 标题：GitHub 会把独占一行的 `<h1>…</h1>` 渲染成标题，这里认领成真正的
+     * heading 节点；源码开标签记在属性上，写回时仍输出原标签（见 htmlBlockSourceForm）。
+     */
+    const heading = readHtmlHeading(source);
+    if (heading) {
+      // 官方把 tokenizeInline 标成可选，但管理器一定提供（见 MarkdownManager.createParseHelpers）。
+      const tokenizeInline = helpers.tokenizeInline as (src: string) => MarkdownToken[];
+      const content = helpers.parseInline(tokenizeInline(heading.inner));
+      if (content.length > 0) {
+        return {
+          type: "heading",
+          attrs: { level: heading.level, [HTML_BLOCK_OPEN_ATTRIBUTE]: heading.openSource },
+          content,
+        } as unknown as MarkdownToken;
+      }
+    }
+
+    // 独占一行的 `<br />`：渲染为间距块，写回时保留原标签。
+    const breakLine = stripTrailingNewlines(source).trim();
+    const breakMatch = HTML_BREAK_PATTERN.exec(breakLine);
+    if (breakMatch) {
+      return { type: "htmlBreak", attrs: { source: breakLine } } as unknown as MarkdownToken;
+    }
+
     // 复杂 HTML 原样保存为隔离预览块，保留嵌套结构、属性与块内空行。
     if (needsIsolatedHtmlPreview(source)) {
       return { type: "htmlBlock", attrs: { source } };

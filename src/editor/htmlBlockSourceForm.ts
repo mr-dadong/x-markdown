@@ -59,6 +59,9 @@ const tagNameOfOpenTag = (openTag: string): string => {
   return match[1];
 };
 
+/** 标题标签：默认写成单行 `<h1>标题</h1>`，与 HTML 标题的常见写法一致。 */
+const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
+
 /**
  * 按记录的 HTML 开标签包住节点自己的 Markdown。
  *
@@ -77,6 +80,12 @@ export const wrapMarkdownWithHtmlBlock = (
   if (VOID_TAGS.has(tagName)) return openTag;
   // 内容为空（例如空的居中容器）时写成单行，避免留下两行空行。
   if (inner.trim() === "") return `${openTag}</${tagName}>`;
+  // 标题的行内内容与标签写在同一行：多行写法在 Markdown 里会被当成不同的块。
+  if (HEADING_TAGS.has(tagName)) {
+    // 标题节点自身会序列化成 `# 标题`，去掉 ATX 前缀后只保留行内内容。
+    const body = inner.replace(new RegExp(`^#{${tagName.slice(1)}}\\s+`, "u"), "").trim();
+    return `${openTag}${body}</${tagName}>`;
+  }
   return `${openTag}\n${inner}\n</${tagName}>`;
 };
 
@@ -91,7 +100,7 @@ export const HtmlBlockSourceForm = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        types: ["paragraph", "horizontalRule"],
+        types: ["paragraph", "horizontalRule", "heading"],
         attributes: {
           [HTML_BLOCK_OPEN_ATTRIBUTE]: {
             default: null,

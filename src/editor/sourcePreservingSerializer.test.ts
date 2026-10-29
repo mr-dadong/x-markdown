@@ -85,6 +85,9 @@ describe("未编辑文档逐字节保真", () => {
         ["连续链接定义", "[1]: https://a.com\n[2]: https://b.com\n\n正文。"],
         ["空文档", ""],
         ["仅空行", "\n\n   \n"],
+        ["对齐容器", '<div align="center">\n\n# 标题\n\n正文\n\n</div>\n\n后续段落'],
+        ["折叠面板", "<details>\n<summary>特性</summary>\n\n- 甲\n- 乙\n\n</details>"],
+        ["HTML 标题与独立 br", "<h1>标题</h1>\n\n<br />\n\n正文。"],
     ];
 
     for (const [name, markdown] of fixtures) {
@@ -123,6 +126,22 @@ describe("只重新序列化改动过的块", () => {
         const output = mergeAfterEdit(baseline, edited);
         assert.equal(output, "改过的前言。\n\n| 名称 | 数量 |\n| :----: | -----: |\n| 苹果 | 1 |");
         assert.ok(output.includes("| :----: | -----: |"), "表格分隔行宽度必须原样保留");
+    });
+
+    test("只改容器内的一行文字，其它块逐字节保留", () => {
+        const baseline = '<div align="center">\n\n旧文字\n\n</div>\n\n以下划线 _强调_ 的段落';
+        const edited = '<div align="center">\n\n新文字\n\n</div>\n\n以下划线 _强调_ 的段落';
+        const output = mergeAfterEdit(baseline, edited);
+
+        assert.equal(output, '<div align="center">\n\n新文字\n\n</div>\n\n以下划线 _强调_ 的段落');
+    });
+
+    test("只改折叠面板内的列表项，其它块逐字节保留", () => {
+        const baseline = "<details>\n<summary>特性</summary>\n\n- 旧项\n\n</details>\n\n结尾 _强调_";
+        const edited = "<details>\n<summary>特性</summary>\n\n- 新项\n\n</details>\n\n结尾 _强调_";
+        const output = mergeAfterEdit(baseline, edited);
+
+        assert.equal(output, "<details>\n<summary>特性</summary>\n\n- 新项\n\n</details>\n\n结尾 _强调_");
     });
 });
 

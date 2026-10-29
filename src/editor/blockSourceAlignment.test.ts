@@ -91,6 +91,10 @@ const fixtures: Array<{ name: string; markdown: string }> = [
     { name: "空文档", markdown: "" },
     { name: "仅空行", markdown: "\n\n   \n" },
     { name: "YAML前置", markdown: "---\ntitle: 测试\ntags:\n  - markdown\n---\n\n正文。" },
+    { name: "对齐容器跨多行", markdown: '<div align="center">\n\n# 标题\n\n正文\n\n</div>\n\n后续。' },
+    { name: "折叠面板跨多行", markdown: "<details>\n<summary>特性</summary>\n\n- 甲\n- 乙\n\n</details>" },
+    { name: "HTML标题", markdown: "<h1>标题</h1>\n\n正文。" },
+    { name: "独立br", markdown: "上。\n\n<br />\n\n下。" },
 ];
 
 describe("Phase 0：顶层块 token 与 PM 节点对齐不变量", () => {

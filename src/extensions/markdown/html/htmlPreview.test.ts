@@ -148,3 +148,15 @@ describe('预览的 DOM 级清洗', () => {
     assert.match(document, /data-xmd-user-css/)
   })
 })
+
+describe('隔离预览的表格样式', () => {
+  test('表格有单元格边框与内边距，字号跟随正文', () => {
+    const document = createHtmlPreviewDocument('<table><tr><td>内容</td></tr></table>')
+
+    assert.match(document, /border-collapse: collapse;/)
+    assert.match(document, /th, td\) \{ border: 1px solid light-dark\(#d0d7de, #3d444d\); padding: 6px 13px; \}/)
+    assert.match(document, /th\) \{ font-weight: 600; text-align: left; \}/)
+    // 只补边框与内边距，不改变正文字号。
+    assert.doesNotMatch(document, /table\)[^}]*font-size/u)
+  })
+})
