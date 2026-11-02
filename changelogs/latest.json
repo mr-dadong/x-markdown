@@ -1,19 +1,27 @@
 {
-  "latest": "1.3.13",
+  "latest": "1.3.14",
   "releases": [
     {
-      "version": "1.3.13",
-      "date": "2026-10-29",
+      "version": "1.3.14",
+      "date": "2026-11-02",
       "channel": "stable",
       "title": "版本更新",
       "titleEn": "Version Update",
       "content": [
-        "修复：Linux AppImage 改用 gzip 压缩格式，解决应用目录（AppImageHub）无法挂载检测的问题",
-        "说明：受压缩格式调整影响，Linux AppImage 的下载体积有所增大"
+        "新增：README 常见的块级 HTML 容器（居中的 div/center、details 折叠面板）可在预览视图中直接渲染并编辑，容器内按 Markdown 解析",
+        "新增：details 面板支持展开与收起，摘要行前显示三角指示器",
+        "新增：HTML 标题（h1–h6）与独立的 <br /> 按网页效果渲染，保存时仍保留原标签",
+        "优化：段落内的单个换行按 GitHub/CommonMark 语义合并为空格，徽章等多行排版恢复为一行",
+        "优化：独占一段且未声明宽度的图片按原始尺寸显示，不再拉伸到整栏宽",
+        "修复：HTML 表格预览补充单元格边框与内边距，并修复预览高度只增不减导致的下方空白"
       ],
       "contentEn": [
-        "Fixed the Linux AppImage to use gzip-compressed SquashFS so catalogs such as AppImageHub can mount and test it.",
-        "Note: the Linux AppImage download is somewhat larger because of the compression change."
+        "Added support for rendering and editing common block-level HTML containers from READMEs (centered div/center and collapsible details) directly in the preview view, with Markdown parsed inside the container.",
+        "Added expand and collapse controls to details panels, with a triangle indicator on the summary line.",
+        "Added HTML headings (h1–h6) and standalone <br /> rendering; the original tags are preserved when saving.",
+        "Changed single line breaks inside paragraphs to collapse into spaces, matching GitHub/CommonMark, so multi-line badge rows render on one line.",
+        "Changed standalone images without an explicit width to render at their natural size instead of stretching to the full column width.",
+        "Fixed HTML table previews with cell borders and padding, and removed the blank area caused by preview height only ever growing."
       ],
       "downloads": {
         "windows": {
@@ -24,9 +32,9 @@
               "arch": "x64",
               "format": "exe",
               "installer": "NSIS",
-              "filename": "XMD-1.3.13-Windows-x64.exe",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Windows-x64.exe",
-              "sha256": "f47ee556f14dc05a9371553b234db4dd95191e84fc71b157f28c4e726ef5736b"
+              "filename": "XMD-1.3.14-Windows-x64.exe",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.14/XMD-1.3.14-Windows-x64.exe",
+              "sha256": "3df86468e608e8ba53897221e6a7acc06a75228d76fe1b63a7733b829cf85006"
             }
           ]
         },
@@ -38,17 +46,17 @@
               "arch": "arm64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.13-macOS-arm64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-arm64.dmg",
-              "sha256": "513ec3a479ca7bedf79017389b5364ac57511afaaf558ba8fd5f8890ab5ce60f"
+              "filename": "XMD-1.3.14-macOS-arm64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.14/XMD-1.3.14-macOS-arm64.dmg",
+              "sha256": "6da536d0d5d3e523eb62a8acc7c31603f9f373f7323684dab9bf6bc6fbf6ab1b"
             },
             {
               "arch": "x64",
               "format": "dmg",
               "installer": "DMG",
-              "filename": "XMD-1.3.13-macOS-x64.dmg",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-macOS-x64.dmg",
-              "sha256": "95ecc3fcdfdbeb353ea2dc69376b0257c9fc811a172735afd183bfca4f8b27f1"
+              "filename": "XMD-1.3.14-macOS-x64.dmg",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.14/XMD-1.3.14-macOS-x64.dmg",
+              "sha256": "bfbed4e83f03d60c4ee07e9ddc3d17943e5b87e0fe65ae68fc09600f0e4aab94"
             }
           ]
         },
@@ -60,17 +68,17 @@
               "arch": "x64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.13-Linux-x86_64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-x86_64.AppImage",
-              "sha256": "672a6f25d3ca47d0eea6362c685a83c3fc76421c4ef8e544e1530d03718c6dac"
+              "filename": "XMD-1.3.14-Linux-x86_64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.14/XMD-1.3.14-Linux-x86_64.AppImage",
+              "sha256": "8a68bc64b9388c60c77d15438d684b9bad96deced28c4eff1fd94b01deaf66cf"
             },
             {
               "arch": "arm64",
               "format": "AppImage",
               "installer": "AppImage",
-              "filename": "XMD-1.3.13-Linux-arm64.AppImage",
-              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.13/XMD-1.3.13-Linux-arm64.AppImage",
-              "sha256": "aeccf2a8881f934cff558279869bd129cb1c535f3bc3b67a6f2e6f33a0c1ad43"
+              "filename": "XMD-1.3.14-Linux-arm64.AppImage",
+              "url": "https://cnb.cool/X-2026/x-markdown/-/releases/download/v1.3.14/XMD-1.3.14-Linux-arm64.AppImage",
+              "sha256": "35a3072b86fca324987415b72f65a23ed3284984120f084e98276ebd65aeefd4"
             }
           ]
         }
